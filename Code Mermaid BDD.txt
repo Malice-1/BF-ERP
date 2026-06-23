@@ -1,0 +1,323 @@
+erDiagram
+
+
+    USER {
+        int id PK
+        string login
+        string firstname
+        string lastname
+        string email
+        boolean active
+    }
+
+
+    ROLE {
+        int id PK
+        string code
+        string label
+    }
+
+
+    USER_ROLE {
+        int user_id FK
+        int role_id FK
+    }
+
+
+    COST_CENTER {
+        int id PK
+        string code
+        string label
+    }
+
+
+    FUNDING {
+        int id PK
+        string code
+        string label
+    }
+
+
+    BUDGET_PRODUCT {
+        int id PK
+        string code
+        string label
+    }
+
+
+    BUDGET {
+        int id PK
+        int year
+    }
+
+
+    BUDGET_LINE {
+        int id PK
+        decimal allocated_amount
+        decimal committed_amount
+        decimal consumed_amount
+        decimal available_amount
+    }
+
+
+
+    PURCHASE {
+        int id PK
+        string number
+        datetime created_at
+        int supplier_id FK
+        decimal total_amount
+        datetime sent_to_supplier_at
+        string supplier_reference
+    }
+
+
+    PURCHASE_LINE {
+        int id PK
+        string description
+        decimal quantity
+        decimal unit_price
+    }
+
+
+
+    SUPPLIER {
+        int id PK
+        string code
+        string name
+        string vat_number
+    }
+
+
+    SUPPLIER_CONTACT {
+        int id PK
+        string firstname
+        string lastname
+        string email
+        string phone
+    }
+
+
+    SUPPLIER_ADDRESS {
+        int id PK
+        string street
+        string city
+        string zip_code
+        string country
+    }
+
+
+
+    GOODS_RECEIPT {
+        int id PK
+        string number
+        datetime receipt_date
+    }
+
+
+    GOODS_RECEIPT_LINE {
+        int id PK
+        decimal ordered_quantity
+        decimal received_quantity
+    }
+
+
+
+    SUPPLIER_INVOICE {
+        int id PK
+        string invoice_number
+        date invoice_date
+        decimal total_amount
+    }
+
+
+    SUPPLIER_INVOICE_LINE {
+        int id PK
+        decimal quantity
+        decimal unit_price
+    }
+
+
+
+    PAYMENT {
+        int id PK
+        string payment_reference
+        date payment_date
+        decimal amount
+    }
+
+
+
+    DOCUMENT {
+        int id PK
+        string document_type
+        string file_name
+        string storage_path
+        datetime uploaded_at
+    }
+
+
+
+    WORKFLOW {
+        int id PK
+        string code
+        string label
+        string document_type
+        boolean active
+    }
+
+
+    WORKFLOW_STATE {
+        int id PK
+        string code
+        string label
+        boolean is_initial
+        boolean is_final
+    }
+
+
+    WORKFLOW_TRANSITION {
+        int id PK
+        string code
+        string label
+    }
+
+
+    WORKFLOW_TRANSITION_ROLE {
+        int id PK
+    }
+
+
+    WORKFLOW_TRANSITION_RULE {
+        int id PK
+        string field_name
+        string operator
+        string value
+    }
+
+
+    WORKFLOW_INSTANCE {
+        int id PK
+        string entity_type
+        int entity_id
+        int current_state_id FK
+        datetime started_at
+        datetime completed_at
+    }
+
+
+    WORKFLOW_ACTION {
+        int id PK
+        datetime action_date
+        string comment
+    }
+
+
+
+    USER ||--o{ PURCHASE : creates
+
+
+    ROLE ||--o{ USER_ROLE : grants
+    USER ||--o{ USER_ROLE : receives
+
+
+
+    BUDGET ||--o{ BUDGET_LINE : contains
+
+    BUDGET_PRODUCT ||--o{ BUDGET_LINE : product
+
+    COST_CENTER ||--o{ BUDGET_LINE : cost_center
+
+    FUNDING ||--o{ BUDGET_LINE : funding
+
+
+
+    PURCHASE ||--|{ PURCHASE_LINE : contains
+
+
+    PURCHASE_LINE ||--o{ BUDGET_LINE : charged_to
+
+
+
+    SUPPLIER ||--o{ PURCHASE : receives
+
+
+    SUPPLIER ||--o{ SUPPLIER_CONTACT : owns
+
+    SUPPLIER ||--o{ SUPPLIER_ADDRESS : owns
+
+
+
+    PURCHASE ||--o{ GOODS_RECEIPT : generates
+
+
+    GOODS_RECEIPT ||--|{ GOODS_RECEIPT_LINE : contains
+
+
+    PURCHASE_LINE ||--o{ GOODS_RECEIPT_LINE : received
+
+
+
+    PURCHASE ||--o{ SUPPLIER_INVOICE : invoiced
+
+
+    SUPPLIER_INVOICE ||--|{ SUPPLIER_INVOICE_LINE : contains
+
+
+    PURCHASE_LINE ||--o{ SUPPLIER_INVOICE_LINE : invoiced
+
+
+
+    SUPPLIER_INVOICE ||--o{ PAYMENT : paid_by
+
+
+
+    PURCHASE ||--o{ DOCUMENT : attached
+
+    SUPPLIER_INVOICE ||--o{ DOCUMENT : attached
+
+
+
+    WORKFLOW ||--o{ WORKFLOW_STATE : contains
+
+
+    WORKFLOW ||--o{ WORKFLOW_TRANSITION : defines
+
+
+    WORKFLOW_STATE ||--o{ WORKFLOW_TRANSITION : from_state
+
+    WORKFLOW_STATE ||--o{ WORKFLOW_TRANSITION : to_state
+
+
+
+    WORKFLOW_TRANSITION ||--o{ WORKFLOW_TRANSITION_ROLE : authorized
+
+
+    ROLE ||--o{ WORKFLOW_TRANSITION_ROLE : allowed
+
+
+
+    WORKFLOW_TRANSITION ||--o{ WORKFLOW_TRANSITION_RULE : constrained_by
+
+
+
+    WORKFLOW ||--o{ WORKFLOW_INSTANCE : instantiates
+
+
+    WORKFLOW_STATE ||--o{ WORKFLOW_INSTANCE : current_state
+
+
+
+    WORKFLOW_INSTANCE ||--o{ WORKFLOW_ACTION : contains
+
+
+    USER ||--o{ WORKFLOW_ACTION : executes
+
+
+    WORKFLOW_TRANSITION ||--o{ WORKFLOW_ACTION : triggered_by
+
+
+    WORKFLOW_STATE ||--o{ WORKFLOW_ACTION : from_state
+
+
+    WORKFLOW_STATE ||--o{ WORKFLOW_ACTION : to_state
