@@ -1,0 +1,50 @@
+Fournisseur
+-----------
+
+--> Création d'un fournisseur.
+
+supplier = Supplier.objects.create(
+    code="SUP001",
+    name="Fournisseur Test",
+    vat_number="BE0123456789"
+)
+
+--> Ajout d'un contact humain.
+
+SupplierContact.objects.create(
+    supplier=supplier,
+    firstname="Jean",
+    lastname="Dupont",
+    label="Responsable achats",
+    email="jean@test.be",
+    phone="010123456"
+)
+
+--> Ajout d'un contact générique.
+
+SupplierContact.objects.create(
+    supplier=supplier,
+    label="Service facturation",
+    email="facturation@test.be"
+)
+
+
+--> Ajout de deux adresses.
+
+SupplierAddress.objects.create(
+    supplier=supplier,
+    label="Siège social",
+    street="Rue de Bruxelles 10",
+    city="Bruxelles",
+    zip_code="1000",
+    country="Belgique"
+)
+
+SupplierAddress.objects.create(
+    supplier=supplier,
+    label="Entrepôt",
+    street="Rue industrielle 25",
+    city="Liège",
+    zip_code="4000",
+    country="Belgique"
+)

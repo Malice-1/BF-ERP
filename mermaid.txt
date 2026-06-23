@@ -95,6 +95,7 @@ erDiagram
         string lastname
         string email
         string phone
+	string label
     }
 
 
@@ -104,6 +105,7 @@ erDiagram
         string city
         string zip_code
         string country
+	string label
     }
 
 
