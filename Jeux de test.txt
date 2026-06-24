@@ -48,3 +48,59 @@ SupplierAddress.objects.create(
     zip_code="4000",
     country="Belgique"
 )
+
+
+
+Budget
+------
+
+--> Ajout d'un CDF.
+
+cost_center = CostCenter.objects.create(
+    code="FORM",
+    label="Formation professionnelle"
+)
+
+
+--> Ajout d'un financement.
+
+funding = Funding.objects.create(
+    code="FSE+",
+    label="Fonds social européen"
+)
+
+
+--> Ajout d'un produit budgétaire.
+
+product = BudgetProduct.objects.create(
+    code="FORM_EXT",
+    label="Formations externes"
+)
+
+--> Ajout de deux budgets de la même année.
+
+Budget.objects.create(
+    code="BUD-2026-INIT",
+    year=2026
+)
+
+Budget.objects.create(
+    code="BUD-2026-REV1",
+    year=2026
+)
+
+
+--> Ajout d'une ligne de budget.
+
+line = BudgetLine.objects.create(
+    budget=budget,
+    cost_center=cost_center,
+    funding=funding,
+    budget_product=product,
+    allocated_amount=10000,
+    committed_amount=2500,
+    consumed_amount=1000,
+)	
+
+
+
