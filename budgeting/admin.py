@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import CostCenter, Funding, BudgetProduct, Budget, BudgetLine
+from .models import CostCenter, Funding, BudgetProduct, Budget, BudgetLine, DetailedProduct
 
 
 @admin.register(CostCenter)
@@ -46,11 +46,13 @@ class BudgetAdmin(admin.ModelAdmin):
     list_display = (
         "code",
         "year",
+        "is_active",
     )
 
     search_fields = (
         "code",
         "year",
+        "is_active",
     )
 
 
@@ -72,4 +74,24 @@ class BudgetLineAdmin(admin.ModelAdmin):
         "cost_center__code",
         "funding__code",
         "budget_product__code",
+    )
+
+
+@admin.register(DetailedProduct)
+class DetailedProductAdmin(admin.ModelAdmin):
+
+    list_display = (
+        "code",
+        "label",
+        "budget_product",
+    )
+
+    search_fields = (
+        "code",
+        "label",
+        "budget_product__code",
+    )
+
+    list_filter = (
+        "budget_product",
     )

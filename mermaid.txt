@@ -37,6 +37,12 @@ erDiagram
         string label
     }
 
+    DETAILED_PRODUCT {
+	int id PK
+	string code
+	string label
+
+    }
 
     BUDGET_PRODUCT {
         int id PK
@@ -49,6 +55,7 @@ erDiagram
         int id PK
         int year
 	string code
+	boolean is_active
     }
 
 
@@ -77,6 +84,7 @@ erDiagram
         string description
         decimal quantity
         decimal unit_price
+        int detailed_product FK
     }
 
 
@@ -227,6 +235,8 @@ erDiagram
     BUDGET ||--o{ BUDGET_LINE : contains
 
     BUDGET_PRODUCT ||--o{ BUDGET_LINE : product
+
+    BUDGET_PRODUCT ||--o{ DETAILED_PRODUCT : contains
 
     COST_CENTER ||--o{ BUDGET_LINE : cost_center
 

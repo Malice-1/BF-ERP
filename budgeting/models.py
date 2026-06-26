@@ -59,11 +59,25 @@ class Budget(models.Model):
 
     year = models.IntegerField()
 
+    is_active = models.BooleanField(
+        default=False
+    )
+
     class Meta:
         ordering = ["-year", "code"]
 
     def __str__(self):
         return f"{self.code} ({self.year})"
+
+
+    def save(self, *args, **kwargs):
+
+        if self.is_active:
+            Budget.objects.exclude(pk=self.pk).update(
+                is_active=False
+            )
+
+        super().save(*args, **kwargs)
 
 
 class BudgetLine(models.Model):
@@ -135,3 +149,27 @@ class BudgetLine(models.Model):
             f"{self.budget} - "
             f"{self.budget_product}"
         )
+
+
+class DetailedProduct(models.Model):
+
+    code = models.CharField(
+        max_length=50,
+        unique=True
+    )
+
+    label = models.CharField(
+        max_length=255
+    )
+
+    budget_product = models.ForeignKey(
+        "BudgetProduct",
+        on_delete=models.PROTECT,
+        related_name="detailed_products"
+    )
+
+    class Meta:
+        ordering = ["code"]
+
+    def __str__(self):
+        return f"{self.code} - {self.label}"

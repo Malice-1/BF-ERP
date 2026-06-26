@@ -77,6 +77,15 @@ product = BudgetProduct.objects.create(
     label="Formations externes"
 )
 
+--> Ajout d'un produit détaillé.
+
+dp = DetailedProduct.objects.create(
+    code="FORM_EXCEL",
+    label="Formation Excel avancée",
+    budget_product=bp
+)
+
+
 --> Ajout de deux budgets de la même année.
 
 Budget.objects.create(
@@ -100,7 +109,112 @@ line = BudgetLine.objects.create(
     allocated_amount=10000,
     committed_amount=2500,
     consumed_amount=1000,
-)	
+)
 
+
+Achats
+------
+
+--> Ajout d'une DA.
+
+request = PurchaseRequest.objects.create(
+    number="DA-2026-000001",
+    created_by=user,
+    supplier=supplier
+)
+
+--> Ajout d'une ligne de demande d'achat.
+
+
+
+
+
+
+
+
+Test d'engagement budgétaire
+----------------------------
+
+from purchasing.models import PurchaseRequest, PurchaseRequestLine
+from budgeting.models import (
+    Budget,
+    BudgetLine,
+    DetailedProduct,
+    CostCenter,
+    Funding,
+)
+from budgeting.services import commit_budget
+
+
+# 1) Récupérer le budget actif
+budget = Budget.objects.get(is_active=True)
+
+print("Budget actif :", budget)
+
+
+# 2) Récupérer une ligne budgétaire existante
+budget_line = BudgetLine.objects.first()
+
+print("Avant engagement :")
+print("Ligne budget :", budget_line)
+print("Alloué :", budget_line.allocated_amount)
+print("Engagé :", budget_line.committed_amount)
+print("Disponible :", budget_line.available_amount)
+
+
+# 3) Récupérer une DA existante
+da = PurchaseRequest.objects.first()
+
+print("DA :", da)
+
+
+# 4) Récupérer les éléments d'imputation
+product = DetailedProduct.objects.first()
+cost_center = CostCenter.objects.first()
+funding = Funding.objects.first()
+
+
+print("Produit détaillé :", product)
+print("Centre de frais :", cost_center)
+print("Financement :", funding)
+
+
+# 5) Créer une ligne de DA
+line = PurchaseRequestLine.objects.create(
+    purchase_request=da,
+    detailed_product=product,
+    cost_center=cost_center,
+    funding=funding,
+    description="Test engagement budgétaire",
+    quantity=10,
+    unit_price=500,
+)
+
+
+print("Montant ligne DA :", line.total_amount)
+
+
+# 6) Vérifier la ligne budgétaire trouvée
+from budgeting.selectors import find_budget_line
+
+found_budget_line = find_budget_line(
+    budget_product=product.budget_product,
+    cost_center=cost_center,
+    funding=funding,
+)
+
+print("Ligne budgétaire trouvée :", found_budget_line)
+
+
+# 7) Engager le budget
+commit_budget(line)
+
+
+# 8) Vérification après engagement
+found_budget_line.refresh_from_db()
+
+print("Après engagement :")
+print("Engagé :", found_budget_line.committed_amount)
+print("Disponible :", found_budget_line.available_amount)
 
 
