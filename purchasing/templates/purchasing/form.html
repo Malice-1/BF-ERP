@@ -1,0 +1,2 @@
+{% extends 'purchasing/base.html' %}
+{% block content %}<h1>{{ title }}</h1><form method="post">{% csrf_token %}{{ form.as_p }}<button>Confirmer</button></form><p>{% if purchase %}<a href="{% url 'purchasing:detail' purchase.pk %}">Retour à la demande</a>{% else %}<a href="{% url 'purchasing:list' %}">Retour à mes demandes</a>{% endif %}</p>{% endblock %}

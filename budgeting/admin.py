@@ -1,6 +1,10 @@
 from django.contrib import admin
 
 from .models import CostCenter, Funding, BudgetProduct, Budget, BudgetLine, DetailedProduct
+from .models import CostCenterManagerAssignment
+from accounts.admin import ReadOnlyAdmin
+
+admin.site.register(CostCenterManagerAssignment, ReadOnlyAdmin)
 
 
 @admin.register(CostCenter)

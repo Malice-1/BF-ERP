@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="fr">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ERP · Achats</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0;color:#172b42;background:#f4f6f8}header{background:#172b42;color:white;padding:1rem 2rem;display:flex;gap:2rem;align-items:center}header a{color:white}main{max-width:1100px;margin:2rem auto;padding:1.5rem;background:white;border-radius:.5rem}a{color:#125b95}table{border-collapse:collapse;width:100%;margin:1rem 0}th,td{text-align:left;padding:.7rem;border-bottom:1px solid #ddd}button{padding:.65rem 1rem;background:#125b95;color:white;border:0;border-radius:.25rem;cursor:pointer}input,select{padding:.5rem;max-width:100%;box-sizing:border-box}label{display:block;margin-bottom:.3rem}.errorlist{color:#a21b24}nav{display:flex;gap:1rem;flex-wrap:wrap}.table-wrap{overflow:auto}small{color:#4c5968}header form{margin-left:auto}@media(max-width:700px){main{margin:1rem}header{padding:1rem;gap:1rem}}
+</style></head>
+<body><header><strong>ERP · Achats</strong>{% if user.is_authenticated %}<a href="{% url 'purchasing:list' %}">Mes demandes</a><span>{{ user.username }}</span><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button>Déconnexion</button></form>{% endif %}</header>
+<main><nav>{% if perms.accounts.manage_authorizations %}<a href="{% url 'authorizations' %}">Habilitations</a>{% endif %}{% if perms.budgeting.manage_cost_center_managers %}<a href="{% url 'managers' %}">Responsables CDF</a>{% endif %}</nav>{% block content %}{% endblock %}</main></body></html>

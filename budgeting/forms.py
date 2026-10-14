@@ -1,0 +1,14 @@
+from django import forms
+from django.contrib.auth import get_user_model
+from .models import CostCenter
+
+
+class ManagerAssignmentForm(forms.Form):
+    cost_center = forms.ModelChoiceField(CostCenter.objects.all(), label="CDF")
+    user = forms.ModelChoiceField(get_user_model().objects.filter(is_active=True), label="Responsable")
+    valid_from = forms.DateTimeField(label="Début (UTC)", help_text="AAAA-MM-JJ HH:MM:SS")
+    valid_until = forms.DateTimeField(label="Fin (UTC)", required=False)
+
+
+class EndManagerAssignmentForm(forms.Form):
+    valid_until = forms.DateTimeField(label="Fin de l’affectation (UTC)")

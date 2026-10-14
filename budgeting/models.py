@@ -173,3 +173,18 @@ class DetailedProduct(models.Model):
 
     def __str__(self):
         return f"{self.code} - {self.label}"
+
+
+class CostCenterManagerAssignment(models.Model):
+    cost_center = models.ForeignKey(CostCenter, on_delete=models.PROTECT, related_name="manager_assignments")
+    user = models.ForeignKey("accounts.User", on_delete=models.PROTECT)
+    valid_from = models.DateTimeField()
+    valid_until = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["valid_from", "pk"]
+        permissions = [("manage_cost_center_managers", "Gérer les responsables CDF")]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(valid_until__isnull=True) | models.Q(valid_until__gt=models.F("valid_from")), name="manager_valid_period"),
+        ]
