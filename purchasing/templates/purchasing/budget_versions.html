@@ -1,0 +1,8 @@
+{% extends 'purchasing/base.html' %}
+{% block content %}
+<h1>Créer une version budgétaire</h1>
+
+<form method="post">{% csrf_token %}{{ form.as_p }}<button>Créer le brouillon</button></form>
+<p>Après création, vous accédez directement à la saisie des lignes.</p>
+<p><a href="{% url 'purchasing:allocation_versions' %}">Alimenter ou consulter une version existante</a></p>
+{% endblock %}

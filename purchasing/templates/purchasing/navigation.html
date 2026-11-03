@@ -1,0 +1,19 @@
+{% if user.is_authenticated %}
+<nav class="tabs" aria-label="Rubriques principales">
+{% if can_access_purchases %}<a href="{% url 'purchasing:list' %}" {% if nav_section == 'purchases' %}aria-current="page"{% endif %}>Achats</a>{% endif %}
+{% if can_access_budget %}<a href="{% url 'purchasing:budget_home' %}" {% if nav_section == 'budget' %}aria-current="page"{% endif %}>Budget</a>{% endif %}
+{% if can_configure %}<a href="{% url 'purchasing:configuration' %}" {% if nav_section == 'configuration' %}aria-current="page"{% endif %}>Configuration</a>{% endif %}
+</nav>
+<nav class="subnav" aria-label="Pages de la rubrique">
+{% if nav_section == 'budget' %}
+{% if can_manage_budgets %}<a href="{% url 'purchasing:budget_versions' %}">Créer une version</a><a href="{% url 'purchasing:allocation_versions' %}">Alimenter une version</a>{% endif %}
+{% if perms.budgeting.add_budgetproduct %}<a href="{% url 'purchasing:budget_products' %}">Produits budgétaires</a>{% endif %}
+{% if perms.budgeting.view_budget_balances %}<a href="{% url 'purchasing:budgets' %}">Budgets et disponibilités</a>{% endif %}
+{% elif nav_section == 'purchases' and can_access_purchases %}
+{% if perms.purchasing.view_all_purchase_requests %}<a href="{% url 'purchasing:all_requests' %}">Toutes les demandes</a>{% endif %}
+{% if perms.purchasing.add_detailedproduct %}<a href="{% url 'purchasing:detailed_products' %}">Produits détaillés</a>{% endif %}
+{% if perms.purchasing.add_purchaserequest %}<a href="{% url 'purchasing:list' %}">Mes demandes</a>{% endif %}
+{% if perms.purchasing.monitor_purchases %}<a href="{% url 'purchasing:monitor' %}">Suivi administrateur</a>{% endif %}
+{% endif %}
+</nav>
+{% endif %}

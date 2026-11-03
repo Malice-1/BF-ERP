@@ -57,6 +57,9 @@ def cancel_purchase_request(*, request_id, actor, expected_revision):
     request = _locked(request_id, actor, expected_revision)
     if request.status == PurchaseRequest.Status.CANCELLED:
         return request
+    if request.status == PurchaseRequest.Status.SUBMITTED:
+        from .flow import cancel_submitted
+        return cancel_submitted(request_id=request_id, actor=actor, expected_revision=expected_revision)
     if request.status not in (PurchaseRequest.Status.DRAFT, PurchaseRequest.Status.CORRECTION):
         raise PurchaseRequestError("Annulation de ce statut non disponible dans cet incrément.")
     request.status = PurchaseRequest.Status.CANCELLED

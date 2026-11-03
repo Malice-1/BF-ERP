@@ -2,6 +2,8 @@ from django.contrib import admin
 
 from .models import PurchaseRequest, PurchaseRequestLine
 from accounts.admin import ReadOnlyAdmin
+from . import flow_admin  # noqa: F401
+from .flow_admin import FinancialReadOnlyAdmin
 
 class PurchaseRequestLineInline(admin.TabularInline):
     model = PurchaseRequestLine
@@ -17,7 +19,7 @@ class PurchaseRequestLineInline(admin.TabularInline):
         return False
 
 @admin.register(PurchaseRequest)
-class PurchaseRequestAdmin(ReadOnlyAdmin):
+class PurchaseRequestAdmin(FinancialReadOnlyAdmin):
 
     list_display = (
         "number",
@@ -49,7 +51,11 @@ class PurchaseRequestAdmin(ReadOnlyAdmin):
     ]
 
 @admin.register(PurchaseRequestLine)
-class PurchaseRequestLineAdmin(ReadOnlyAdmin):
+class PurchaseRequestLineAdmin(FinancialReadOnlyAdmin):
+
+    @admin.display(description="Total HTVA")
+    def total_amount(self, obj):
+        return obj.total_amount
 
     list_display = (
         "purchase_request",

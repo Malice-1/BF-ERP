@@ -2,6 +2,7 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.test import TestCase
+from django.urls import reverse
 from budgeting.models import BudgetProduct, CostCenter, DetailedProduct, Funding
 from suppliers.models import Supplier
 from workflow.models import AuditEvent
@@ -14,6 +15,9 @@ from .services import update_purchase_request_line, delete_purchase_request_line
 class PurchaseDraftTests(TestCase):
     def setUp(self):
         self.owner = get_user_model().objects.create_user(username="owner")
+        from django.contrib.auth.models import Permission
+        self.owner.user_permissions.add(Permission.objects.get(
+            content_type__app_label="purchasing", codename="add_purchaserequest"))
         self.other = get_user_model().objects.create_user(username="other")
         self.supplier = Supplier.objects.create(code="S", name="Supplier")
         product = BudgetProduct.objects.create(code="BP", label="Product")
@@ -111,7 +115,8 @@ class PurchaseDraftTests(TestCase):
 
     def test_pages_are_private_even_when_ids_are_known(self):
         self.client.force_login(self.other)
-        self.assertNotContains(self.client.get("/achats/"), self.request.number)
+        self.assertRedirects(self.client.get("/achats/"), reverse("my_validations"))
+        self.assertNotContains(self.client.get("/achats/", follow=True), self.request.number)
         for path in (f"/achats/{self.request.pk}/", f"/achats/{self.request.pk}/modifier/",
                      f"/achats/{self.request.pk}/annuler/", f"/achats/{self.request.pk}/lignes/ajouter/"):
             self.assertEqual(self.client.get(path).status_code, 404)
@@ -124,7 +129,7 @@ class PurchaseDraftTests(TestCase):
         result = self.client.post(f"/achats/{self.request.pk}/lignes/ajouter/", data)
         self.assertEqual(result.status_code, 302)
         detail = self.client.get(f"/achats/{self.request.pk}/")
-        self.assertContains(detail, "6.801531")
+        self.assertContains(detail, "6,801531")
         stale = self.client.post(f"/achats/{self.request.pk}/lignes/ajouter/", data)
         self.assertEqual(stale.status_code, 409)
         self.assertEqual(self.request.lines.count(), 1)

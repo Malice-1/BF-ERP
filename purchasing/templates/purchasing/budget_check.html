@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Vérifier le budget restant</title>
+<style>body{font-family:system-ui,sans-serif;color:#172b42;margin:1rem}label{display:block;margin-bottom:.3rem}select{width:100%;padding:.5rem;box-sizing:border-box}button{padding:.65rem 1rem;background:#125b95;color:white;border:0;border-radius:.25rem;cursor:pointer}.errorlist{color:#a21b24}.balance{font-size:1.4rem;font-weight:bold}.negative{color:#a21b24}</style></head>
+<body>
+{% if form.fields.version.queryset.exists %}
+<form method="get" action="{% url 'purchasing:budget_check' %}">{{ form.as_p }}<button>Vérifier le budget restant</button></form>
+{% else %}<p>Aucune version budgétaire créée. Contactez le gestionnaire budgétaire.</p>{% endif %}
+{% if result %}<section role="status" aria-live="polite">
+<p class="balance {% if result.available < 0 %}negative{% endif %}">Solde restant : {{ result.available|floatformat:2 }} € TVAC</p>
+<p>Année {{ result.year }} · {{ result.version }}</p>
+{% if not result.allocated %}<p>Aucune allocation pour cette combinaison dans la version sélectionnée.</p>{% endif %}
+<p>Allocation de la version sélectionnée moins les réservations ouvertes et les engagements de la même année, toutes versions confondues. Ce solde est indicatif au moment de la consultation ; il ne réserve aucun budget.</p>
+</section>{% endif %}
+</body></html>

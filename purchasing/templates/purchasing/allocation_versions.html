@@ -1,0 +1,7 @@
+{% extends 'purchasing/base.html' %}{% block content %}
+<h1>Alimenter une version budgétaire</h1>
+<p>Choisissez une version pour saisir ses allocations BI – CDF – financement – montant. Les versions publiées sont consultables en lecture seule.</p>
+<div class="table-wrap"><table><tr><th>Année</th><th>Version</th><th>État</th><th>Action</th></tr>
+{% for version in versions %}<tr><td>{{ version.envelope.year }}</td><td>{{ version.label }}</td><td>{% if version.envelope.active_version_id == version.pk %}Active{% elif version.published_at %}Publiée · remplacée{% else %}Brouillon{% endif %}</td><td><a href="{% url 'purchasing:budget_version' version.pk %}">{% if version.published_at %}Consulter{% else %}Alimenter{% endif %}</a></td></tr>
+{% empty %}<tr><td colspan="4">Aucune version. <a href="{% url 'purchasing:budget_versions' %}">Créer une version</a></td></tr>{% endfor %}
+</table></div>{% endblock %}

@@ -1,10 +1,11 @@
+from accounts.admin_deletion import SystemModelAdmin
 from django.contrib import admin
 
 from .models import Supplier, SupplierContact, SupplierAddress
 
 
 @admin.register(Supplier)
-class SupplierAdmin(admin.ModelAdmin):
+class SupplierAdmin(SystemModelAdmin):
     list_display = (
         "code",
         "name",
@@ -20,7 +21,7 @@ class SupplierAdmin(admin.ModelAdmin):
 
 
 @admin.register(SupplierContact)
-class SupplierContactAdmin(admin.ModelAdmin):
+class SupplierContactAdmin(SystemModelAdmin):
     list_display = (
         "label",
         "supplier",
@@ -38,7 +39,7 @@ class SupplierContactAdmin(admin.ModelAdmin):
 
 
 @admin.register(SupplierAddress)
-class SupplierAddressAdmin(admin.ModelAdmin):
+class SupplierAddressAdmin(SystemModelAdmin):
     list_display = (
         "label",
         "supplier",

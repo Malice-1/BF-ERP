@@ -1,15 +1,20 @@
-from django.contrib.auth.decorators import login_required
-from django.core.exceptions import ValidationError
+from django.contrib.auth.decorators import login_required, permission_required
+from django.core.exceptions import ValidationError, PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods
+from decimal import Decimal
 from .exceptions import PurchaseRequestError
 from .forms import EditPurchaseRequestForm, PurchaseRequestForm, PurchaseRequestLineForm, RevisionForm
 from .models import PurchaseRequest
 from . import services
+from .navigation_permissions import can_access_purchases, can_access_budget, can_access_configuration
 
 
 def _owned(request, pk):
-    return get_object_or_404(PurchaseRequest, pk=pk, created_by=request.user)
+    purchase = get_object_or_404(PurchaseRequest, pk=pk, created_by=request.user)
+    if not request.user.has_perm("purchasing.add_purchaserequest"):
+        raise PermissionDenied
+    return purchase
 
 
 def _form_error(form, error):
@@ -20,13 +25,32 @@ def _form_error(form, error):
 @login_required
 @require_http_methods(["GET"])
 def request_list(request):
+    if not can_access_purchases(request.user):
+        if can_access_budget(request.user):
+            return redirect("purchasing:budget_home")
+        if can_access_configuration(request.user):
+            return redirect("purchasing:configuration")
+        return redirect("my_validations")
+    if not request.user.has_perm("purchasing.add_purchaserequest"):
+        return render(request, "purchasing/purchase_home.html")
     return render(request, "purchasing/list.html", {
         "requests": PurchaseRequest.objects.filter(created_by=request.user).select_related("supplier")})
 
 
 @login_required
+@permission_required("purchasing.view_all_purchase_requests", raise_exception=True)
+@require_http_methods(["GET"])
+def all_requests(request):
+    return render(request, "purchasing/list.html", {
+        "all_requests": True,
+        "requests": PurchaseRequest.objects.select_related("supplier", "created_by")})
+
+
+@login_required
 @require_http_methods(["GET", "POST"])
 def request_create(request):
+    if not request.user.has_perm("purchasing.add_purchaserequest"):
+        raise PermissionDenied
     form = PurchaseRequestForm(request.POST if request.method == "POST" else None)
     if request.method == "POST" and form.is_valid():
         result = services.create_purchase_request(actor=request.user, **form.cleaned_data)
@@ -37,10 +61,30 @@ def request_create(request):
 @login_required
 @require_http_methods(["GET"])
 def request_detail(request, pk):
-    purchase = _owned(request, pk)
+    purchase = get_object_or_404(PurchaseRequest, pk=pk)
+    if purchase.created_by_id != request.user.pk and not (
+            request.user.has_perm("purchasing.view_purchase_financial")
+            or request.user.has_perm("purchasing.view_all_purchase_requests")):
+        from django.http import Http404
+        raise Http404
+    from .models import ApprovalStep
+    lines = list(purchase.lines.select_related("detailed_product__budget_product", "cost_center", "funding"))
+    from workflow.models import ActivityLog
+    events = list(purchase.audit_events.select_related("actor"))
+    sources = [f"workflow.auditevent:{event.pk}" for event in events]
+    identities = dict(ActivityLog.objects.filter(source__in=sources).values_list("source", "actor_username"))
+    for event in events:
+        event.actor_display = identities.get(f"workflow.auditevent:{event.pk}", str(event.actor) if event.actor else "Système")
+    vat_known = all(line.vat_rate is not None for line in lines)
     return render(request, "purchasing/detail.html", {
-        "purchase": purchase, "lines": purchase.lines.select_related("detailed_product", "cost_center", "funding"),
-        "editable": purchase.status in ("DRAFT", "CORRECTION")})
+        "purchase": purchase, "lines": lines,
+        "total_htva": sum((line.total_htva for line in lines), Decimal(0)),
+        "total_vat": sum((line.total_vat for line in lines), Decimal(0)) if vat_known else None,
+        "total_tvac": sum((line.total_tvac for line in lines), Decimal(0)) if vat_known else None,
+        "steps": ApprovalStep.objects.filter(snapshot__submission__purchase_request=purchase).select_related("function", "approved_by", "snapshot__submission").prefetch_related("candidates"),
+        "events": events,
+        "can_cancel": request.user.has_perm("purchasing.add_purchaserequest") and purchase.created_by_id == request.user.pk and purchase.status == "SUBMITTED",
+        "editable": request.user.has_perm("purchasing.add_purchaserequest") and purchase.created_by_id == request.user.pk and purchase.status in ("DRAFT", "CORRECTION")})
 
 
 @login_required

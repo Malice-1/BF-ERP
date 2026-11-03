@@ -1,0 +1,2 @@
+{% extends 'purchasing/base.html' %}{% block content %}<h1>Mes validations</h1><p>Les étapes d’un même niveau sont parallèles. Un retour pour correction ou un rejet porte sur toute la demande.</p>{% include 'purchasing/step_table.html' %}
+<h2>Notifications actives</h2><ul>{% for notice in notices %}<li>{{ notice.created_at }} · {{ notice.message }}</li>{% empty %}<li>Aucune notification.</li>{% endfor %}</ul>{% endblock %}

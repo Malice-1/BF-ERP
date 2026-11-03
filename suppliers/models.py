@@ -4,20 +4,25 @@ from django.db import models
 class Supplier(models.Model):
     code = models.CharField(
         max_length=50,
-        unique=True
+        unique=True,
+        verbose_name='Code',
     )
 
     name = models.CharField(
-        max_length=255
+        max_length=255,
+        verbose_name='Nom',
     )
 
     vat_number = models.CharField(
         max_length=50,
         blank=True,
-        null=True
+        null=True,
+        verbose_name='Numéro de TVA',
     )
 
     class Meta:
+        verbose_name = 'fournisseur'
+        verbose_name_plural = 'fournisseurs'
         ordering = ["name"]
 
     def __str__(self):
@@ -29,33 +34,41 @@ class SupplierContact(models.Model):
     supplier = models.ForeignKey(
         Supplier,
         on_delete=models.PROTECT,
-        related_name="contacts"
+        related_name="contacts",
+        verbose_name='Fournisseur',
     )
 
     firstname = models.CharField(
         max_length=100,
-        blank=True
+        blank=True,
+        verbose_name='Prénom',
     )
 
     lastname = models.CharField(
         max_length=100,
-        blank=True
+        blank=True,
+        verbose_name='Nom',
     )
 
     label = models.CharField(
-        max_length=150
+        max_length=150,
+        verbose_name='Libellé',
     )
 
     email = models.EmailField(
-        blank=True
+        blank=True,
+        verbose_name='Adresse de courriel',
     )
 
     phone = models.CharField(
         max_length=50,
-        blank=True
+        blank=True,
+        verbose_name='Téléphone',
     )
 
     class Meta:
+        verbose_name = 'contact fournisseur'
+        verbose_name_plural = 'contacts fournisseurs'
         ordering = ["label"]
 
     def __str__(self):
@@ -67,30 +80,38 @@ class SupplierAddress(models.Model):
     supplier = models.ForeignKey(
         Supplier,
         on_delete=models.PROTECT,
-        related_name="addresses"
+        related_name="addresses",
+        verbose_name='Fournisseur',
     )
 
     label = models.CharField(
-        max_length=100
+        max_length=100,
+        verbose_name='Libellé',
     )
 
     street = models.CharField(
-        max_length=255
+        max_length=255,
+        verbose_name='Rue et numéro',
     )
 
     city = models.CharField(
-        max_length=100
+        max_length=100,
+        verbose_name='Ville',
     )
 
     zip_code = models.CharField(
-        max_length=20
+        max_length=20,
+        verbose_name='Code postal',
     )
 
     country = models.CharField(
-        max_length=100
+        max_length=100,
+        verbose_name='Pays',
     )
 
     class Meta:
+        verbose_name = 'adresse fournisseur'
+        verbose_name_plural = 'adresses fournisseurs'
         ordering = ["label"]
 
     def __str__(self):

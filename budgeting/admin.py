@@ -1,6 +1,8 @@
+from accounts.admin_deletion import SystemModelAdmin
 from django.contrib import admin
 
-from .models import CostCenter, Funding, BudgetProduct, Budget, BudgetLine, DetailedProduct
+from .models import CostCenter, Funding, BudgetProduct, Budget, BudgetLine
+from purchasing.models import DetailedProduct
 from .models import CostCenterManagerAssignment
 from accounts.admin import ReadOnlyAdmin
 
@@ -8,7 +10,8 @@ admin.site.register(CostCenterManagerAssignment, ReadOnlyAdmin)
 
 
 @admin.register(CostCenter)
-class CostCenterAdmin(admin.ModelAdmin):
+class CostCenterAdmin(SystemModelAdmin):
+    exclude = ("managers",)
     list_display = (
         "code",
         "label",
@@ -20,7 +23,8 @@ class CostCenterAdmin(admin.ModelAdmin):
     )
 
 @admin.register(Funding)
-class FundingAdmin(admin.ModelAdmin):
+class FundingAdmin(SystemModelAdmin):
+    exclude = ("managers",)
     list_display = (
         "code",
         "label",
@@ -33,7 +37,7 @@ class FundingAdmin(admin.ModelAdmin):
 
 
 @admin.register(BudgetProduct)
-class BudgetProductAdmin(admin.ModelAdmin):
+class BudgetProductAdmin(SystemModelAdmin):
     list_display = (
         "code",
         "label",
@@ -46,7 +50,7 @@ class BudgetProductAdmin(admin.ModelAdmin):
 
 
 @admin.register(Budget)
-class BudgetAdmin(admin.ModelAdmin):
+class BudgetAdmin(ReadOnlyAdmin):
     list_display = (
         "code",
         "year",
@@ -62,7 +66,7 @@ class BudgetAdmin(admin.ModelAdmin):
 
 
 @admin.register(BudgetLine)
-class BudgetLineAdmin(admin.ModelAdmin):
+class BudgetLineAdmin(ReadOnlyAdmin):
     list_display = (
         "budget",
         "cost_center",
@@ -82,7 +86,7 @@ class BudgetLineAdmin(admin.ModelAdmin):
 
 
 @admin.register(DetailedProduct)
-class DetailedProductAdmin(admin.ModelAdmin):
+class DetailedProductAdmin(SystemModelAdmin):
 
     list_display = (
         "code",

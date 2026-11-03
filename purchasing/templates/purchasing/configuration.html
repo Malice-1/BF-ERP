@@ -1,0 +1,15 @@
+{% extends 'purchasing/base.html' %}{% block content %}
+<h1>Configuration</h1><p>Gestion des comptes, droits, rôles et paramètres techniques.</p>
+<ul>
+{% if user.is_superuser %}<li><a href="{% url 'admin:workflow_activitylog_changelist' %}">Journal des actions par utilisateur</a></li>{% endif %}
+{% if user.is_superuser %}<li><a href="{% url 'session_settings' %}">Déconnexion automatique</a></li>{% endif %}
+{% if user.is_staff %}
+{% if perms.accounts.view_user or perms.accounts.add_user or perms.accounts.change_user %}<li><a href="{% url 'admin:accounts_user_changelist' %}">Comptes utilisateurs et droits individuels</a></li>{% endif %}
+{% if perms.accounts.view_role or perms.accounts.add_role or perms.accounts.change_role %}<li><a href="{% url 'admin:accounts_role_changelist' %}">Rôles ERP</a></li>{% endif %}
+<li><a href="{% url 'admin:index' %}">Administration et référentiels techniques</a></li>
+{% if perms.purchasing.view_workflowversion or perms.purchasing.change_workflowversion %}<li><a href="{% url 'admin:purchasing_workflowversion_changelist' %}">Configurations des validations et rôles valideurs</a></li>{% endif %}
+{% endif %}
+{% if perms.accounts.manage_authorizations %}<li><a href="{% url 'authorizations' %}">Habilitations de validation</a></li>{% endif %}
+{% if perms.budgeting.manage_cost_center_managers %}<li><a href="{% url 'entity_managers' %}">Responsables des CDF et des supports</a></li>{% endif %}
+</ul><p>Les rôles ERP attribuent des permissions à leurs membres. Configurez les permissions dans la fiche du rôle, puis attribuez le rôle aux utilisateurs. Les habilitations de validation sont gérées séparément.</p>
+{% endblock %}

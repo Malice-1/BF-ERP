@@ -5,6 +5,8 @@ __pycache__/
 
 # Virtual environment
 venv/
+.venv/
+db.demo.sqlite3
 .env
 
 # Django
@@ -12,6 +14,7 @@ venv/
 db.sqlite3
 media/
 staticfiles/
+.~lock.*#
 
 # IDE
 .vscode/

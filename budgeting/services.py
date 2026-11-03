@@ -18,7 +18,7 @@ def assign_cost_center_manager(*, actor, cost_center, user, valid_from, valid_un
     assignment = CostCenterManagerAssignment(cost_center=cost_center, user=user,
         valid_from=valid_from, valid_until=valid_until)
     assignment.full_clean()
-    overlaps = CostCenterManagerAssignment.objects.filter(cost_center=cost_center).filter(
+    overlaps = CostCenterManagerAssignment.objects.filter(cost_center=cost_center, user__isnull=False).filter(
         Q(valid_until__isnull=True) | Q(valid_until__gt=valid_from))
     if valid_until is not None:
         overlaps = overlaps.filter(valid_from__lt=valid_until)

@@ -1,5 +1,7 @@
 # Lot 0b — habilitations et interface des brouillons
 
+**Mise à jour :** le flux DA → commande a depuis été ajouté. La couverture ci-dessous décrit l’ancien incrément ; consulter [RECETTE_ACHATS.md](RECETTE_ACHATS.md) pour les fonctions actuelles, le lancement et les limites restantes.
+
 ## Fonctionnalités
 
 - `/connexion/` : authentification Django ; `/achats/` : demandes du seul utilisateur connecté.

@@ -1,0 +1,6 @@
+{% extends 'purchasing/base.html' %}{% block content %}
+<h1>Budget</h1>
+<p>Choisissez une action dans le menu Budget pour créer une version, alimenter ses lignes ou créer les produits budgétaires.</p>
+{% if not can_manage %}<p>Les actions de gestion sont accessibles selon les droits attribués à votre compte.</p>{% endif %}
+<p>Le bouton « Vérifier un budget » permet de consulter le solde d’une combinaison dans une version.</p>
+{% endblock %}

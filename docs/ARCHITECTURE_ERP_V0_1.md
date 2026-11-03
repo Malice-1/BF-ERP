@@ -1,6 +1,9 @@
 # Architecture et réalisation ERP — première analyse
 
+**État actuel :** le parcours DA → commande est maintenant disponible pour recette. Ce document conserve l’analyse historique ; consulter [RECETTE_ACHATS.md](RECETTE_ACHATS.md) pour le fonctionnement livré et ses limites.
+
 Référence : `SPEC_ERP_CODEX_V0_1.md`, version 0.1 du 14 octobre 2026.
+Pour une vue actuelle du produit construit, consulter [la synthèse de l’application](SYNTHESE_APPLICATION.md).
 Ce document distingue propositions techniques, exigences validées et couverture réelle.
 Décision complémentaire du demandeur : éviter les arrondis. Les calculs sont décimaux exacts sans quantification intermédiaire.
 

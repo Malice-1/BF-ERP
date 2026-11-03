@@ -19,11 +19,18 @@ from django.urls import path, include
 from django.contrib.auth import views as auth_views
 from django.views.generic import RedirectView
 from accounts import views as account_views
+from accounts.auth_views import ERPLoginView
 from budgeting import views as budget_views
+from purchasing import flow_views
 
 urlpatterns = [
+    path("mes-validations/", flow_views.inbox, name="my_validations"),
+    path("mes-delegations/", flow_views.delegations, name="my_delegations"),
+    path("configuration/responsables/", budget_views.entity_managers, name="entity_managers"),
+    path('configuration/session/', account_views.session_settings, name='session_settings'),
+    path('session/statut/', account_views.session_status, name='session_status'),
     path('', RedirectView.as_view(pattern_name='purchasing:list', permanent=False)),
-    path('connexion/', auth_views.LoginView.as_view(template_name='purchasing/login.html'), name='login'),
+    path('connexion/', ERPLoginView.as_view(), name='login'),
     path('deconnexion/', auth_views.LogoutView.as_view(), name='logout'),
     path('achats/', include('purchasing.urls')),
     path('habilitations/', account_views.authorization_list, name='authorizations'),

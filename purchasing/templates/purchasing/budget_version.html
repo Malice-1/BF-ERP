@@ -1,0 +1,21 @@
+{% extends 'purchasing/base.html' %}
+{% block content %}
+<p><a href="{% url 'purchasing:allocation_versions' %}">Retour aux versions budgétaires</a></p>
+<h1>{{ version.envelope.year }} · {{ version.label }}</h1>
+{% if error %}<p role="alert" class="errorlist">{{ error }}</p>{% endif %}
+{% if version.published_at %}
+<p>{% if version.envelope.active_version_id == version.pk %}Version active{% else %}Version publiée remplacée{% endif %} · publiée le {{ version.published_at }}. Les lignes sont en lecture seule.</p>
+<div class="table-wrap"><table><tr><th>BI / produit budgétaire</th><th>CDF</th><th>Financement</th><th>Montant TVAC (€)</th></tr>
+{% for line in lines %}<tr><td>{{ line.budget_product }}</td><td>{{ line.cost_center }}</td><td>{{ line.funding }}</td><td>{{ line.amount|floatformat:2 }}</td></tr>{% endfor %}
+</table></div>
+{% else %}
+<p>Brouillon : saisissez les allocations totales de cette version. Chaque combinaison BI, CDF et financement doit être unique. Les lignes vides sont ignorées.</p>
+<form method="post">{% csrf_token %}{{ formset.management_form }}{{ formset.non_form_errors }}
+<div class="table-wrap"><table><tr><th>BI / produit budgétaire</th><th>CDF</th><th>Financement</th><th>Montant TVAC (€)</th><th>Supprimer</th></tr>
+{% for form in formset %}<tr><td>{% for hidden in form.hidden_fields %}{{ hidden }}{{ hidden.errors }}{% endfor %}{{ form.non_field_errors }}{{ form.budget_product.errors }}{{ form.budget_product }}</td><td>{{ form.cost_center.errors }}{{ form.cost_center }}</td><td>{{ form.funding.errors }}{{ form.funding }}</td><td>{{ form.amount.errors }}{{ form.amount }}</td><td>{{ form.DELETE }}</td></tr>{% endfor %}
+</table></div><button name="action" value="save">Enregistrer les lignes</button>
+<p>Après enregistrement, trois lignes vides supplémentaires sont disponibles.</p></form>
+<hr><p>La publication active cette version pour l’année {{ version.envelope.year }} et remplace la version active précédente. Les réservations et engagements existants restent déduits. Enregistrez vos lignes avant de publier.</p>
+<form method="post">{% csrf_token %}<button name="action" value="publish">Publier et activer cette version</button></form>
+{% endif %}
+{% endblock %}

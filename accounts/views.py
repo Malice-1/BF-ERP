@@ -5,6 +5,44 @@ from django.views.decorators.http import require_http_methods
 from .forms import AuthorizationForm
 from .models import Authorization
 from .services import publish_authorization
+from django import forms
+from django.db import transaction
+from django.http import JsonResponse
+from .models import SessionPolicy
+from workflow.models import ConfigurationAuditEvent
+
+
+class SessionPolicyForm(forms.ModelForm):
+    class Meta:
+        model = SessionPolicy
+        fields = ("idle_timeout_minutes",)
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def session_settings(request):
+    from django.core.exceptions import PermissionDenied
+    if not request.user.is_superuser:
+        raise PermissionDenied
+    policy = SessionPolicy.objects.filter(pk=1).first() or SessionPolicy(pk=1)
+    form = SessionPolicyForm(request.POST if request.method == "POST" else None, instance=policy)
+    if request.method == "POST" and form.is_valid():
+        with transaction.atomic():
+            form.save()
+            ConfigurationAuditEvent.objects.create(
+                actor=request.user, action="session_policy.updated",
+                object_type="SessionPolicy", object_id=1,
+                payload={"idle_timeout_minutes": form.cleaned_data["idle_timeout_minutes"]},
+            )
+        return redirect("session_settings")
+    return render(request, "accounts/session_settings.html", {"form": form})
+
+
+@require_http_methods(["GET"])
+def session_status(request):
+    response = JsonResponse({"authenticated": request.user.is_authenticated})
+    response["Cache-Control"] = "no-store"
+    return response
 
 
 @login_required

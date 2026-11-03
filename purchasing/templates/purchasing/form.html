@@ -1,2 +1,15 @@
 {% extends 'purchasing/base.html' %}
-{% block content %}<h1>{{ title }}</h1><form method="post">{% csrf_token %}{{ form.as_p }}<button>Confirmer</button></form><p>{% if purchase %}<a href="{% url 'purchasing:detail' purchase.pk %}">Retour à la demande</a>{% else %}<a href="{% url 'purchasing:list' %}">Retour à mes demandes</a>{% endif %}</p>{% endblock %}
+{% block content %}<h1>{{ title }}</h1><form method="post">{% csrf_token %}{{ form.as_p }}{% if form.detailed_product %}
+<p id="selected-bi" role="status" aria-live="polite"><strong>Produit budgétaire (BI) :</strong> <span id="selected-bi-label"></span></p>
+{{ form.budget_product_labels|json_script:"budget-product-labels" }}
+<script>
+(() => {
+const product = document.getElementById('id_detailed_product');
+const labels = JSON.parse(document.getElementById('budget-product-labels').textContent);
+const output = document.getElementById('selected-bi-label');
+product.insertAdjacentElement('afterend', document.getElementById('selected-bi'));
+const update = () => { output.textContent = labels[product.value] || 'Sélectionnez un produit'; };
+product.addEventListener('change', update);
+update();
+})();
+</script>{% endif %}<button>Confirmer</button></form><p>{% if purchase %}<a href="{% url 'purchasing:detail' purchase.pk %}">Retour à la demande</a>{% else %}<a href="{% url 'purchasing:list' %}">Retour à mes demandes</a>{% endif %}</p>{% endblock %}

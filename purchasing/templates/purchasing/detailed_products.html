@@ -1,0 +1,6 @@
+{% extends 'purchasing/base.html' %}{% block content %}
+<h1>Produits détaillés</h1><h2>Créer un produit détaillé</h2>
+<form method="post">{% csrf_token %}{{ form.as_p }}<button>Créer le produit détaillé</button></form>
+<h2>Produits existants</h2><div class="table-wrap"><table><tr><th>Code</th><th>Dénomination</th><th>Produit budgétaire (BI)</th></tr>
+{% for product in products %}<tr><td>{{ product.code }}</td><td>{{ product.label }}</td><td>{{ product.budget_product }}</td></tr>{% empty %}<tr><td colspan="3">Aucun produit détaillé.</td></tr>{% endfor %}
+</table></div>{% endblock %}
