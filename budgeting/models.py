@@ -22,6 +22,21 @@ class CostCenter(models.Model):
         return f"{self.code} - {self.label}"
 
 
+class Support(models.Model):
+    code = models.CharField(max_length=50, unique=True, verbose_name="Code")
+    label = models.CharField(max_length=150, verbose_name="Libellé")
+    managers = models.ManyToManyField("accounts.User", blank=True,
+        related_name="managed_supports", verbose_name="Responsables")
+
+    class Meta:
+        verbose_name = "support"
+        verbose_name_plural = "supports"
+        ordering = ["code"]
+
+    def __str__(self):
+        return f"{self.code} - {self.label}"
+
+
 class Funding(models.Model):
     managers = models.ManyToManyField("accounts.User", blank=True, related_name="managed_fundings", verbose_name="Responsables")
     code = models.CharField(
@@ -36,8 +51,8 @@ class Funding(models.Model):
     )
 
     class Meta:
-        verbose_name = 'support / financement'
-        verbose_name_plural = 'supports / financements'
+        verbose_name = 'financement'
+        verbose_name_plural = 'financements'
         ordering = ["code"]
 
     def __str__(self):
@@ -118,7 +133,7 @@ class BudgetLine(models.Model):
         Funding,
         on_delete=models.PROTECT,
         related_name="budget_lines",
-        verbose_name='Support / financement',
+        verbose_name='Financement',
     )
 
     budget_product = models.ForeignKey(

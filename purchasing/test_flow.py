@@ -11,7 +11,7 @@ from django.urls import reverse
 from django.utils import timezone
 from accounts.models import ValidationFunction, Role
 from accounts.services import publish_authorization
-from budgeting.models import CostCenter, Funding, BudgetProduct, DetailedProduct
+from budgeting.models import CostCenter, Funding, Support, BudgetProduct, DetailedProduct
 from suppliers.models import Supplier
 from .models import (AnnualEnvelope, EnvelopeVersion, Allocation, WorkflowVersion, ApprovalRule,
     Submission, ApprovalStep, BudgetEntry, PurchaseOrder, PurchaseNotice)
@@ -22,6 +22,45 @@ from .exceptions import PurchaseRequestError, PurchaseRequestConflict
 
 
 class PurchaseFlowTests(TestCase):
+    def test_support_is_chosen_from_memberships_and_independent_from_funding(self):
+        from .forms import PurchaseRequestForm
+        other_support = Support.objects.create(code="OTHER", label="Autre support")
+        form = PurchaseRequestForm(user=self.owner)
+        self.assertEqual(list(form.fields["support"].queryset), [self.support])
+        with self.assertRaises(ValidationError):
+            create_purchase_request(actor=self.owner, supplier=self.supplier, support=other_support)
+        self.owner.supports.add(other_support)
+        other_support.managers.add(self.first)
+        self.manager_workflow()
+        self.cdf.managers.add(self.other)
+        self.support.managers.add(self.second)
+        self.funding.managers.add(self.first)
+        self.submit()
+        self.act(self.other)
+        step = ApprovalStep.objects.get(snapshot__submission__purchase_request=self.purchase, level=2)
+        self.assertEqual(step.snapshot.support, self.support)
+        self.assertEqual(step.snapshot.data["support"], str(self.support))
+        self.assertIsNotNone(flow.authority(self.second, step))
+        self.assertIsNone(flow.authority(self.first, step))
+        self.assertEqual(flow.pending_validation_count(self.second), 1)
+        self.support.managers.set([self.first])
+        self.assertEqual(flow.pending_validation_count(self.first), 1)
+        self.assertIsNone(flow.authority(self.second, step))
+
+    def test_support_workflow_requires_a_current_membership_before_any_reservation(self):
+        self.manager_workflow()
+        self.purchase.support = None
+        self.purchase.save(update_fields=["support"])
+        with self.assertRaisesMessage(PurchaseRequestError, "Choisissez un support"):
+            self.submit()
+        self.assertFalse(BudgetEntry.objects.exists())
+        self.purchase.support = self.support
+        self.purchase.save(update_fields=["support"])
+        self.owner.supports.clear()
+        with self.assertRaisesMessage(PurchaseRequestError, "Vous n’appartenez plus"):
+            self.submit()
+        self.assertFalse(BudgetEntry.objects.exists())
+
     def test_global_personal_icons_and_pending_badge(self):
         self.submit()
         self.client.force_login(self.first)
@@ -87,7 +126,7 @@ class PurchaseFlowTests(TestCase):
     def test_entity_managers_validate_without_roles_or_authorizations(self):
         self.manager_workflow()
         self.cdf.managers.add(self.other)
-        self.funding.managers.add(self.second)
+        self.support.managers.add(self.second)
         self.second.authorizations.update(current_version=None)
         self.submit()
         steps = ApprovalStep.objects.filter(snapshot__submission__purchase_request=self.purchase).order_by("level")
@@ -126,9 +165,9 @@ class PurchaseFlowTests(TestCase):
         self.client.force_login(self.admin)
         self.assertContains(self.client.get(reverse("entity_managers")), self.cdf.code)
         response = self.client.post(reverse("entity_managers"), {
-            "kind": "support", "entity_id": self.funding.pk, "managers": [self.other.pk]})
+            "kind": "support", "entity_id": self.support.pk, "managers": [self.other.pk]})
         self.assertRedirects(response, reverse("entity_managers"))
-        self.assertEqual(list(self.funding.managers.all()), [self.other])
+        self.assertEqual(list(self.support.managers.all()), [self.other])
 
     def role_workflow(self, member=True):
         role = Role.objects.create(code="ACHATS", label="Validation achats")
@@ -188,6 +227,8 @@ class PurchaseFlowTests(TestCase):
         self.supplier = Supplier.objects.create(code="S", name="Supplier snapshot")
         self.cdf = CostCenter.objects.create(code="C", label="CDF")
         self.funding = Funding.objects.create(code="F", label="Funding")
+        self.support = Support.objects.create(code="SP", label="Support")
+        self.owner.supports.add(self.support)
         self.product = BudgetProduct.objects.create(code="B", label="Product")
         self.detail = DetailedProduct.objects.create(code="D", label="Detail", budget_product=self.product)
         self.function1 = ValidationFunction.objects.create(code="CDF", label="CDF", position=1)
@@ -213,7 +254,7 @@ class PurchaseFlowTests(TestCase):
         return version
 
     def draft(self, price="100", lines=1):
-        purchase = create_purchase_request(actor=self.owner, supplier=self.supplier)
+        purchase = create_purchase_request(actor=self.owner, supplier=self.supplier, support=self.support)
         for index in range(lines):
             purchase.refresh_from_db()
             add_purchase_request_line(request_id=purchase.pk, actor=self.owner, expected_revision=purchase.revision,

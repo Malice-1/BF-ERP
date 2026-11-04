@@ -1,0 +1,8 @@
+{% extends "admin/index.html" %}
+{% load admin_navigation %}
+{% block content %}
+<div id="content-main">
+  {% grouped_admin_apps app_list as grouped_apps %}
+  {% include "admin/app_list.html" with app_list=grouped_apps show_changelinks=True %}
+</div>
+{% endblock %}

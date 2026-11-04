@@ -1,5 +1,11 @@
 # Recette complète depuis une base vierge
 
+Le nouvel éditeur **Configuration → Workflows et validations → Règles de
+validation** et sa simulation sont décrits dans [Règles de validation](REGLES_VALIDATION.md).
+Les circuits historiques ci-dessous restent disponibles pour leurs scénarios de
+non-régression ; pour configurer de nouvelles règles « Si… alors… », utiliser le
+nouvel éditeur. Les règles correspondantes y sont toutes cumulatives.
+
 État du périmètre : 3 novembre 2026. Ce document décrit les tests à réaliser ; il ne constitue pas un compte rendu de tests exécutés.
 
 Classeur de suivi : [BF_ERP_Recette_Complete_Enrichie.xlsx](BF_ERP_Recette_Complete_Enrichie.xlsx), également disponible au format ODS. Les résultats déjà saisis sont conservés ; les nouveaux tests RSP-01 à RSP-15 et les tests ADM-07/08, absents de l’ancien classeur, commencent au statut **Non exécuté**. Un statut conservé reste le résultat de l’exécution antérieure : si la procédure a changé, consigner séparément le retest et sa date. ADM-07/08 se réalisent après le parcours nominal, sur des données de test dédiées, en respectant leurs précautions.
@@ -83,7 +89,7 @@ La même règle s’applique à **Achats** (`purchasing.*`) : le budgétiste san
 
 **Les rôles `VALID_CDF` et `VALID_FINANCE` ne sont pas nécessaires pour valider en mode responsables CDF/support.** Dans ce tableau, ils servent uniquement à attribuer la permission de lecture financière aux comptes de recette ; leurs noms sont historiques. Ils peuvent être remplacés par un seul rôle de lecture financière ou par une permission individuelle. Les conserver ici permet de suivre les autres scénarios, notamment la variante de validation par rôle de la section 10, sans modifier les comptes déjà préparés.
 
-L’éligibilité aux étapes CDF/support vient des affectations dans **Configuration → Responsables des CDF et des supports**. Les comptes `rec.cdf`, `rec.cdf2` et `rec.finance` restent utiles comme acteurs de test. Dans le circuit nominal CFG-01, Finance est encore un utilisateur nommé avec habilitation ; dans le circuit CDF → support de la section 17, il valide grâce à son affectation au support, sans rôle ni habilitation supplémentaire.
+L’éligibilité aux étapes CDF/support vient des affectations dans **Configuration → Responsables des CDF et des supports**. Les comptes `rec.cdf`, `rec.cdf2` et `rec.finance` restent utiles comme acteurs de test. Dans le nouveau circuit nominal CFG-01, Finance est un utilisateur nommé sans habilitation supplémentaire ; dans le circuit CDF → support, il valide grâce à son affectation au support.
 
 ### ADM-05 — Retrait et cumul des droits
 
@@ -146,16 +152,31 @@ En cas de données liées créées simultanément pendant l’opération, un éc
 
 Dans **Configuration → Administration et référentiels techniques**, créer :
 
+Les réglages de workflow sont regroupés dans **Configuration → Workflows et
+validations** : **Règles de validation**,
+**Rôles ERP et permissions**, **Responsables des
+CDF et des supports**, ainsi que les fiches des **CDF** et des **Supports**.
+Les fonctions de validation ne sont plus à créer : les nouvelles règles
+désignent directement leurs valideurs.
+Les liens proposés dépendent des droits du compte connecté.
+
+Le même regroupement **Workflows et validations** figure sur l’accueil de
+l’administration Django et dans sa navigation latérale. Il rassemble les
+règles, rôles, CDF et supports, avec les accès à la gestion des responsables.
+Les habilitations anciennes sont isolées dans **Compatibilité des anciens circuits**.
+Les autres référentiels restent
+dans leurs rubriques habituelles ; les permissions existantes sont conservées.
+
 | Type | Code | Données |
 |---|---|---|
 | CDF | `REC-CDF-A` | Centre A |
 | CDF | `REC-CDF-B` | Centre B |
 | Financement | `REC-FONDS` | Financement de recette |
 | Financement | `REC-SANS-BUDGET` | Sans allocation |
+| Support | `REC-SUPPORT` | Support demandeur de recette, distinct du financement |
+| Support | `REC-SUPPORT-2` | Deuxième support pour tester les appartenances multiples |
 | Fournisseur | `REC-FOURN` | Fournisseur fictif de recette |
 | Fournisseur | `REC-FOURN-2` | Second fournisseur fictif |
-| Fonction de validation | `REC-CDF` | Validation CDF, position 10 |
-| Fonction de validation | `REC-FINANCE` | Validation Finance, position 20 |
 
 Attendu : données disponibles dans les formulaires ; codes dupliqués refusés ; positions de fonctions uniques. Tester aussi ajout, modification et relecture d’un contact et d’une adresse fournisseur dans l’administration.
 
@@ -188,11 +209,16 @@ Utiliser les **versions budgétaires achats**. Les anciennes tables Budget/Budge
 
 Ne pas publier d’autre version avant la fin du parcours nominal.
 
-## 5. Administrateur — habilitations et circuit
+## 5. Administrateur — responsables et règles de validation
 
-### HAB-01 — Habilitations
+### HAB-01 — Habilitations (compatibilité historique uniquement)
 
-Dans **Configuration → Habilitations de validation**, créer des habilitations activées, début dans le passé, fin vide. Dates en heure de Bruxelles.
+Ce test concerne uniquement une base possédant déjà les anciennes fonctions
+REC-CDF et REC-FINANCE. Il est à ignorer pour une campagne du nouvel éditeur :
+les habilitations ne sont pas nécessaires au circuit nominal ci-dessous.
+Pour les anciens circuits, utiliser **Configuration → Compatibilité des anciens
+circuits → Habilitations historiques**, avec début dans le passé et fin vide.
+Dates en heure de Bruxelles.
 
 | Utilisateur | Fonction | CDF | Financement | BI |
 |---|---|---|---|---|
@@ -204,33 +230,42 @@ Attendu : version courante visible ; fin antérieure ou égale au début refusé
 
 ### HAB-02 — Responsables des CDF et des supports
 
-**Configuration → Responsables des CDF et des supports** : sélectionner rec.cdf pour A et rec.cdf2 pour B, puis enregistrer chaque fiche. Pour REC-FONDS, sélectionner rec.finance. Rouvrir la page pour vérifier la persistance.
+**Configuration → Responsables des CDF et des supports** : sélectionner rec.cdf pour A et rec.cdf2 pour B, puis enregistrer chaque fiche. Pour le support REC-SUPPORT, sélectionner rec.finance. Dans la fiche du demandeur, renseigner REC-SUPPORT dans **Supports d’appartenance**. Rouvrir les fiches pour vérifier la persistance. Le financement REC-FONDS reste un référentiel budgétaire distinct.
 
 Attendu : plusieurs responsables actifs peuvent être sélectionnés sur une même fiche ; une sélection vide est autorisée. Les comptes inactifs ne sont pas proposés. Ce nouvel écran ne gère pas de périodes : les contrôles historiques de dates restent couverts séparément par les tests techniques. L’affectation donne le droit de valider les étapes correspondantes sans rôle ni habilitation de fonction supplémentaire ; elle n’attribue pas de permission de lecture financière globale.
 
 ### CFG-01 — Circuit nominal
 
-Dans l’administration, créer une **Configuration des validations** REC-CIRCUIT-V1 avec deux règles :
+Dans **Configuration → Workflows et validations → Règles de validation**, créer
+une version brouillon REC-CIRCUIT-V1, puis ajouter deux règles :
 
 | Champ | Règle CDF | Règle Finance |
 |---|---|---|
-| Fonction | REC-CDF | REC-FINANCE |
-| Niveau | 1 | 2 |
-| Mode / priorité | Cumulative / 0 | Cumulative / 0 |
-| Minimum / maximum HTVA | 0 / vide | 0 / vide |
-| Critères CDF/financement/BI | Vides | Vides |
-| Responsable CDF | Coché | Décoché |
-| Responsables du support | Décoché | Décoché |
-| Utilisateur nommé | Vide | rec.finance |
-| Rôle valideur | Vide | Vide |
+| Nom | Validation CDF | Validation Finance |
+| Ordre | 1 | 2 |
+| Toujours appliquer à toutes les lignes | Coché | Coché |
+| Conditions | Aucune | Aucune |
+| Faire valider par | Les responsables du CDF de la ligne | Un utilisateur nommé |
+| Utilisateur | Sans objet | rec.finance |
 
-Enregistrer, revenir dans la liste, sélectionner la configuration et l’action **Valider et activer la configuration sélectionnée**.
+Enregistrer les règles, simuler la version sur une DA, puis choisir
+**Publier et activer cette version**.
 
-Attendu : publiée, active et immuable. Niveau 1 : responsable configuré du CDF de la ligne, sans habilitation supplémentaire ; niveau 2 : Finance nommé et habilité. Le statut superutilisateur ne remplace pas une éligibilité métier. Le parcours CDF → support est testé dans la section 17.
+Attendu : publiée, active et immuable. Ordre 1 : responsable configuré du CDF de
+la ligne ; ordre 2 : rec.finance, utilisateur nommé. Aucune fonction ni
+habilitation n’est nécessaire. Le statut superutilisateur ne remplace pas une
+éligibilité métier. Pour le parcours CDF → support, remplacer la seconde cible
+par les responsables du support choisi sur la DA.
 
 ## 6. Parcours nominal par profil
 
 ### ACH-01 — Demandeur : créer et compléter
+
+L’accueil **Achats** présente les actions autorisées dans une carte, comme
+l’accueil **Configuration**, puis conserve directement la liste **Mes demandes
+d’achat** du compte connecté. L’accueil **Budget** utilise la même présentation,
+avec les zones **Préparer les budgets** et **Consulter les disponibilités**.
+Les raccourcis et la liste des demandes restent soumis aux permissions existantes.
 
 Avec rec.demandeur : **Achats → Mes demandes → Nouvelle demande**, fournisseur REC-FOURN. Noter **DA-NOMINALE = …**, puis ajouter :
 
@@ -488,19 +523,53 @@ Avant clôture :
 
 Dans **Configuration → Responsables des CDF et des supports**, sélectionner un ou plusieurs utilisateurs actifs pour chaque CDF et support, puis enregistrer la fiche concernée.
 
+Les **Supports** et les **Financements** sont deux référentiels distincts dans
+l’administration. Créer les supports avec leur code, libellé et responsables.
+Dans chaque fiche utilisateur, renseigner **Supports d’appartenance** : un
+utilisateur peut appartenir à plusieurs supports sans en être responsable.
+La DA comporte un champ **Support demandeur**, limité aux supports du demandeur.
+Ce choix détermine les responsables de l’étape support pour toutes les lignes ;
+les financements restent choisis par ligne et déterminent le budget.
+Le support est figé à la soumission pour ce cycle de validation. Une soumission
+nécessitant des responsables du support est refusée sans support choisi ou si
+le demandeur n’en est plus membre. La simple appartenance à un support ne donne
+aucun droit de validation.
+
+Lors de la séparation des référentiels, aucun financement ni ancienne
+affectation n’est automatiquement converti en support. Les anciennes décisions
+restent conservées ; une étape support historique sans support identifié ne
+reprend pas les responsables du financement. Préparer une nouvelle DA avec un
+support explicitement choisi pour tester ce circuit.
+
+Les responsables d’un CDF peuvent également être sélectionnés directement dans
+**Administration et référentiels techniques → CDF → Ajouter / Modifier**, dans
+le champ **Responsables**. La liste propose les comptes actifs de l’application,
+chargés à l’ouverture du champ déroulant. Saisir tout ou partie du nom, du prénom
+ou de l’identifiant pour restreindre la liste ; plusieurs fragments peuvent
+être combinés dans n’importe quel ordre. Sélectionner les responsables un par
+un ; retirer une sélection avec sa croix, puis enregistrer le CDF. Les résultats
+sont chargés par pages lors du défilement.
+La liste affiche les utilisateurs
+avec leur nom et leur identifiant, y compris les utilisateurs sans accès à
+l’administration. Les affectations sont partagées avec l’écran des responsables
+et visibles dans la liste des CDF. Un compte déjà affecté devenu inactif reste
+affiché dans la fiche CDF pour permettre son retrait ; il n’est plus éligible
+aux validations. L’édition exige le droit d’ajouter ou modifier le CDF et la
+permission **Gérer les responsables CDF** (ou le statut superutilisateur).
+
 Dans une nouvelle version du workflow, utiliser **Affecter au responsable CDF** ou **Affecter aux responsables du support** à la place du rôle valideur. Choisir un seul mode d’affectation par règle, puis publier la version. Les versions déjà publiées doivent être copiées en brouillon avant modification.
 
-Préparation : conserver le circuit nominal, puis en publier une copie REC-CDF-SUPPORT avec deux règles cumulatives : REC-CDF au niveau 1 en mode responsable CDF ; REC-FINANCE au niveau 2 en mode responsables du support. Rôle et utilisateur nommé restent vides. Utiliser des responsables distincts entre niveaux pour vérifier la séquence. « Support » correspond au champ Financement de la ligne de DA. Créer REC-FONDS-2 et ses allocations sur A et B dans une nouvelle version budgétaire avant le test multiligne. Utiliser une DA neuve par variante, relever le disponible et annuler ou terminer les demandes de test après chaque essai.
+Préparation : conserver le circuit nominal, puis en publier une copie REC-CDF-SUPPORT avec deux règles cumulatives : REC-CDF au niveau 1 en mode responsable CDF ; REC-FINANCE au niveau 2 en mode responsables du support. Rôle et utilisateur nommé restent vides. Utiliser des responsables distincts entre niveaux pour vérifier la séquence. Attribuer REC-SUPPORT et REC-SUPPORT-2 au demandeur, puis choisir REC-SUPPORT sur la DA. Créer REC-FONDS-2 et ses allocations sur A et B dans une nouvelle version budgétaire avant le test multiligne. Utiliser une DA neuve par variante, relever le disponible et annuler ou terminer les demandes de test après chaque essai.
 
 | ID | Actions | Attendu |
 |---|---|---|
-| RSP-01 | Administrateur : attribuer rec.cdf à A, rec.cdf2 à B et rec.finance à REC-FONDS ; enregistrer chaque fiche ; rouvrir | Affectations persistantes et indépendantes entre CDF et supports |
+| RSP-01 | Administrateur : attribuer rec.cdf à A, rec.cdf2 à B et rec.finance à REC-SUPPORT ; enregistrer chaque fiche ; rouvrir | Affectations persistantes et indépendantes entre CDF, supports et financements |
 | RSP-02 | Compte sans budgeting.manage_cost_center_managers : ouvrir puis envoyer directement un formulaire vers /configuration/responsables/ | GET et POST refusés ; aucune affectation modifiée |
 | RSP-03 | Affecter deux utilisateurs actifs au même CDF puis au même support ; enregistrer ; désactiver un compte temporaire et tenter de le sélectionner | Sélection multiple acceptée ; compte inactif absent des choix et refusé à l’enregistrement |
 | RSP-04 | Copier le circuit nominal ; configurer CDF niveau 1 et support niveau 2, sans rôle ni utilisateur nommé ; publier | Nouvelle version active, précédente conservée ; aucun changement des étapes déjà soumises sous l’ancienne version |
 | RSP-05 | Retirer les rôles valideurs et habilitations de fonction aux responsables de test en conservant les droits de connexion ; soumettre une DA A / REC-FONDS | Responsable de A éligible au niveau 1 ; responsable du support non autorisé à décider au niveau 2 avant la validation CDF |
-| RSP-06 | Approuver le niveau CDF ; actualiser Mes validations et notifications du responsable de REC-FONDS ; approuver le support | Tâche support accessible au bon niveau ; DA commandée après toutes les validations ; réservation convertie une seule fois en engagement |
-| RSP-07 | Soumettre deux lignes A / REC-FONDS et B / REC-FONDS-2, avec responsables distincts pour chaque CDF et support | Chaque ligne est affectée à ses propres responsables ; un responsable étranger au CDF/support de la ligne ne peut pas décider |
+| RSP-06 | Approuver le niveau CDF ; actualiser Mes validations et notifications du responsable de REC-SUPPORT ; approuver le support | Tâche support accessible au bon niveau ; DA commandée après toutes les validations ; réservation convertie une seule fois en engagement |
+| RSP-07 | Soumettre deux lignes A / REC-FONDS et B / REC-FONDS-2 sous REC-SUPPORT ; attribuer un autre responsable à REC-SUPPORT-2 | Chaque ligne utilise son responsable CDF et les responsables de REC-SUPPORT ; le responsable de REC-SUPPORT-2 ne peut pas décider |
 | RSP-08 | Configurer deux responsables distincts sur A ; soumettre ; faire approuver l’étape par le premier puis tenter avec le second | Une seule approbation suffit pour cette étape ; seconde décision refusée sans double engagement |
 | RSP-09 | Vider les responsables de A puis soumettre ; rétablir A, vider ceux du support, soumettre une autre DA et approuver le CDF | Au niveau accessible sans responsable : étape à affecter, signalement au suivi/administrateurs, budget réservé ; aucun BC prématuré |
 | RSP-10 | Sur une étape à affecter, ajouter un responsable actif ; actualiser Mes validations | Étape en attente, nouveau responsable candidat et averti, décision possible sans nouvelle soumission ni nouvelle réservation |

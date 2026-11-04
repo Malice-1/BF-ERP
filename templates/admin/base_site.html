@@ -1,0 +1,8 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% block dark-mode-vars %}
+<link rel="stylesheet" href="{% static 'admin/css/dark_mode.css' %}">
+<script src="{% static 'purchasing/theme.js' %}"></script>
+{% endblock %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'purchasing/admin-theme.css' %}">{% endblock %}
+{% block branding %}<div id="site-name"><a href="{% url 'admin:index' %}">BF ERP · Administration</a></div>{% endblock %}

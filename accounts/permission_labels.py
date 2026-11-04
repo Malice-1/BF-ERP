@@ -12,7 +12,7 @@ MODEL_LABELS = {
     "user": "utilisateur", "role": "rôle ERP", "validationfunction": "fonction de validation",
     "authorization": "habilitation", "authorizationversion": "version d’habilitation",
     "sessionpolicy": "politique de déconnexion", "costcenter": "CDF",
-    "funding": "financement", "budgetproduct": "produit budgétaire (BI)",
+    "funding": "financement", "support": "support", "budgetproduct": "produit budgétaire (BI)",
     "detailedproduct": "produit détaillé", "budget": "budget historique",
     "budgetline": "ligne de budget historique", "costcentermanagerassignment": "affectation de responsable CDF",
     "annualenvelope": "enveloppe budgétaire annuelle", "envelopeversion": "version budgétaire",

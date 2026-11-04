@@ -1,0 +1,10 @@
+{% extends 'purchasing/base.html' %}
+{% block content %}
+<h1>Règles de validation</h1>
+<p>Si les informations d’une ligne satisfont les conditions, demander une validation. Toutes les règles correspondantes se cumulent.</p>
+<p><strong>Opération : demande d’achat.</strong> Les transferts seront proposés lors de leur mise en service.</p>
+{% if perms.purchasing.add_workflowversion %}<section><h2>Créer une version brouillon</h2><form method="post">{% csrf_token %}{{ form.as_p }}<button>Créer une version de règles</button></form></section>{% endif %}
+<div class="table-wrap"><table><thead><tr><th>Version</th><th>État</th><th>Éditeur</th></tr></thead><tbody>
+{% for version in versions %}<tr><td><a href="{% url 'purchasing:rule_set' version.pk %}">{{ version.label }}</a></td><td>{% if version.active %}Active{% elif version.published_at %}Publiée · remplacée{% else %}Brouillon{% endif %}</td><td>{% if version.rule_based %}Règles « Si… alors… »{% else %}Circuit historique{% endif %}</td></tr>{% empty %}<tr><td colspan="3">Aucune version. Créez une version puis ajoutez vos règles.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

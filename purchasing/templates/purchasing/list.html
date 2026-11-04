@@ -1,5 +1,7 @@
 {% extends 'purchasing/base.html' %}
-{% block content %}<h1>{% if all_requests %}Toutes les demandes d’achat{% else %}Mes demandes d’achat{% endif %}</h1>{% if perms.purchasing.add_purchaserequest %}<a href="{% url 'purchasing:create' %}">Créer une demande</a>{% endif %}
+{% block content %}
+{% if not all_requests %}<h1>Achats</h1><p>Préparez vos achats et suivez leur validation.</p>{% include 'purchasing/purchase_actions.html' %}{% endif %}
+<div class="page-heading"><div>{% if all_requests %}<h1>Toutes les demandes d’achat</h1>{% else %}<h2 id="personal-requests-title">Mes demandes d’achat</h2>{% endif %}</div>{% if perms.purchasing.add_purchaserequest %}<a class="button" href="{% url 'purchasing:create' %}">＋ Créer une demande</a>{% endif %}</div>
 <div class="table-wrap"><table><thead><tr><th>Demande</th>{% if all_requests %}<th>Demandeur</th>{% endif %}<th>Fournisseur</th><th>Statut</th><th>Création</th></tr></thead><tbody>
-{% for purchase in requests %}<tr><td><a href="{% url 'purchasing:detail' purchase.pk %}">{{ purchase.number }}</a></td>{% if all_requests %}<td>{{ purchase.created_by }}</td>{% endif %}<td>{{ purchase.supplier }}</td><td>{{ purchase.get_status_display }}</td><td>{{ purchase.created_at }}</td></tr>{% empty %}<tr><td colspan="{% if all_requests %}5{% else %}4{% endif %}">Aucune demande.</td></tr>{% endfor %}
+{% for purchase in requests %}<tr><td><a href="{% url 'purchasing:detail' purchase.pk %}">{{ purchase.number }}</a></td>{% if all_requests %}<td>{{ purchase.created_by }}</td>{% endif %}<td>{{ purchase.supplier }}</td><td><span class="status-badge status-{{ purchase.status }}">{{ purchase.get_status_display }}</span></td><td>{{ purchase.created_at }}</td></tr>{% empty %}<tr><td colspan="{% if all_requests %}5{% else %}4{% endif %}">Aucune demande.</td></tr>{% endfor %}
 </tbody></table></div>{% endblock %}

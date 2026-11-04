@@ -2,6 +2,8 @@ from accounts.admin_deletion import SystemModelAdmin
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.urls import reverse
+from django.utils.html import format_html
 from .models import (AnnualEnvelope, EnvelopeVersion, Allocation, WorkflowVersion,
     ApprovalRule, Submission, LineSnapshot, BudgetEntry, ApprovalStep, PurchaseOrder,
     Delegation, PurchaseNotice)
@@ -120,6 +122,18 @@ class WorkflowAdmin(PublishedAdmin):
     inlines = [RuleInline]
     actions = ["activate", "clone"]
 
+    def get_inlines(self, request, obj=None):
+        return [] if obj and obj.rule_based else super().get_inlines(request, obj)
+
+    def get_readonly_fields(self, request, obj=None):
+        return (*super().get_readonly_fields(request, obj), "operation", "rule_based", "rule_editor_link")
+
+    @admin.display(description="Éditeur de règles")
+    def rule_editor_link(self, obj):
+        if not obj or not obj.pk:
+            return "Créez les nouvelles versions depuis Configuration → Règles de validation."
+        return format_html('<a href="{}">Ouvrir les règles et la simulation</a>', reverse("purchasing:rule_set", args=[obj.pk]))
+
     @admin.action(description="Valider et activer la configuration sélectionnée", permissions=["change"])
     def activate(self, request, queryset):
         if queryset.count() != 1:
@@ -135,7 +149,8 @@ class WorkflowAdmin(PublishedAdmin):
     @transaction.atomic
     def clone(self, request, queryset):
         for source in queryset:
-            target = WorkflowVersion.objects.create(label=source.label + " (copie)")
+            target = WorkflowVersion.objects.create(label=source.label[:90] + " (copie)",
+                operation=source.operation, rule_based=source.rule_based)
             for rule in source.rules.all():
                 rule.pk = None
                 rule.version = target

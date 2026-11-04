@@ -1,0 +1,13 @@
+<div class="configuration-sections module-menu">
+<section class="configuration-section" aria-labelledby="purchase-actions-title">
+<h2 id="purchase-actions-title">Gérer les achats</h2>
+<ul class="configuration-links">
+{% if perms.purchasing.add_purchaserequest %}<li><a href="{% url 'purchasing:create' %}">Créer une demande</a><small>Préparer un nouvel achat et ses lignes budgétaires.</small></li>{% endif %}
+{% if perms.purchasing.view_all_purchase_requests %}<li><a href="{% url 'purchasing:all_requests' %}">Toutes les demandes</a><small>Consulter les demandes de l’ensemble des utilisateurs.</small></li>{% endif %}
+{% if perms.purchasing.add_detailedproduct %}<li><a href="{% url 'purchasing:detailed_products' %}">Produits détaillés</a><small>Gérer les produits et leur rattachement aux produits budgétaires.</small></li>{% endif %}
+{% if perms.purchasing.monitor_purchases %}<li><a href="{% url 'purchasing:monitor' %}">Suivi administrateur</a><small>Suivre les étapes de validation et les demandes à traiter.</small></li>{% endif %}
+<li><a href="{% url 'my_validations' %}">Mes validations</a><small>Retrouver les demandes qui attendent votre décision.</small></li>
+<li><a href="{% url 'my_delegations' %}">Mes délégations</a><small>Organiser vos remplacements pendant vos absences.</small></li>
+</ul>
+</section>
+</div>

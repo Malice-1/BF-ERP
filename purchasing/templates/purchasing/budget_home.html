@@ -1,6 +1,25 @@
 {% extends 'purchasing/base.html' %}{% block content %}
 <h1>Budget</h1>
-<p>Choisissez une action dans le menu Budget pour créer une version, alimenter ses lignes ou créer les produits budgétaires.</p>
-{% if not can_manage %}<p>Les actions de gestion sont accessibles selon les droits attribués à votre compte.</p>{% endif %}
-<p>Le bouton « Vérifier un budget » permet de consulter le solde d’une combinaison dans une version.</p>
+<p>Préparez vos budgets et consultez les montants disponibles.</p>
+<div class="configuration-sections module-menu">
+{% if can_manage or perms.budgeting.add_budgetproduct %}
+<section class="configuration-section" aria-labelledby="budget-management-title">
+<h2 id="budget-management-title">Préparer les budgets</h2>
+<ul class="configuration-links">
+{% if can_manage %}
+<li><a href="{% url 'purchasing:budget_versions' %}">Créer une version</a><small>Préparer et publier une version pour une enveloppe annuelle.</small></li>
+<li><a href="{% url 'purchasing:allocation_versions' %}">Alimenter une version</a><small>Saisir les allocations par CDF, financement et produit budgétaire.</small></li>
+{% endif %}
+{% if perms.budgeting.add_budgetproduct %}<li><a href="{% url 'purchasing:budget_products' %}">Produits budgétaires</a><small>Créer les produits utilisés pour répartir les budgets.</small></li>{% endif %}
+</ul>
+</section>
+{% endif %}
+<section class="configuration-section" aria-labelledby="budget-balances-title">
+<h2 id="budget-balances-title">Consulter les disponibilités</h2>
+<ul class="configuration-links">
+{% if perms.budgeting.view_budget_balances %}<li><a href="{% url 'purchasing:budgets' %}">Budgets et disponibilités</a><small>Consulter les allocations, réservations, engagements et soldes.</small></li>{% endif %}
+<li><button type="button" class="module-action-button" data-budget-check-open>Vérifier un budget</button><small>Vérifier le solde d’une combinaison dans une version budgétaire.</small></li>
+</ul>
+</section>
+</div>
 {% endblock %}

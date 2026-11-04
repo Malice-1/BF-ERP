@@ -17,6 +17,8 @@ def request_number():
 
 
 class PurchaseRequest(models.Model):
+    support = models.ForeignKey("budgeting.Support", null=True, blank=True,
+        on_delete=models.PROTECT, verbose_name="Support demandeur")
 
     class Status(models.TextChoices):
         DRAFT = "DRAFT", "Brouillon"
@@ -104,7 +106,7 @@ class PurchaseRequestLine(models.Model):
     funding = models.ForeignKey(
         Funding,
         on_delete=models.PROTECT,
-        verbose_name='Support / financement',
+        verbose_name='Financement',
     )
 
     description = models.CharField(

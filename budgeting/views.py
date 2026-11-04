@@ -42,12 +42,12 @@ def entity_managers(request):
     from django.db import transaction
     from django.contrib import messages
     from .forms import EntityManagersForm
-    from .models import CostCenter, Funding
+    from .models import CostCenter, Support
     from workflow.models import ConfigurationAuditEvent
 
     form = EntityManagersForm(request.POST if request.method == "POST" else None)
     if request.method == "POST" and form.is_valid():
-        model = CostCenter if form.cleaned_data["kind"] == "cdf" else Funding
+        model = CostCenter if form.cleaned_data["kind"] == "cdf" else Support
         with transaction.atomic():
             entity = get_object_or_404(model.objects.select_for_update(), pk=form.cleaned_data["entity_id"])
             before = list(entity.managers.values_list("pk", flat=True))
@@ -58,7 +58,7 @@ def entity_managers(request):
         messages.success(request, "Responsables enregistrés.")
         return redirect("entity_managers")
     rows = []
-    for kind, model in [("cdf", CostCenter), ("support", Funding)]:
+    for kind, model in [("cdf", CostCenter), ("support", Support)]:
         for entity in model.objects.prefetch_related("managers"):
             rows.append({"entity": entity, "kind": kind, "form": EntityManagersForm(initial={
                 "kind": kind, "entity_id": entity.pk, "managers": list(entity.managers.all())})})

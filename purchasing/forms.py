@@ -20,9 +20,14 @@ class BudgetCheckForm(forms.Form):
 
 
 class PurchaseRequestForm(forms.ModelForm):
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["support"].queryset = user.supports.all() if user else self.fields["support"].queryset.none()
+        self.fields["support"].help_text = "Choisissez votre support d’appartenance. Obligatoire pour une validation par responsable du support."
+
     class Meta:
         model = PurchaseRequest
-        fields = ["supplier"]
+        fields = ["supplier", "support"]
         labels = {"supplier": "Fournisseur"}
 
 

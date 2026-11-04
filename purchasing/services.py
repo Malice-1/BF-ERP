@@ -28,10 +28,12 @@ def _audit(request, actor, action, payload=None):
 
 
 @transaction.atomic
-def create_purchase_request(*, actor, supplier):
+def create_purchase_request(*, actor, supplier, support=None):
     if not actor.is_authenticated or not actor.is_active:
         raise PermissionDenied("Un demandeur actif est requis.")
-    request = PurchaseRequest.objects.create(created_by=actor, supplier=supplier)
+    if support is not None and not actor.supports.filter(pk=support.pk).exists():
+        raise ValidationError("Le support doit faire partie de vos supports d’appartenance.")
+    request = PurchaseRequest.objects.create(created_by=actor, supplier=supplier, support=support)
     _audit(request, actor, "request.created")
     return request
 
@@ -73,13 +75,22 @@ def approve_purchase_request(purchase_request):
 
 
 @transaction.atomic
-def update_purchase_request(*, request_id, actor, expected_revision, supplier):
+def update_purchase_request(*, request_id, actor, expected_revision, supplier, **values):
     request = _locked(request_id, actor, expected_revision)
     _editable(request)
     before = request.supplier_id
+    support_before = request.support_id
+    if set(values) - {"support"}:
+        raise ValidationError("Champ de demande non autorisé.")
+    if "support" in values:
+        support = values["support"]
+        if support is not None and not actor.supports.filter(pk=support.pk).exists():
+            raise ValidationError("Le support doit faire partie de vos supports d’appartenance.")
+        request.support = support
     request.supplier = supplier
-    request.save(update_fields=["supplier"])
-    _audit(request, actor, "request.updated", {"supplier_before": before, "supplier_after": supplier.pk})
+    request.save(update_fields=["supplier", "support"])
+    _audit(request, actor, "request.updated", {"supplier_before": before, "supplier_after": supplier.pk,
+        "support_before": support_before, "support_after": request.support_id})
     return request
 
 

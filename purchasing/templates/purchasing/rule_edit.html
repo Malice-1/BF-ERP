@@ -1,0 +1,26 @@
+{% extends 'purchasing/base.html' %}{% load static %}
+{% block extra_styles %}<link rel="stylesheet" href="{% static 'purchasing/rules.css' %}">{% endblock %}
+{% block content %}
+<p><a href="{% url 'purchasing:rule_set' version.pk %}">← {{ version.label }}</a></p>
+<h1>{% if form.instance.pk %}Modifier{% else %}Créer{% endif %} une règle de validation</h1>
+{% if form.instance.function_id %}<p>Cette règle comporte une ancienne fonction de validation. Choisissez un rôle, un utilisateur ou des responsables pour la remplacer.</p>{% endif %}
+<form method="post" id="rule-editor">{% csrf_token %}{{ form.non_field_errors }}
+<p>{{ form.label.label_tag }}{{ form.label }}{{ form.label.errors }}</p>
+<h2>Si…</h2>
+<p>{{ form.junction.label_tag }}{{ form.junction }}</p>
+<p>{{ form.unconditional }} <label for="{{ form.unconditional.id_for_label }}" class="inline-label">{{ form.unconditional.label }}</label>{{ form.unconditional.errors }}</p>
+{{ conditions.management_form }}{{ conditions.non_form_errors }}
+<div id="condition-rows">{% for condition in conditions %}{% include 'purchasing/rule_condition.html' %}{% endfor %}</div>
+<button type="button" class="button-secondary" id="add-condition">＋ Ajouter une condition</button>
+<h2>Alors…</h2>
+<p>{{ form.target.label_tag }}{{ form.target }}</p>
+<p data-target="role">{{ form.role.label_tag }}{{ form.role }}{{ form.role.errors }}</p>
+<p data-target="user">{{ form.named_user.label_tag }}{{ form.named_user }}{{ form.named_user.errors }}</p>
+<p>{{ form.level.label_tag }}{{ form.level }}{{ form.level.errors }}<small>{{ form.level.help_text }}</small></p>
+<p id="rule-sentence" role="status" aria-live="polite"></p>
+<button>Enregistrer la règle</button>
+</form>
+<template id="empty-condition">{% include 'purchasing/rule_condition.html' with condition=conditions.empty_form %}</template>
+{{ catalog|json_script:'condition-catalog' }}
+<script src="{% static 'purchasing/rules.js' %}" defer></script>
+{% endblock %}

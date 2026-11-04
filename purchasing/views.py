@@ -51,7 +51,7 @@ def all_requests(request):
 def request_create(request):
     if not request.user.has_perm("purchasing.add_purchaserequest"):
         raise PermissionDenied
-    form = PurchaseRequestForm(request.POST if request.method == "POST" else None)
+    form = PurchaseRequestForm(request.POST if request.method == "POST" else None, user=request.user)
     if request.method == "POST" and form.is_valid():
         result = services.create_purchase_request(actor=request.user, **form.cleaned_data)
         return redirect("purchasing:detail", pk=result.pk)
@@ -92,8 +92,8 @@ def request_detail(request, pk):
 def request_edit(request, pk):
     purchase = _owned(request, pk)
     form = EditPurchaseRequestForm(request.POST if request.method == "POST" else None,
-        instance=purchase, initial={"expected_revision": purchase.revision})
-    return _command_form(request, purchase, form, services.update_purchase_request, "Modifier le fournisseur")
+        instance=purchase, initial={"expected_revision": purchase.revision}, user=request.user)
+    return _command_form(request, purchase, form, services.update_purchase_request, "Modifier le fournisseur et le support")
 
 
 @login_required

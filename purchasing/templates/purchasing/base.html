@@ -1,11 +1,13 @@
+{% load static %}
 <!doctype html>
 <html lang="fr">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>BF ERP</title>
-<style>
-.app-header{position:sticky;top:0;z-index:20;box-shadow:0 2px 8px #172b4226}.app-header>strong{white-space:nowrap}.header-tools{margin-left:auto;display:flex;align-items:center;gap:1rem;min-width:0}.personal-tools{display:flex;align-items:center;gap:.6rem;flex-wrap:nowrap}.icon-link{position:relative;display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:50%;text-decoration:none;background:#ffffff10}.icon-link:hover,.icon-link[aria-current]{background:#ffffff2b}.icon-link:focus-visible{outline:3px solid #93c5fd;outline-offset:3px}.notification-badge{position:absolute;top:-4px;right:-6px;min-width:19px;height:19px;padding:0 4px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;border:2px solid #172b42;border-radius:12px;background:#dc3545;color:white;font-size:.7rem;font-weight:700}.app-header .header-tools form{margin:0}.header-username{max-width:180px;overflow:hidden;text-overflow:ellipsis}@media(max-width:500px){.header-tools{gap:.6rem}.header-username{display:none}.app-header button{padding:.6rem}.personal-tools{gap:.35rem}}
-body{font-family:system-ui,sans-serif;margin:0;color:#172b42;background:#f4f6f8}header{background:#172b42;color:white;padding:1rem 2rem;display:flex;gap:2rem;align-items:center}header a{color:white}main{max-width:1100px;margin:2rem auto;padding:1.5rem;background:white;border-radius:.5rem}a{color:#125b95}table{border-collapse:collapse;width:100%;margin:1rem 0}th,td{text-align:left;padding:.7rem;border-bottom:1px solid #ddd}button{padding:.65rem 1rem;background:#125b95;color:white;border:0;border-radius:.25rem;cursor:pointer}input,select{padding:.5rem;max-width:100%;box-sizing:border-box}label{display:block;margin-bottom:.3rem}.errorlist{color:#a21b24}nav{display:flex;gap:1rem;flex-wrap:wrap}.table-wrap{overflow:auto}small{color:#4c5968}header form{margin-left:auto}@media(max-width:700px){main{margin:1rem}header{padding:1rem;gap:1rem}}
-.tabs{border-bottom:2px solid #dce3ea;padding-bottom:.6rem;margin-bottom:1rem}.tabs a{padding:.65rem 1rem;text-decoration:none;border-radius:.3rem}.tabs a[aria-current]{background:#125b95;color:white;font-weight:600}.subnav{margin-bottom:1.5rem}.subnav:empty{display:none}dialog::backdrop{background:rgba(0,0,0,.3)}</style></head>
-<body><header class="app-header"><strong>BF ERP</strong>{% if user.is_authenticated %}
+<script src="{% static 'purchasing/theme.js' %}"></script>
+<link rel="stylesheet" href="{% static 'purchasing/erp.css' %}">
+<link rel="stylesheet" href="{% static 'purchasing/configuration.css' %}">
+{% block extra_styles %}{% endblock %}
+</head>
+<body class="{% if not user.is_authenticated %}login-page{% endif %}"><a class="skip-link" href="#main-content">Aller au contenu</a><header class="app-header"><a class="app-title" href="{% if user.is_authenticated %}{% url 'my_validations' %}{% else %}{% url 'login' %}{% endif %}">BF <span>ERP</span></a><span class="header-context">Gestion & ressources</span><button type="button" class="theme-toggle" data-theme-toggle aria-label="Activer le mode sombre" aria-pressed="false"><span data-theme-icon aria-hidden="true">☾</span> <span data-theme-label>Mode sombre</span></button>{% if user.is_authenticated %}
 <div class="header-tools">
 <nav class="personal-tools" aria-label="Espace personnel">
 <a class="icon-link" id="my-validations" href="{% url 'my_validations' %}" title="Mes validations{% if pending_validation_count %} : {{ pending_validation_count }} à traiter{% endif %}" aria-label="Mes validations{% if pending_validation_count %}, {{ pending_validation_count }} à traiter{% else %}, aucune validation à traiter{% endif %}"{% if request.resolver_match.url_name == 'my_validations' or request.resolver_match.url_name == 'inbox' %} aria-current="page"{% endif %}>
@@ -17,7 +19,8 @@ body{font-family:system-ui,sans-serif;margin:0;color:#172b42;background:#f4f6f8}
 </a></nav>
 <span class="header-username">{{ user.username }}</span><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button>Déconnexion</button></form>
 </div>{% endif %}</header>
-<main>{% if user.is_authenticated %}<p><button type="button" id="budget-check-open">Vérifier un budget</button></p>{% endif %}{% include 'purchasing/navigation.html' %}{% block content %}{% endblock %}</main>{% if user.is_authenticated %}
+{% if user.is_authenticated %}<aside class="app-sidebar" aria-label="Navigation de l’application"><div class="brand-wordmark">BRUXELLES<br>FORMATION</div><div class="brand-rays" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p class="sidebar-caption">Espace de travail</p>{% include 'purchasing/navigation.html' %}<div class="sidebar-footer">BF ERP <span>Votre espace de gestion interne</span></div></aside>{% endif %}
+<div class="app-workspace"><main id="main-content" tabindex="-1">{% if user.is_authenticated %}<div class="workspace-toolbar"><span>{% if nav_section == 'budget' %}Budget{% elif nav_section == 'configuration' %}Configuration{% else %}Achats{% endif %} <span class="toolbar-divider">/</span> Mon espace de gestion</span><button type="button" class="button-secondary" id="budget-check-open">Vérifier un budget</button></div>{% endif %}{% block content %}{% endblock %}</main><footer class="app-footer">Bruxelles Formation <span>ERP · Gestion interne</span></footer></div>{% if user.is_authenticated %}
 <dialog id="budget-check-dialog" aria-labelledby="budget-check-title" style="width:min(560px,90vw);padding:1rem;border:0;border-radius:.5rem">
 <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem"><h2 id="budget-check-title">Vérifier le budget restant</h2><button type="button" id="budget-check-close" aria-label="Fermer la fenêtre">Fermer</button></div>
 <iframe id="budget-check-frame" title="Consultation du budget restant" style="width:100%;height:65vh;border:0" data-src="{% url 'purchasing:budget_check' %}"></iframe>
@@ -38,10 +41,10 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) chec
 (() => {
 const dialog = document.getElementById('budget-check-dialog');
 const frame = document.getElementById('budget-check-frame');
-document.getElementById('budget-check-open').addEventListener('click', () => {
+document.querySelectorAll('#budget-check-open, [data-budget-check-open]').forEach(button => button.addEventListener('click', () => {
 if (!frame.getAttribute('src')) frame.src = frame.dataset.src;
 dialog.showModal();
-});
+}));
 document.getElementById('budget-check-close').addEventListener('click', () => dialog.close());
 })();
 </script>{% endif %}</body></html>

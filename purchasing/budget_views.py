@@ -61,7 +61,47 @@ def allocation_versions(request):
 def configuration(request):
     if not can_access_configuration(request.user):
         raise PermissionDenied
-    return render(request, "purchasing/configuration.html")
+    from django.urls import reverse
+
+    def admin_link(model, label, description):
+        app, name = model.split(".")
+        if request.user.is_staff and any(request.user.has_perm(f"{app}.{action}_{name}")
+                                         for action in ("view", "add", "change")):
+            return {"url": reverse(f"admin:{app}_{name}_changelist"), "label": label, "description": description}
+
+    workflow = [
+        {"url": reverse("purchasing:rule_sets"), "label": "Règles de validation", "description": "Écrire les règles Si… alors…, simuler les validations et publier une version."}
+        if any(request.user.has_perm(f"purchasing.{action}_workflowversion") for action in ("view", "add", "change")) else None,
+        admin_link("accounts.role", "Rôles ERP et permissions", "Définir les rôles utilisables pour les validations et les droits hérités."),
+    ]
+    if request.user.has_perm("budgeting.manage_cost_center_managers"):
+        workflow.append({"url": reverse("entity_managers"), "label": "Responsables des CDF et des supports",
+                         "description": "Choisir les utilisateurs qui valident en tant que responsables."})
+    workflow += [
+        admin_link("budgeting.costcenter", "CDF et responsables", "Gérer les CDF utilisés par les règles et leurs responsables."),
+        admin_link("budgeting.support", "Supports et responsables", "Gérer les supports choisis sur les demandes et leurs responsables."),
+    ]
+    access = [admin_link("accounts.user", "Comptes utilisateurs et droits individuels",
+                         "Gérer les comptes, attribuer leurs rôles et leurs supports d’appartenance.")]
+    technical = []
+    if request.user.is_staff:
+        technical.append({"url": reverse("admin:index"), "label": "Administration et référentiels techniques",
+                          "description": "Retrouver notamment les fournisseurs, financements et produits."})
+    if request.user.is_superuser:
+        access.append({"url": reverse("session_settings"), "label": "Déconnexion automatique",
+                       "description": "Définir la durée d’inactivité autorisée."})
+        technical.append({"url": reverse("admin:workflow_activitylog_changelist"), "label": "Journal des actions par utilisateur",
+                          "description": "Consulter la traçabilité des actions et des modifications."})
+    groups = [
+        {"id": "workflow-settings", "title": "Workflows et validations", "links": [link for link in workflow if link]},
+        {"id": "access-settings", "title": "Utilisateurs et accès", "links": [link for link in access if link]},
+        {"id": "technical-settings", "title": "Référentiels et suivi technique", "links": technical},
+    ]
+    if request.user.has_perm("accounts.manage_authorizations"):
+        groups.append({"id": "legacy-settings", "title": "Compatibilité des anciens circuits", "links": [
+            {"url": reverse("authorizations"), "label": "Habilitations historiques",
+             "description": "Réservées aux anciennes validations par fonction. Inutiles pour les nouvelles règles."}]})
+    return render(request, "purchasing/configuration.html", {"configuration_groups": groups})
 
 
 class BudgetProductForm(forms.ModelForm):

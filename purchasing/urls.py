@@ -2,9 +2,16 @@ from django.urls import path
 from . import views
 from . import flow_views
 from . import budget_views
+from . import rule_views
 
 app_name = "purchasing"
 urlpatterns = [
+    path("regles-validation/", rule_views.rule_sets, name="rule_sets"),
+    path("regles-validation/<int:pk>/", rule_views.rule_set, name="rule_set"),
+    path("regles-validation/<int:pk>/ajouter/", rule_views.rule_edit, name="rule_add"),
+    path("regles-validation/<int:pk>/<int:rule_id>/modifier/", rule_views.rule_edit, name="rule_edit"),
+    path("regles-validation/<int:pk>/<int:rule_id>/supprimer/", rule_views.rule_delete, name="rule_delete"),
+    path("<int:pk>/simuler-validations/", rule_views.simulate, name="rule_simulate"),
     path("toutes-les-demandes/", views.all_requests, name="all_requests"),
     path("produits-detailles/", budget_views.detailed_products, name="detailed_products"),
     path("espace-budget/", budget_views.budget_home, name="budget_home"),

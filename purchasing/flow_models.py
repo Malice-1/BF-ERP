@@ -83,7 +83,7 @@ class EnvelopeVersion(PublishedVersion):
 class Allocation(VersionChild):
     version = models.ForeignKey(EnvelopeVersion, on_delete=models.PROTECT, related_name="allocations", verbose_name='Version')
     cost_center = models.ForeignKey("budgeting.CostCenter", on_delete=models.PROTECT, verbose_name='CDF')
-    funding = models.ForeignKey("budgeting.Funding", on_delete=models.PROTECT, verbose_name='Support / financement')
+    funding = models.ForeignKey("budgeting.Funding", on_delete=models.PROTECT, verbose_name='Financement')
     budget_product = models.ForeignKey("budgeting.BudgetProduct", on_delete=models.PROTECT, verbose_name='Produit budgétaire (BI)')
     amount = models.DecimalField(max_digits=28, decimal_places=10, verbose_name='Montant TVAC')
 
@@ -95,6 +95,8 @@ class Allocation(VersionChild):
 
 
 class WorkflowVersion(PublishedVersion):
+    operation = models.CharField(max_length=40, default="purchase", verbose_name="Type d’opération")
+    rule_based = models.BooleanField(default=False, verbose_name="Éditeur de règles conditionnelles")
     label = models.CharField(max_length=100, verbose_name='Libellé')
     active = models.BooleanField(default=False, editable=False, verbose_name='Active')
     published_at = models.DateTimeField(null=True, blank=True, editable=False, verbose_name='Date de publication')
@@ -102,7 +104,7 @@ class WorkflowVersion(PublishedVersion):
     class Meta:
         verbose_name = "Configuration des validations"
         verbose_name_plural = "Configurations des validations"
-        constraints = [models.UniqueConstraint(fields=["active"], condition=Q(active=True), name="procurement_one_workflow")]
+        constraints = [models.UniqueConstraint(fields=["operation"], condition=Q(active=True), name="procurement_one_workflow")]
         permissions = [("monitor_purchases", "Consulter le suivi opérationnel des achats"), ("reassign_approvals", "Réaffecter les étapes d'achat"), ("view_purchase_financial", "Consulter les données financières des achats")]
 
     def __str__(self):
@@ -110,6 +112,7 @@ class WorkflowVersion(PublishedVersion):
 
 
 class ApprovalRule(VersionChild):
+    conditions = models.JSONField(default=dict, blank=True, verbose_name="Conditions")
     named_user_reference = models.CharField(max_length=220, blank=True, editable=False,
                                            verbose_name="Valideur nommé mémorisé")
 
@@ -126,14 +129,14 @@ class ApprovalRule(VersionChild):
         verbose_name="Rôle valideur")
     version = models.ForeignKey(WorkflowVersion, on_delete=models.PROTECT, related_name="rules", verbose_name='Version')
     label = models.CharField(max_length=100, verbose_name='Libellé')
-    function = models.ForeignKey("accounts.ValidationFunction", on_delete=models.PROTECT, verbose_name='Fonction de validation')
+    function = models.ForeignKey("accounts.ValidationFunction", null=True, blank=True, on_delete=models.PROTECT, verbose_name='Fonction de validation')
     level = models.PositiveIntegerField(default=1, verbose_name='Niveau')
     mode = models.CharField(max_length=12, choices=[("cumulative", "Cumulative"), ("exclusive", "Exclusive")], default="cumulative", verbose_name='Mode de règle')
     priority = models.IntegerField(default=0, verbose_name='Priorité')
     minimum_htva = models.DecimalField(max_digits=24, decimal_places=4, default=0, verbose_name='Total DA HTVA minimum inclus')
     maximum_htva = models.DecimalField(max_digits=24, decimal_places=4, null=True, blank=True, verbose_name='Total DA HTVA maximum exclu')
     cost_center = models.ForeignKey("budgeting.CostCenter", null=True, blank=True, on_delete=models.PROTECT, verbose_name='CDF')
-    funding = models.ForeignKey("budgeting.Funding", null=True, blank=True, on_delete=models.PROTECT, verbose_name='Support / financement')
+    funding = models.ForeignKey("budgeting.Funding", null=True, blank=True, on_delete=models.PROTECT, verbose_name='Financement')
     budget_product = models.ForeignKey("budgeting.BudgetProduct", null=True, blank=True, on_delete=models.PROTECT, verbose_name='Produit budgétaire (BI)')
     named_user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, verbose_name='Valideur nommé')
     cdf_manager = models.BooleanField(default=False, verbose_name='Affecter aux responsables CDF')
@@ -163,13 +166,15 @@ class Submission(models.Model):
 
 
 class LineSnapshot(models.Model):
+    support = models.ForeignKey("budgeting.Support", null=True, blank=True,
+        on_delete=models.PROTECT, verbose_name="Support demandeur")
     submission = models.ForeignKey(Submission, on_delete=models.PROTECT, related_name="lines", verbose_name='Cycle de soumission')
     line = models.ForeignKey("PurchaseRequestLine", on_delete=models.SET_NULL, null=True, verbose_name='Ligne de demande')
     original_line_id = models.PositiveBigIntegerField(verbose_name='Identifiant de la ligne d’origine')
     data = models.JSONField(verbose_name='Données figées')
     amount = models.DecimalField(max_digits=28, decimal_places=10, verbose_name='Montant TVAC')
     cost_center = models.ForeignKey("budgeting.CostCenter", on_delete=models.PROTECT, verbose_name='CDF')
-    funding = models.ForeignKey("budgeting.Funding", on_delete=models.PROTECT, verbose_name='Support / financement')
+    funding = models.ForeignKey("budgeting.Funding", on_delete=models.PROTECT, verbose_name='Financement')
     budget_product = models.ForeignKey("budgeting.BudgetProduct", on_delete=models.PROTECT, verbose_name='Produit budgétaire (BI)')
 
     class Meta:
@@ -193,10 +198,11 @@ class BudgetEntry(models.Model):
 
 
 class ApprovalStep(models.Model):
+    rule_snapshot = models.JSONField(default=dict, blank=True, verbose_name="Règle et conditions appliquées")
     manager_source = models.CharField(max_length=10, blank=True, choices=[("cdf", "CDF"), ("support", "Support")], verbose_name='Origine des responsables')
     role = models.ForeignKey("accounts.Role", null=True, blank=True, on_delete=models.PROTECT, verbose_name='Rôle')
     snapshot = models.ForeignKey(LineSnapshot, on_delete=models.PROTECT, related_name="steps", verbose_name='Instantané de ligne')
-    function = models.ForeignKey("accounts.ValidationFunction", on_delete=models.PROTECT, verbose_name='Fonction de validation')
+    function = models.ForeignKey("accounts.ValidationFunction", null=True, blank=True, on_delete=models.PROTECT, verbose_name='Fonction de validation')
     function_label = models.CharField(max_length=100, verbose_name='Libellé de la fonction')
     level = models.PositiveIntegerField(verbose_name='Niveau')
     candidates = models.ManyToManyField(settings.AUTH_USER_MODEL, blank=True, related_name="purchase_steps", verbose_name='Valideurs affectés')

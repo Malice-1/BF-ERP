@@ -4,14 +4,9 @@ from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import Group
 
 from .models import User, Role
-from .models import ValidationFunction, Authorization, AuthorizationVersion
+from .models import Authorization, AuthorizationVersion
 from .models import SessionPolicy
 from .permission_labels import permission_label
-
-
-@admin.register(ValidationFunction)
-class ValidationFunctionAdmin(SystemModelAdmin):
-    list_display = ("code", "label", "position")
 
 
 class ReadOnlyAdmin(SystemModelAdmin):
@@ -48,9 +43,10 @@ class CustomUserAdmin(SystemDeletionMixin, UserAdmin):
     def has_delete_permission(self, request, obj=None):
         return request.user.is_active and request.user.is_superuser
 
-    filter_horizontal = ("user_permissions", "roles")
+    filter_horizontal = ("user_permissions", "roles", "supports")
     add_fieldsets = UserAdmin.add_fieldsets + (
         ("Rôles ERP et droits hérités", {"fields": ("roles",)}),
+        ("Appartenance aux supports", {"fields": ("supports",)}),
     )
 
     def formfield_for_manytomany(self, db_field, request, **kwargs):
@@ -66,6 +62,7 @@ class CustomUserAdmin(SystemDeletionMixin, UserAdmin):
         (title, {**options, "fields": tuple(field for field in options["fields"] if field != "groups")})
         for title, options in UserAdmin.fieldsets
     ) + (
+        ("Appartenance aux supports", {"fields": ("supports",)}),
         (
             "Rôles ERP et droits hérités",
             {

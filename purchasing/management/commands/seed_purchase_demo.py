@@ -63,7 +63,7 @@ class Command(BaseCommand):
             version = EnvelopeVersion.objects.create(envelope=envelope, label="Budget de recette — 10 000 EUR TVAC")
             Allocation.objects.create(version=version, cost_center=cdf, funding=funding, budget_product=product, amount=Decimal("10000"))
             activate_envelope(actor=admin, version_id=version.pk)
-        if not WorkflowVersion.objects.filter(active=True).exists():
+        if not WorkflowVersion.objects.filter(active=True, operation="purchase").exists():
             workflow = WorkflowVersion.objects.create(label="Recette — CDF puis Finance")
             ApprovalRule.objects.create(version=workflow, label="Responsable CDF", function=first, level=1, cdf_manager=True)
             ApprovalRule.objects.create(version=workflow, label="Finance", function=second, level=2)

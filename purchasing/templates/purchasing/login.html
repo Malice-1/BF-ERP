@@ -1,11 +1,12 @@
 {% extends 'purchasing/base.html' %}
 {% block content %}
 <h1>Connexion</h1>
+<p class="login-intro">Bienvenue dans votre espace de gestion Bruxelles Formation.</p>
 {% if request.GET.expiration %}<p>Votre session a expiré après une période d’inactivité. Veuillez vous reconnecter.</p>{% endif %}
 <form method="post">
 {% csrf_token %}
 {% if form.non_field_errors %}
-<div role="alert" style="width:100%;box-sizing:border-box;padding:1rem 1.25rem;margin:1rem 0;background:#b91c1c;color:#fff;border-radius:.35rem;font-weight:600;line-height:1.4;overflow-wrap:anywhere;font-size:{{ login_error_size }}%">
+<div role="alert" class="login-error" style="font-size:{{ login_error_size }}%">
 {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
 </div>
 {% endif %}

@@ -30,11 +30,30 @@ def _step_grant(user, step):
     if not user.is_active:
         return None
     if step.manager_source:
-        entity = step.snapshot.cost_center if step.manager_source == "cdf" else step.snapshot.funding
-        return user if entity.managers.filter(pk=user.pk).exists() else None
+        entity = step.snapshot.cost_center if step.manager_source == "cdf" else step.snapshot.support
+        return user if entity is not None and entity.managers.filter(pk=user.pk).exists() else None
     if step.role_id:
         return step.role if user.roles.filter(pk=step.role_id).exists() else None
-    return eligible_authorization(user=user, function=step.function, context=context(step.snapshot))
+    if step.rule_snapshot.get("rule_based") and step.rule_snapshot.get("named_user_id"):
+        return user if user.pk == step.rule_snapshot["named_user_id"] else None
+    return eligible_authorization(user=user, function=step.function, context=context(step.snapshot)) if step.function_id else None
+
+
+def initial_candidates(rule, snapshot, *, rule_based=False):
+    """Shared by submission and read-only simulation, including legacy grants."""
+    if rule.cdf_manager or rule.support_manager:
+        entity = snapshot.cost_center if rule.cdf_manager else snapshot.support
+        users = entity.managers.filter(is_active=True) if entity else []
+    elif rule.role_id:
+        users = get_user_model().objects.filter(is_active=True, roles=rule.role)
+    elif rule.named_user_id or rule.named_user_reference:
+        users = [rule.named_user] if rule.named_user_id else []
+    else:
+        users = get_user_model().objects.filter(is_active=True, authorizations__function=rule.function).distinct()
+    probe = ApprovalStep(snapshot=snapshot, function=rule.function, role=rule.role,
+        manager_source="cdf" if rule.cdf_manager else "support" if rule.support_manager else "",
+        rule_snapshot={"rule_based": rule_based, "named_user_id": rule.named_user_id})
+    return [user for user in users if _step_grant(user, probe)]
 
 
 def _record_grant(step, auth):
@@ -43,6 +62,9 @@ def _record_grant(step, auth):
     step.evaluated_scope = {**context(step.snapshot), "represented_user": represented.pk}
     if step.manager_source:
         step.evaluated_scope["manager_source"] = step.manager_source
+        if step.manager_source == "support":
+            step.evaluated_scope.update(support_id=step.snapshot.support_id,
+                                       support=step.snapshot.data.get("support"))
     if isinstance(grant, Role):
         step.evaluated_scope.update(role_id=grant.pk, role_code=grant.code, role_label=grant.label)
 
@@ -64,7 +86,7 @@ def authority(user, step):
     return None
 
 
-def pending_validation_count(user):
+def pending_validation_count(user, *, refresh=True):
     """Count actionable tasks, including replacements, using current assignments."""
     if not user.is_authenticated or not user.is_active:
         return 0
@@ -75,12 +97,13 @@ def pending_validation_count(user):
     relevant = ApprovalStep.objects.filter(snapshot__submission__active=True).filter(
         Q(candidates__pk__in=principals)
         | Q(manager_source="cdf", snapshot__cost_center__managers__pk__in=principals)
-        | Q(manager_source="support", snapshot__funding__managers__pk__in=principals)
+        | Q(manager_source="support", snapshot__support__managers__pk__in=principals)
     )
     submission_ids = list(relevant.order_by("snapshot__submission_id").values_list(
         "snapshot__submission_id", flat=True).distinct())
-    for submission_id in submission_ids:
-        refresh_submission(submission_id)
+    if refresh:
+        for submission_id in submission_ids:
+            refresh_submission(submission_id)
     steps = ApprovalStep.objects.filter(
         snapshot__submission_id__in=submission_ids, snapshot__submission__active=True,
         state="pending").select_related("function", "role", "snapshot__cost_center", "snapshot__funding").prefetch_related("candidates")
@@ -131,8 +154,8 @@ def _advance(submission):
                 old = step.state
                 previous_candidates = set(step.candidates.values_list("pk", flat=True))
                 if step.manager_source:
-                    entity = snapshot.cost_center if step.manager_source == "cdf" else snapshot.funding
-                    step.candidates.set(entity.managers.filter(is_active=True))
+                    entity = snapshot.cost_center if step.manager_source == "cdf" else snapshot.support
+                    step.candidates.set(entity.managers.filter(is_active=True) if entity else [])
                     PurchaseNotice.objects.filter(step=step, active=True, recipient_id__in=previous_candidates).exclude(
                         recipient_id__in=step.candidates.values_list("pk", flat=True)).update(active=False)
                 candidates = list(step.candidates.filter(is_active=True))
@@ -180,10 +203,21 @@ def activate_workflow(*, actor, version_id):
     version = WorkflowVersion.objects.select_for_update().get(pk=version_id)
     if version.published_at:
         raise ValidationError("Cette version a déjà été publiée. Créez une nouvelle version.")
+    from workflow.rules import schema
+    from .rule_adapter import validate_references
+    schema(version.operation)
     rules = list(version.rules.select_related("function"))
     if not rules:
         raise ValidationError("Ajoutez au moins une règle.")
     for rule in rules:
+        if version.rule_based:
+            validate_references(version.operation, rule.conditions)
+            if rule.mode != "cumulative":
+                raise ValidationError("Toutes les règles conditionnelles doivent être cumulatives.")
+            if not any((rule.named_user_id, rule.cdf_manager, rule.support_manager, rule.role_id)):
+                raise ValidationError("Choisissez un rôle, un utilisateur ou les responsables CDF/support pour chaque règle. Les fonctions sont réservées aux anciens circuits.")
+        elif not rule.function_id:
+            raise ValidationError("Une règle historique doit préciser une fonction de validation.")
         if rule.level < 1 or rule.minimum_htva < 0 or (rule.maximum_htva is not None and rule.maximum_htva <= rule.minimum_htva):
             raise ValidationError("Niveau ou intervalle HTVA invalide (maximum exclusif).")
         if sum((bool(rule.named_user_id), bool(rule.cdf_manager), bool(rule.support_manager), bool(rule.role_id))) > 1:
@@ -192,14 +226,14 @@ def activate_workflow(*, actor, version_id):
             raise ValidationError("Le valideur nommé doit être actif.")
     for first in rules:
         for second in rules:
-            if first.level < second.level and first.function.position > second.function.position:
+            if not version.rule_based and first.level < second.level and first.function.position > second.function.position:
                 raise ValidationError("Les niveaux doivent respecter l'ordre global des fonctions.")
             if first.pk >= second.pk or first.mode != "exclusive" or second.mode != "exclusive" or first.priority != second.priority:
                 continue
             scopes_overlap = all(getattr(first, k) is None or getattr(second, k) is None or getattr(first, k) == getattr(second, k) for k in ("cost_center_id", "funding_id", "budget_product_id"))
             if scopes_overlap and (first.maximum_htva is None or second.minimum_htva < first.maximum_htva) and (second.maximum_htva is None or first.minimum_htva < second.maximum_htva):
                 raise ValidationError("Conflit de règles exclusives de même priorité.")
-    WorkflowVersion.objects.filter(active=True).update(active=False)
+    WorkflowVersion.objects.filter(active=True, operation=version.operation).update(active=False)
     version.active, version.published_at = True, timezone.now()
     version.save(update_fields=["active", "published_at"])
     _config_audit(actor, version, "workflow.activated")
@@ -234,7 +268,17 @@ def activate_envelope(*, actor, version_id):
     return version
 
 
-def _matching_rules(workflow, line, total):
+def _matching_rules(workflow, line, total, facts=None):
+    if workflow.rule_based:
+        from workflow.rules import matches
+        from .rule_adapter import facts_for_line
+        facts = facts if facts is not None else facts_for_line(line)
+        rules = [rule for rule in workflow.rules.select_related("function", "named_user", "role")
+                 if not rule.named_user_reference.startswith("[référence supprimée:")
+                 and matches(workflow.operation, rule.conditions, facts)]
+        if not rules:
+            raise PurchaseRequestError(f"Aucune règle applicable à la ligne {line.pk}.")
+        return rules
     rules = [r for r in workflow.rules.select_related("function", "named_user")
         if not r.named_user_reference.startswith("[référence supprimée:")
         and r.minimum_htva <= total and (r.maximum_htva is None or total < r.maximum_htva)
@@ -268,11 +312,18 @@ def submit_purchase(*, request_id, actor, expected_revision):
                 raise PurchaseRequestError("Renseignez tous les taux de TVA.")
             if line.total_tvac >= Decimal("1000000000000000000"):
                 raise PurchaseRequestError("Le montant de la ligne dépasse la capacité budgétaire de stockage.")
-        workflow = WorkflowVersion.objects.filter(active=True).first()
+        workflow = WorkflowVersion.objects.filter(active=True, operation="purchase").first()
         if not workflow:
             raise PurchaseRequestError("Aucune configuration de validation active.")
         total = sum((line.total_htva for line in lines), Decimal(0))
-        planned = [(line, _matching_rules(workflow, line, total)) for line in lines]
+        from .rule_adapter import facts_for_line
+        facts = {line.pk: facts_for_line(line, lines) for line in lines}
+        planned = [(line, _matching_rules(workflow, line, total, facts[line.pk])) for line in lines]
+        if any(rule.support_manager for _, rules in planned for rule in rules):
+            if not purchase.support_id:
+                raise PurchaseRequestError("Choisissez un support demandeur pour la validation par responsable du support.")
+            if not actor.supports.filter(pk=purchase.support_id).exists():
+                raise PurchaseRequestError("Vous n’appartenez plus au support choisi. Modifiez la demande.")
         envelope = AnnualEnvelope.objects.select_for_update().filter(year=timezone.localdate().year).first()
         if not envelope or not envelope.active_version_id:
             raise PurchaseRequestError("Aucune version budgétaire active pour l'année courante.")
@@ -289,25 +340,23 @@ def submit_purchase(*, request_id, actor, expected_revision):
         now = timezone.now()
         for line, rules in planned:
             data = {key: str(getattr(line, key)) for key in ("description", "quantity", "unit_price", "vat_rate", "total_htva", "total_vat", "total_tvac")}
-            data.update(product=str(line.detailed_product), cost_center=str(line.cost_center), funding=str(line.funding))
+            data.update(product=str(line.detailed_product), cost_center=str(line.cost_center), funding=str(line.funding),
+                        support=str(purchase.support) if purchase.support_id else None)
             snapshot = LineSnapshot.objects.create(submission=submission, line=line, original_line_id=line.pk, data=data,
-                amount=line.total_tvac, cost_center=line.cost_center, funding=line.funding,
+                amount=line.total_tvac, cost_center=line.cost_center, funding=line.funding, support=purchase.support,
                 budget_product=line.detailed_product.budget_product)
             BudgetEntry.objects.create(snapshot=snapshot, amount=line.total_tvac)
             for rule in rules:
                 step = ApprovalStep.objects.create(snapshot=snapshot, function=rule.function,
-                    function_label=rule.function.label, level=rule.level, role=rule.role,
+                    function_label=rule.label if workflow.rule_based else rule.function.label, level=rule.level, role=rule.role,
+                    rule_snapshot={"id": rule.pk, "label": rule.label, "operation": workflow.operation, "rule_based": workflow.rule_based,
+                        "conditions": rule.conditions if workflow.rule_based else {}, "level": rule.level,
+                        "role_id": rule.role_id, "named_user_id": rule.named_user_id,
+                        "function_id": rule.function_id, "cdf_manager": rule.cdf_manager,
+                        "support_manager": rule.support_manager,
+                        "facts": {key: str(value) if value is not None else None for key, value in facts[line.pk].items()}},
                     manager_source="cdf" if rule.cdf_manager else ("support" if rule.support_manager else ""))
-                if rule.role_id:
-                    users = get_user_model().objects.filter(is_active=True, roles=rule.role)
-                elif rule.named_user_id or rule.named_user_reference:
-                    users = [rule.named_user] if rule.named_user_id else []
-                elif rule.cdf_manager or rule.support_manager:
-                    entity = line.cost_center if rule.cdf_manager else line.funding
-                    users = entity.managers.filter(is_active=True)
-                else:
-                    users = get_user_model().objects.filter(is_active=True, authorizations__function=rule.function).distinct()
-                step.candidates.set([u for u in users if _step_grant(u, step)])
+                step.candidates.set(initial_candidates(rule, snapshot, rule_based=workflow.rule_based))
         purchase.status = "SUBMITTED"
         _audit(purchase, actor, "request.submitted", {"submission": submission.pk})
         _advance(submission)

@@ -1,7 +1,9 @@
+{% load static %}
 <!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Vérifier le budget restant</title>
-<style>body{font-family:system-ui,sans-serif;color:#172b42;margin:1rem}label{display:block;margin-bottom:.3rem}select{width:100%;padding:.5rem;box-sizing:border-box}button{padding:.65rem 1rem;background:#125b95;color:white;border:0;border-radius:.25rem;cursor:pointer}.errorlist{color:#a21b24}.balance{font-size:1.4rem;font-weight:bold}.negative{color:#a21b24}</style></head>
-<body>
+<script src="{% static 'purchasing/theme.js' %}"></script>
+<link rel="stylesheet" href="{% static 'purchasing/erp.css' %}"></head>
+<body class="budget-embed">
 {% if form.fields.version.queryset.exists %}
 <form method="get" action="{% url 'purchasing:budget_check' %}">{{ form.as_p }}<button>Vérifier le budget restant</button></form>
 {% else %}<p>Aucune version budgétaire créée. Contactez le gestionnaire budgétaire.</p>{% endif %}

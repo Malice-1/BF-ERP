@@ -51,6 +51,9 @@ class Role(models.Model):
 
 
 class User(AbstractUser):
+    supports = models.ManyToManyField("budgeting.Support", blank=True,
+        related_name="members", verbose_name="Supports d’appartenance",
+        help_text="Supports auxquels appartient l’utilisateur. Cette appartenance ne donne pas le rôle de responsable.")
     roles = models.ManyToManyField(
         Role,
         blank=True,

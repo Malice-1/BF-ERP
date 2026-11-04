@@ -16,15 +16,14 @@ class FrenchAdministrationTests(TestCase):
 
     def test_index_and_creation_forms_are_french(self):
         response = self.client.get(reverse("admin:index"))
-        for label in ("Fonctions de validation", "Habilitations", "Fournisseurs", "Bons de commande", "Étapes de validation"):
+        for label in ("Habilitations", "Fournisseurs", "Bons de commande", "Étapes de validation"):
             self.assertContains(response, label)
         for english in ("Validation functions", "Authorizations", "Suppliers", "Purchase orders", "Approval steps"):
             self.assertNotContains(response, english)
         response = self.client.get(reverse("admin:suppliers_supplier_add"))
         for label in ("Nom", "Numéro de TVA"):
             self.assertContains(response, label)
-        response = self.client.get(reverse("admin:accounts_validationfunction_add"))
-        self.assertContains(response, "Libellé")
+        self.assertFalse(admin.site.is_registered(ValidationFunction))
 
     def test_readonly_fields_states_and_object_names_are_french(self):
         notice = PurchaseNotice.objects.create(key="fr", message="Test")

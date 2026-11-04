@@ -1,0 +1,1 @@
+.condition-inputs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}.condition-row{background:var(--bg)}.inline-label{display:inline;font-weight:400}#rule-sentence{padding:16px;background:var(--soft);border-radius:6px}#rule-editor small{display:block;margin-top:5px}#condition-rows[hidden]{display:none}@media(max-width:850px){.condition-inputs{grid-template-columns:1fr}}
