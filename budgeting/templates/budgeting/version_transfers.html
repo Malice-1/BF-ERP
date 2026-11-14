@@ -1,0 +1,13 @@
+{% extends 'purchasing/base.html' %}{% load ui_actions %}{% block content %}{% back_action %}
+<section class="configuration-section content-zone"><div class="section-toolbar"><h1>Historique des transferts · {{ version }}</h1>{% include 'purchasing/excel_export.html' with compact=True export_label='Exporter les transferts et leur historique en Excel' %}</div>
+<p>{% if financial %}Tous les transferts de cette version.{% else %}Vos transferts sur cette version.{% endif %} Les mouvements des autres versions ne sont pas inclus.</p>
+
+{% if perms.budgeting.view_budget_balances or perms.budgeting.view_envelopeversion %}<p><a href="{% url 'purchasing:budget_version_history' version.pk %}" class="ui-icon" aria-label="Historique budgétaire de la version" title="Historique budgétaire de la version">{% include 'purchasing/action_icon.html' with icon='history' %}</a></p>{% endif %}
+{% if perms.budgeting.add_budgettransfer and not version.locked_at and not version.deleted_at %}<p><a href="{% url 'transfer_list' %}?version={{ version.pk }}" class="ui-icon" aria-label="Créer un transfert sur cette version" title="Créer un transfert sur cette version">{% include 'purchasing/action_icon.html' with icon='transfers' %}</a></p>{% endif %}
+<div class="table-wrap"><table><thead><tr><th>Transfert</th><th>Création</th><th>Demandeur</th><th>Source</th><th>Destination</th><th>Montant TVAC</th><th>État</th></tr></thead><tbody>
+{% for item in transfers %}<tr><td><a href="{% url 'transfer_timeline' item.pk %}" aria-label="Parcours de {{ item }}">Parcours</a> &middot; <a href="{% url 'transfer_detail' item.pk %}">{{ item }}</a></td><td>{{ item.created_at }}</td><td>{{ item.created_by }}</td><td>{{ item.source_cdf }}</td><td>{{ item.destination_cdf }}</td><td>{{ item.amount|amount }}</td><td>{{ item.get_status_display }}</td></tr>{% empty %}<tr><td colspan="7">Aucun transfert sur cette version.</td></tr>{% endfor %}
+</tbody></table></div>
+<h2>Chronologie des transferts</h2>
+<ul>{% for event in events %}<li>{{ event.created_at }} · TB-{{ event.object_id }} · {{ event.actor|default:'Système' }} · {{ event.get_action_display }}{% if event.payload.reason %} · {{ event.payload.reason }}{% endif %}</li>{% empty %}<li>Aucun événement enregistré.</li>{% endfor %}</ul>
+</section>
+{% endblock %}

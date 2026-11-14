@@ -1,8 +1,6 @@
 from django.contrib import admin
 
 from .models import PurchaseRequest, PurchaseRequestLine
-from accounts.admin import ReadOnlyAdmin
-from . import flow_admin  # noqa: F401
 from .flow_admin import FinancialReadOnlyAdmin
 
 class PurchaseRequestLineInline(admin.TabularInline):

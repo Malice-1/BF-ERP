@@ -1,4 +1,6 @@
 from django.db import models
+import uuid
+from django.utils import timezone
 
 class CostCenter(models.Model):
     managers = models.ManyToManyField("accounts.User", blank=True, related_name="managed_cost_centers", verbose_name="Responsables")
@@ -56,7 +58,7 @@ class Funding(models.Model):
         ordering = ["code"]
 
     def __str__(self):
-        return f"{self.code} - {self.label}"
+        return self.code
 
 
 class BudgetProduct(models.Model):
@@ -283,3 +285,121 @@ class BudgetEntry(PurchaseBudgetEntry):
         default_permissions = ('add', 'change', 'delete', 'view')
         verbose_name = 'écriture budgétaire'
         verbose_name_plural = 'écritures budgétaires'
+
+
+class TransferConfiguration(models.Model):
+    """Legacy configuration retained as data; transfers no longer consult it."""
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    envelope = models.ForeignKey(PurchaseAnnualEnvelope, on_delete=models.PROTECT, verbose_name="Enveloppe annuelle des transferts")
+    users = models.ManyToManyField("accounts.User", blank=True, verbose_name="Utilisateurs autorisés", help_text="Ces utilisateurs peuvent créer et soumettre des transferts sur cette enveloppe, avec le droit de création de transferts.")
+
+    class Meta:
+        verbose_name = "configuration des transferts budgétaires"
+        verbose_name_plural = "configuration des transferts budgétaires"
+        constraints = [models.CheckConstraint(condition=models.Q(id=1), name="single_transfer_configuration")]
+
+    def __str__(self):
+        return f"Transferts · {self.envelope}"
+
+
+class BudgetTransferBatch(models.Model):
+    key = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+
+    class Meta:
+        default_permissions = ()
+        verbose_name = "transfert général"
+        verbose_name_plural = "transferts généraux"
+
+
+class BudgetTransfer(models.Model):
+    batch_id = models.UUIDField(default=uuid.uuid4, editable=False, db_index=True)
+    budget_version = models.ForeignKey(PurchaseEnvelopeVersion, on_delete=models.PROTECT, related_name="transfers", verbose_name="Version budgétaire")
+    envelope = models.ForeignKey(PurchaseAnnualEnvelope, on_delete=models.PROTECT, verbose_name="Enveloppe annuelle")
+    source_cdf = models.ForeignKey(CostCenter, on_delete=models.PROTECT, related_name="outgoing_transfers", verbose_name="CDF source")
+    source_funding = models.ForeignKey(Funding, on_delete=models.PROTECT, related_name="outgoing_transfers", verbose_name="Financement source")
+    source_product = models.ForeignKey(BudgetProduct, on_delete=models.PROTECT, related_name="outgoing_transfers", verbose_name="BI source")
+    destination_cdf = models.ForeignKey(CostCenter, on_delete=models.PROTECT, related_name="incoming_transfers", verbose_name="CDF destination")
+    destination_funding = models.ForeignKey(Funding, on_delete=models.PROTECT, related_name="incoming_transfers", verbose_name="Financement destination")
+    destination_product = models.ForeignKey(BudgetProduct, on_delete=models.PROTECT, related_name="incoming_transfers", verbose_name="BI destination")
+    support = models.ForeignKey(Support, null=True, blank=True, on_delete=models.PROTECT, verbose_name="Support demandeur")
+    source_support = models.ForeignKey(Support, null=True, blank=True, on_delete=models.PROTECT, related_name="outgoing_transfers", verbose_name="Support source")
+    destination_support = models.ForeignKey(Support, null=True, blank=True, on_delete=models.PROTECT, related_name="incoming_transfers", verbose_name="Support destination")
+    amount = models.DecimalField(max_digits=18, decimal_places=2, verbose_name="Montant TVAC")
+    reason = models.TextField(verbose_name="Justification")
+    created_by = models.ForeignKey("accounts.User", null=True, on_delete=models.SET_NULL, verbose_name="Demandeur")
+    created_at = models.DateTimeField(auto_now_add=True)
+    workflow = models.ForeignKey("purchasing.WorkflowVersion", null=True, blank=True, on_delete=models.PROTECT)
+    status = models.CharField(max_length=12, default="draft", choices=[("draft", "Brouillon"), ("pending", "En validation"), ("approved", "Approuvé"), ("rejected", "Rejeté"), ("returned", "À corriger"), ("cancelled", "Annulé")])
+    return_reason = models.TextField(blank=True, verbose_name="Motif du retour au demandeur")
+    revision = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        verbose_name = "transfert budgétaire"
+        verbose_name_plural = "transferts budgétaires"
+        permissions = [("view_all_transfers", "Consulter tous les transferts budgétaires"),
+                       ("cancel_any_budgettransfer", "Annuler les transferts budgétaires, y compris approuvés"),
+                       ("decide_any_budgettransfer", "Valider ou refuser tout transfert budgétaire")]
+        constraints = [models.CheckConstraint(condition=models.Q(amount__gt=0), name="transfer_positive_amount")]
+
+    def combination(self, side):
+        return tuple(getattr(self, f"{side}_{field}_id") for field in ("cdf", "funding", "product"))
+
+    def clean(self):
+        super().clean()
+        if self.budget_version_id:
+            if self.envelope_id and self.envelope_id != self.budget_version.envelope_id:
+                from django.core.exceptions import ValidationError
+                raise ValidationError("La version budgétaire ne correspond pas à l’année du transfert.")
+            self.envelope_id = self.budget_version.envelope_id
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        BudgetTransferBatch.objects.get_or_create(key=self.batch_id)
+        if not self._state.adding:
+            previous = type(self).objects.only("budget_version_id").get(pk=self.pk)
+            if previous.budget_version_id != self.budget_version_id:
+                from django.core.exceptions import ValidationError
+                raise ValidationError("La version d’un transfert existant ne peut pas être changée.")
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"TB-{self.pk}"
+
+
+class BudgetHistoryEvent(models.Model):
+    version_id = models.PositiveBigIntegerField(null=True, blank=True, editable=False)
+    envelope = models.ForeignKey(PurchaseAnnualEnvelope, on_delete=models.PROTECT, related_name="history_events")
+    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+    actor = models.CharField(max_length=150, blank=True)
+    reason = models.CharField(max_length=200)
+    state = models.JSONField()
+
+    class Meta:
+        default_permissions = ()
+        ordering = ["created_at", "pk"]
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            from django.core.exceptions import ValidationError
+            raise ValidationError("Un état historique est immuable.")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        from django.core.exceptions import ValidationError
+        raise ValidationError("Un état historique est immuable.")
+
+
+class TransferStep(models.Model):
+    transfer = models.ForeignKey(BudgetTransfer, on_delete=models.PROTECT, related_name="steps")
+    active = models.BooleanField(default=True, editable=False)
+    level = models.PositiveIntegerField()
+    label = models.CharField(max_length=100)
+    rule = models.JSONField(default=dict)
+    state = models.CharField(max_length=12, default="future", choices=[("future", "Non accessible"), ("pending", "En attente"), ("unassigned", "À affecter"), ("approved", "Approuvée"), ("stopped", "Arrêtée")])
+    approved_by = models.ForeignKey("accounts.User", null=True, on_delete=models.SET_NULL)
+    approved_at = models.DateTimeField(null=True)
+    evidence = models.ForeignKey("self", null=True, on_delete=models.PROTECT)
+
+    class Meta:
+        default_permissions = ()
+        ordering = ["level", "pk"]

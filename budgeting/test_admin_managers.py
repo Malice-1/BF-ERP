@@ -7,6 +7,14 @@ from .models import CostCenter
 
 
 class CostCenterAdminManagersTests(TestCase):
+    def test_old_dated_assignment_urls_redirect_without_writing(self):
+        from .models import CostCenterManagerAssignment
+        for name, args in (("managers", []), ("manager_create", []), ("manager_end", [1])):
+            url = reverse(name, args=args)
+            self.assertRedirects(self.client.get(url), reverse("entity_managers"))
+            self.assertEqual(self.client.post(url, {}).status_code, 410)
+        self.assertFalse(CostCenterManagerAssignment.objects.exists())
+
     def setUp(self):
         User = get_user_model()
         self.admin = User.objects.create_superuser("cdf.admin", password="test")

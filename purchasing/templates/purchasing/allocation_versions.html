@@ -1,7 +1,24 @@
-{% extends 'purchasing/base.html' %}{% block content %}
+{% extends 'purchasing/base.html' %}{% load ui_actions %}{% block content %}{% back_action %}
+
 <h1>Alimenter une version budgétaire</h1>
-<p>Choisissez une version pour saisir ses allocations BI – CDF – financement – montant. Les versions publiées sont consultables en lecture seule.</p>
-<div class="table-wrap"><table><tr><th>Année</th><th>Version</th><th>État</th><th>Action</th></tr>
-{% for version in versions %}<tr><td>{{ version.envelope.year }}</td><td>{{ version.label }}</td><td>{% if version.envelope.active_version_id == version.pk %}Active{% elif version.published_at %}Publiée · remplacée{% else %}Brouillon{% endif %}</td><td><a href="{% url 'purchasing:budget_version' version.pk %}">{% if version.published_at %}Consulter{% else %}Alimenter{% endif %}</a></td></tr>
-{% empty %}<tr><td colspan="4">Aucune version. <a href="{% url 'purchasing:budget_versions' %}">Créer une version</a></td></tr>{% endfor %}
-</table></div>{% endblock %}
+<p>Retrouvez ici vos versions, même vides, pour les compléter ultérieurement. Les versions publiées sont en lecture seule ; un administrateur système peut débloquer leurs modifications depuis leur fiche.</p>
+<section class="configuration-section content-zone" aria-labelledby="allocation-versions-title">
+<div class="section-toolbar"><h2 id="allocation-versions-title">Versions budgétaires</h2>
+<div class="section-actions">
+<a href="{% url 'purchasing:allocation_versions' %}?template=xlsx" class="ui-icon" aria-label="Télécharger le modèle Excel d’alimentation du budget" title="Télécharger le modèle Excel d’alimentation du budget">{% include 'purchasing/action_icon.html' with icon='export' %}</a>
+{% include 'purchasing/excel_export.html' with compact=True export_label='Exporter la liste des versions budgétaires en Excel' %}
+</div>
+</div>
+<div class="table-wrap"><table><tr><th>Année</th><th>Version</th><th>État</th><th>Total TVAC</th><th>Actions</th></tr>
+{% for version in versions %}<tr><td>{{ version.envelope.year }}</td><td>{{ version.label }}</td><td>{% if version.locked_at %}Bloquée{% elif version.envelope.active_version_id == version.pk %}Active{% elif version.published_at %}Publiée · remplacée{% else %}Brouillon{% endif %}{% if version.editing_unlocked_at %} · modifications débloquées{% endif %}</td><td>{{ version.allocation_total|default_if_none:0|amount }} EUR</td><td>
+<div role="group" class="version-row-actions" aria-label="Actions pour {{ version.label }}">
+{% if version.allocations_editable and not version.published_at or version.allocations_editable and user.is_superuser %}<a href="{% url 'purchasing:allocation_import' version.pk %}" class="ui-icon" aria-label="Importer les allocations Excel" title="Importer les allocations Excel">{% include 'purchasing/action_icon.html' with icon='import' %}</a>{% endif %}
+<a class="ui-icon" href="{% url 'purchasing:budget_version' version.pk %}" aria-label="{% if version.locked_at %}Consulter{% elif version.published_at and not version.editing_unlocked_at or version.published_at and not user.is_superuser %}Consulter{% else %}Modifier{% endif %}" title="{% if version.locked_at %}Consulter{% elif version.published_at and not version.editing_unlocked_at or version.published_at and not user.is_superuser %}Consulter{% else %}Modifier{% endif %}">{% if not version.allocations_editable or version.published_at and not user.is_superuser %}{% include 'purchasing/action_icon.html' with icon='search' %}{% else %}{% include 'purchasing/action_icon.html' with icon='edit' %}{% endif %}</a>
+<a href="{% url 'version_transfers' version.pk %}" class="ui-icon" aria-label="Transferts et historique" title="Transferts et historique">{% include 'purchasing/action_icon.html' with icon='history' %}</a>
+{% if perms.budgeting.delete_envelopeversion and not version.published_at and not version.locked_at %}<a href="{% url 'purchasing:budget_version_delete' version.pk %}" class="ui-icon ui-icon-danger" aria-label="Supprimer" title="Supprimer">{% include 'purchasing/action_icon.html' with icon='delete' %}</a>{% endif %}
+</div>
+</td></tr>
+{% empty %}<tr><td colspan="5">Aucune version. <a href="{% url 'purchasing:budget_versions' %}" class="ui-icon" aria-label="Créer une version" title="Créer une version">{% include 'purchasing/action_icon.html' with icon='create' %}</a></td></tr>{% endfor %}
+</table></div>
+</section>
+{% endblock %}

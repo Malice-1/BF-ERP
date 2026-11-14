@@ -1,0 +1,9 @@
+<tr data-transfer-row {% if line.DELETE.value %}hidden{% endif %}>
+<td>{% for hidden in line.hidden_fields %}{{ hidden }}{{ hidden.errors }}{% endfor %}{{ line.non_field_errors }}{{ line.source_cdf.errors }}{{ line.source_cdf }}</td>
+<td>{{ line.source_product.errors }}{{ line.source_product }}</td>
+<td>{{ line.source_funding.errors }}{{ line.source_funding }}</td>
+<td>{{ line.source_support.errors }}{{ line.source_support }}</td>
+<td class="transfer-amount-cell">{{ line.amount.errors }}{{ line.amount }}</td>
+<td>{{ line.reason.errors }}{{ line.reason }}</td>
+<td class="transfer-remove-cell"><span hidden>{{ line.DELETE }}</span><button type="button" class="ui-icon ui-icon-danger" data-remove-transfer aria-label="Retirer cette ligne" title="Retirer cette ligne">{% include 'purchasing/action_icon.html' with icon='delete' %}</button></td>
+</tr>

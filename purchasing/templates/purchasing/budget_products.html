@@ -1,11 +1,17 @@
-{% extends 'purchasing/base.html' %}
-{% block content %}
+{% extends 'purchasing/base.html' %}{% load static ui_actions %}
+{% block content %}{% back_action %}
+
 <h1>Produits budgétaires</h1>
 <h2>Créer un produit budgétaire</h2>
-<form method="post">{% csrf_token %}{{ form.as_p }}<button>Créer le produit budgétaire</button></form>
+<form method="post">{% csrf_token %}{{ form.as_p }}<div class="ui-action-bar"><button class="ui-icon" aria-label="Créer le produit budgétaire" type="submit" title="Créer le produit budgétaire">{% include 'purchasing/action_icon.html' with icon='create' %}</button></div></form>
+<section class="configuration-section content-zone"><div class="table-search-heading">
 <h2>Produits existants</h2>
-<div class="table-wrap"><table><tr><th>Code BI</th><th>Libellé</th></tr>
-{% for product in products %}<tr><td>{{ product.code }}</td><td>{{ product.label }}</td></tr>
-{% empty %}<tr><td colspan="2">Aucun produit budgétaire.</td></tr>{% endfor %}
-</table></div>
+<form method="get" action="{% url 'purchasing:budget_products' %}" id="budget-product-search" class="table-search" role="search" aria-label="Recherche de produits budgétaires">
+<input type="search" name="q" value="{{ search }}" placeholder="Code ou libellé…" aria-label="Rechercher par code ou libellé">
+</form>
+</div>
+<p id="budget-product-search-status" class="table-search-status" role="status" aria-live="polite"></p>
+<div id="budget-product-results" aria-label="Produits existants">{% include 'purchasing/budget_products_results.html' %}</div>
+</section>
+<script src="{% static 'purchasing/budget_products.js' %}" defer></script>
 {% endblock %}

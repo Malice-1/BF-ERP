@@ -1,3 +1,7 @@
+ARCHIVE — exemples manuels du budget historique.
+Certains imports et services de ce document ont été retirés lors du nettoyage.
+Pour les parcours actuels : docs/REGLES_VALIDATION.md et docs/TRANSFERTS_ET_STOCK.md.
+
 Fournisseur
 -----------
 

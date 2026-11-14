@@ -1,6 +1,9 @@
-{% extends 'purchasing/base.html' %}{% block content %}
+{% extends 'purchasing/base.html' %}{% load ui_actions %}{% block content %}{% back_action %}
+
 <h1>Produits détaillés</h1><h2>Créer un produit détaillé</h2>
-<form method="post">{% csrf_token %}{{ form.as_p }}<button>Créer le produit détaillé</button></form>
-<h2>Produits existants</h2><div class="table-wrap"><table><tr><th>Code</th><th>Dénomination</th><th>Produit budgétaire (BI)</th></tr>
+<form method="post">{% csrf_token %}{{ form.as_p }}<div class="ui-action-bar"><button class="ui-icon" aria-label="Créer le produit détaillé" type="submit" title="Créer le produit détaillé">{% include 'purchasing/action_icon.html' with icon='create' %}</button></div></form>
+<section class="configuration-section content-zone"><div class="section-toolbar"><h2>Produits existants</h2>{% include 'purchasing/excel_export.html' with compact=True export_label='Exporter les produits détaillés en Excel' %}</div><div class="table-wrap"><table><tr><th>Code</th><th>Dénomination</th><th>Produit budgétaire (BI)</th></tr>
 {% for product in products %}<tr><td>{{ product.code }}</td><td>{{ product.label }}</td><td>{{ product.budget_product }}</td></tr>{% empty %}<tr><td colspan="3">Aucun produit détaillé.</td></tr>{% endfor %}
-</table></div>{% endblock %}
+</table></div>
+</section>
+{% endblock %}

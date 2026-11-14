@@ -1,21 +1,40 @@
-{% extends 'purchasing/base.html' %}
+{% extends 'purchasing/base.html' %}{% load static ui_actions %}
 {% block content %}
-<p><a href="{% url 'purchasing:allocation_versions' %}">Retour aux versions budgétaires</a></p>
+<div class="ui-page-heading">
+<a class="ui-icon ui-back" href="{% url 'purchasing:allocation_versions' %}" aria-label="Retour aux versions budgétaires" title="Retour aux versions budgétaires">{% include 'purchasing/action_icon.html' with icon='exit' %}</a>
 <h1>{{ version.envelope.year }} · {{ version.label }}</h1>
+</div>
 {% if error %}<p role="alert" class="errorlist">{{ error }}</p>{% endif %}
-{% if version.published_at %}
-<p>{% if version.envelope.active_version_id == version.pk %}Version active{% else %}Version publiée remplacée{% endif %} · publiée le {{ version.published_at }}. Les lignes sont en lecture seule.</p>
-<div class="table-wrap"><table><tr><th>BI / produit budgétaire</th><th>CDF</th><th>Financement</th><th>Montant TVAC (€)</th></tr>
-{% for line in lines %}<tr><td>{{ line.budget_product }}</td><td>{{ line.cost_center }}</td><td>{{ line.funding }}</td><td>{{ line.amount|floatformat:2 }}</td></tr>{% endfor %}
-</table></div>
-{% else %}
-<p>Brouillon : saisissez les allocations totales de cette version. Chaque combinaison BI, CDF et financement doit être unique. Les lignes vides sont ignorées.</p>
-<form method="post">{% csrf_token %}{{ formset.management_form }}{{ formset.non_form_errors }}
-<div class="table-wrap"><table><tr><th>BI / produit budgétaire</th><th>CDF</th><th>Financement</th><th>Montant TVAC (€)</th><th>Supprimer</th></tr>
-{% for form in formset %}<tr><td>{% for hidden in form.hidden_fields %}{{ hidden }}{{ hidden.errors }}{% endfor %}{{ form.non_field_errors }}{{ form.budget_product.errors }}{{ form.budget_product }}</td><td>{{ form.cost_center.errors }}{{ form.cost_center }}</td><td>{{ form.funding.errors }}{{ form.funding }}</td><td>{{ form.amount.errors }}{{ form.amount }}</td><td>{{ form.DELETE }}</td></tr>{% endfor %}
-</table></div><button name="action" value="save">Enregistrer les lignes</button>
-<p>Après enregistrement, trois lignes vides supplémentaires sont disponibles.</p></form>
-<hr><p>La publication active cette version pour l’année {{ version.envelope.year }} et remplace la version active précédente. Les réservations et engagements existants restent déduits. Enregistrez vos lignes avant de publier.</p>
-<form method="post">{% csrf_token %}<button name="action" value="publish">Publier et activer cette version</button></form>
+{% for message in messages %}<div class="configuration-section" role="status">{{ message }}</div>{% endfor %}
+{% if version.published_at %}<p>{% if version.envelope.active_version_id == version.pk %}Version active{% else %}Version publiée remplacée{% endif %} · publiée le {{ version.published_at }}.</p>{% endif %}
+{% if version.editing_unlocked_at %}<p role="status">Modifications débloquées le {{ version.editing_unlocked_at }}. Seul l’administrateur système peut modifier les allocations. La version reste publiée et les modifications prennent effet dès l’enregistrement.</p>{% endif %}
+<section class="configuration-section content-zone" aria-labelledby="version-allocations-title">
+<div class="section-toolbar"><h2 id="version-allocations-title">Allocations de la version</h2>
+</div>
+<div class="table-search-heading">
+<form method="get" action="{% url 'purchasing:budget_version' version.pk %}" id="allocation-search" class="table-search" role="search" aria-label="Recherche des allocations par produit">
+{% if full_choices %}<input type="hidden" name="full_choices" value="1">{% endif %}
+<input type="search" name="q" value="{{ search }}" placeholder="Code ou libellé du produit…" aria-label="Rechercher un produit budgétaire">
+</form>
+</div>
+<p id="allocation-search-status" class="table-search-status" role="status" aria-live="polite"></p>
+<progress id="allocation-search-progress" aria-label="Chargement des allocations" hidden></progress>
+<div id="allocation-results">{% include 'purchasing/budget_allocations_results.html' %}</div>
+</section>
+<div class="ui-action-bar" role="group" aria-label="Actions de la version budgétaire">
+<a id="allocation-export" class="ui-icon" href="{% querystring export='xlsx' page=None %}" aria-label="Exporter les allocations en Excel" title="Exporter les allocations en Excel">{% include 'purchasing/action_icon.html' with icon='export' %}</a>
+
+<a class="ui-icon" href="{% url 'purchasing:budget_version_history' version.pk %}" aria-label="Consulter l’historique de cette version" title="Consulter l’historique de cette version">{% include 'purchasing/action_icon.html' with icon='history' %}</a>
+<a class="ui-icon" href="{% url 'version_transfers' version.pk %}" aria-label="Historique des transferts de cette version" title="Historique des transferts de cette version">{% include 'purchasing/action_icon.html' with icon='transfers' %}</a>
+{% if perms.budgeting.add_budgettransfer and not version.locked_at %}<a class="ui-icon" href="{% url 'transfer_list' %}?version={{ version.pk }}" aria-label="Créer un transfert sur cette version" title="Créer un transfert sur cette version">{% include 'purchasing/action_icon.html' with icon='create' %}</a>{% endif %}
+{% if can_edit_allocations and not version.published_at %}<form method="post">{% csrf_token %}<button type="submit" class="ui-icon" name="action" value="publish" aria-label="Publier et activer cette version" title="Publier et activer cette version">{% include 'purchasing/action_icon.html' with icon='publish' %}</button></form>{% endif %}
+{% if user.is_superuser %}
+{% if version.locked_at or version.published_at and not version.editing_unlocked_at %}
+<form method="post">{% csrf_token %}<button type="submit" class="ui-icon" name="action" value="unlock" aria-label="Débloquer pour modification" title="Débloquer pour modification">{% include 'purchasing/action_icon.html' with icon='unlock' %}</button></form>
+{% else %}<form method="post">{% csrf_token %}<button type="submit" class="ui-icon" name="action" value="lock" aria-label="{% if version.published_at %}Bloquer les modifications{% else %}Bloquer la version{% endif %}" title="{% if version.published_at %}Bloquer les modifications{% else %}Bloquer la version{% endif %}">{% include 'purchasing/action_icon.html' with icon='lock' %}</button></form>{% endif %}
 {% endif %}
+{% if perms.budgeting.delete_envelopeversion and not version.published_at and not version.locked_at %}<a class="ui-icon ui-icon-danger" href="{% url 'purchasing:budget_version_delete' version.pk %}" aria-label="Supprimer cette version" title="Supprimer cette version">{% include 'purchasing/action_icon.html' with icon='delete' %}</a>{% endif %}
+</div>
+<script src="{% static 'purchasing/budget_allocations.js' %}?v=3" defer></script>
+<script src="{% static 'purchasing/allocation_search.js' %}?v=3" defer></script>
 {% endblock %}

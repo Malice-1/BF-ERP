@@ -1,5 +1,5 @@
-{% extends 'purchasing/base.html' %}
-{% block content %}
+{% extends 'purchasing/base.html' %}{% load ui_actions %}
+{% block content %}{% back_action %}
 <h1>Responsables des CDF et des supports</h1>
 <p>Choisissez les responsables de chaque CDF et support. À l’étape correspondante du workflow, ils reçoivent la tâche de validation de la ligne concernée. Une validation par un responsable suffit pour cette étape.</p>
 <p>Les responsables doivent avoir un compte actif. Sans responsable, l’étape reste à affecter et le suivi administrateur est averti. Les nouvelles affectations s’appliquent aux étapes non approuvées lors de leur actualisation.</p>
@@ -7,6 +7,6 @@
 {% for row in rows %}
 <section><h2>{{ row.kind|upper }} — {{ row.entity }}</h2>
 <form method="post">{% csrf_token %}<input type="hidden" name="kind" value="{{ row.kind }}">{{ row.form.entity_id }}
-{{ row.form.managers }}<button type="submit">Enregistrer les responsables</button></form></section>
+{{ row.form.managers }}<div class="ui-action-bar"><button type="submit" class="ui-icon" aria-label="Enregistrer les responsables" title="Enregistrer les responsables">{% include 'purchasing/action_icon.html' with icon='save' %}</button></div></form></section>
 {% empty %}<p>Créez d’abord vos CDF et supports dans les référentiels.</p>{% endfor %}
 {% endblock %}

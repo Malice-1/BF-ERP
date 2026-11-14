@@ -106,6 +106,11 @@ def delete_as_superuser(queryset, actor):
             # whole previewed graph within this transaction, not unrelated rows.
             for model, keys in reversed(list(planned.items())):
                 model._base_manager.using(alias).filter(pk__in=keys)._raw_delete(alias)
+            # Maintenance uses bulk updates/deletes, which bypass model signals.
+            from purchasing.models import AnnualEnvelope
+            from budgeting.history import capture
+            for envelope_id in AnnualEnvelope.objects.using(alias).values_list("pk", flat=True):
+                capture(envelope_id, "Suppression de maintenance : état après opération", actor=actor, using=alias)
             if previous is not None:
                 with connections[alias].cursor() as cursor:
                     cursor.execute("SELECT set_config('bf_erp.maintenance_delete', %s, true)", [previous])

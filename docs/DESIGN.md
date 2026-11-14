@@ -28,3 +28,23 @@ L’administration conserve ses composants Django avec les couleurs définies
 dans `admin-theme.css` et les surcharges de `templates/admin/`.
 
 Vérification du comportement du sélecteur : `node --test tests/theme.test.cjs`.
+
+## Actions des pages métier
+
+- Les retours au parent se placent en haut à gauche, avec l’icône de sortie.
+  Le tag `back_action` choisit un écran parent accessible, notamment « Mes
+  validations » pour les valideurs sans accès financier aux demandes.
+- Les actions propres à un tableau ou à une zone sont placées dans son en-tête,
+  avec une infobulle précisant leur portée. Les actions générales des fiches
+  restent distinctes ; celles d’une ligne ou d’un formulaire restent associées
+  à cette ligne ou à ce formulaire. L’état budgétaire et sa chronologie disposent
+  chacun de leur propre export, limité aux données de leur zone.
+- Les boutons et liens d’action utilisent `actions.css` et `action_icon.html` :
+  SVG en ligne, couleurs du thème, infobulle native au survol et libellé visible
+  au focus clavier. Chaque contrôle conserve un `aria-label` explicite.
+- Les noms de dossiers, numéros de demandes et menus restent des liens textuels.
+- Les confirmations, permissions, champs obligatoires, jetons CSRF et valeurs
+  des boutons de soumission restent inchangés. Les icônes ne sont pas imprimées.
+
+
+Les listes et historiques des achats, transferts, disponibilites et stocks regroupent leurs actions dans une zone encadree `configuration-section content-zone`. Les exports se trouvent dans son en-tete `section-toolbar`, avec une infobulle qui precise les donnees exportees. Les actions sur les lignes restent dans le tableau ; les actions sur le cycle de vie restent au niveau de la fiche.

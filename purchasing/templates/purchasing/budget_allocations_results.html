@@ -1,0 +1,37 @@
+{% load ui_actions %}
+{% if not can_edit_allocations %}
+{% if version.locked_at %}<p>Version bloquée le {{ version.locked_at }}. Les lignes sont en lecture seule.</p>{% else %}
+<p>Les lignes sont en lecture seule.</p>
+{% endif %}
+<div class="table-wrap"><table><tr><th>BI / produit budgétaire</th><th>CDF</th><th>Financement</th><th>Montant TVAC (€)</th></tr>
+{% for line in lines %}<tr><td>{{ line.budget_product }}</td><td>{{ line.cost_center }}</td><td>{{ line.funding }}</td><td>{{ line.amount|amount }}</td></tr>{% empty %}<tr><td colspan="4">Aucune allocation{% if search %} ne correspond à cette recherche{% endif %}.</td></tr>{% endfor %}
+<tfoot><tr><th colspan="3" scope="row" style="text-align:right">{% if search %}Total filtré{% else %}Total{% endif %} TVAC</th><td style="text-align:right"><strong>{{ filtered_total|amount }} EUR</strong></td></tr></tfoot>
+</table></div>
+{% else %}
+{% if reference_choices %}{{ reference_choices|json_script:"allocation-reference-data" }}{% endif %}
+<noscript><p>Pour modifier les produits, CDF et financements sans JavaScript, <a href="{% querystring full_choices='1' %}">activer les listes complètes</a>.</p></noscript>
+<p><a href="{% url 'purchasing:allocation_import' version.pk %}">Alimenter cette version via Excel</a></p>
+<p>{% if version.published_at %}Modification administrative :{% else %}Brouillon :{% endif %} saisissez les allocations totales de cette version. Chaque combinaison BI, CDF et financement doit être unique. Les lignes vides sont ignorées.</p>
+<form method="post" action="{{ form_action }}" id="budget-allocations" data-unsaved="{{ formset.is_bound|yesno:'true,false' }}">{% csrf_token %}{{ formset.management_form }}{{ formset.non_form_errors }}
+<div class="table-wrap"><table><tr><th>BI / produit budgétaire</th><th>CDF</th><th>Financement</th><th>Montant TVAC (€)</th><th>Supprimer</th></tr>
+{% for form in formset %}<tr data-allocation-row><td>{% for hidden in form.hidden_fields %}{{ hidden }}{{ hidden.errors }}{% endfor %}{{ form.non_field_errors }}{{ form.budget_product.errors }}{{ form.budget_product }}</td><td>{{ form.cost_center.errors }}{{ form.cost_center }}</td><td>{{ form.funding.errors }}{{ form.funding }}</td><td>{{ form.amount.errors }}{{ form.amount }}</td><td>{{ form.DELETE }}</td></tr>{% endfor %}
+<tfoot><tr><th colspan="3" scope="row" style="text-align:right">{% if search %}Total filtré{% else %}Total{% endif %} TVAC</th><td colspan="2" style="text-align:right"><strong>{{ filtered_total|amount }} EUR</strong></td></tr></tfoot>
+</table></div>
+<div id="allocation-deletions" hidden>
+<span id="allocation-deletions-status" role="status" aria-live="polite"></span>
+<button type="button" id="allocation-deletions-undo" class="ui-icon" aria-label="Annuler les suppressions en attente" title="Annuler les suppressions en attente">{% include 'purchasing/action_icon.html' with icon='history' %}</button>
+</div>
+<p>Après enregistrement, trois lignes vides supplémentaires sont disponibles.</p></form>
+{% if not lines and search %}<p>Aucune allocation ne correspond à cette recherche.</p>{% endif %}
+
+{% if not version.published_at %}<hr><p>La publication active cette version pour l’année {{ version.envelope.year }} et remplace la version active précédente. Les réservations et engagements existants restent déduits. Enregistrez vos lignes avant de publier.</p>
+{% endif %}
+{% endif %}
+<div class="zone-actions">{% if can_edit_allocations %}<button type="submit" class="ui-icon ui-icon-primary" form="budget-allocations" name="action" value="save" aria-label="Enregistrer les lignes" title="Enregistrer les lignes">{% include 'purchasing/action_icon.html' with icon='save' %}</button>{% endif %}</div>
+<p>Page {{ page.number }} / {{ page.paginator.num_pages }}{% if page.has_previous %} · <a href="{% querystring page=page.previous_page_number %}" data-allocation-page>Précédente</a>{% endif %}{% if page.has_next %} · <a href="{% querystring page=page.next_page_number %}" data-allocation-page>Suivante</a>{% endif %}</p>
+<form method="get" action="{% url 'purchasing:budget_version' version.pk %}" data-allocation-page-jump style="display:flex;align-items:center;gap:.5rem;margin:.5rem 0">
+{% if search %}<input type="hidden" name="q" value="{{ search }}">{% endif %}
+<label for="allocation-page-number" style="margin:0">Aller à la page</label>
+<input type="number" id="allocation-page-number" name="page" min="1" max="{{ page.paginator.num_pages }}" value="{{ page.number }}" required style="width:5rem;flex:0 0 5rem">
+<button type="submit">Aller</button>
+</form>

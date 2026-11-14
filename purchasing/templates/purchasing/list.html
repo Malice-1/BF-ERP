@@ -1,7 +1,10 @@
-{% extends 'purchasing/base.html' %}
-{% block content %}
+{% extends 'purchasing/base.html' %}{% load ui_actions %}
+{% block content %}{% back_action %}
+
 {% if not all_requests %}<h1>Achats</h1><p>Préparez vos achats et suivez leur validation.</p>{% include 'purchasing/purchase_actions.html' %}{% endif %}
-<div class="page-heading"><div>{% if all_requests %}<h1>Toutes les demandes d’achat</h1>{% else %}<h2 id="personal-requests-title">Mes demandes d’achat</h2>{% endif %}</div>{% if perms.purchasing.add_purchaserequest %}<a class="button" href="{% url 'purchasing:create' %}">＋ Créer une demande</a>{% endif %}</div>
-<div class="table-wrap"><table><thead><tr><th>Demande</th>{% if all_requests %}<th>Demandeur</th>{% endif %}<th>Fournisseur</th><th>Statut</th><th>Création</th></tr></thead><tbody>
-{% for purchase in requests %}<tr><td><a href="{% url 'purchasing:detail' purchase.pk %}">{{ purchase.number }}</a></td>{% if all_requests %}<td>{{ purchase.created_by }}</td>{% endif %}<td>{{ purchase.supplier }}</td><td><span class="status-badge status-{{ purchase.status }}">{{ purchase.get_status_display }}</span></td><td>{{ purchase.created_at }}</td></tr>{% empty %}<tr><td colspan="{% if all_requests %}5{% else %}4{% endif %}">Aucune demande.</td></tr>{% endfor %}
-</tbody></table></div>{% endblock %}
+<section class="configuration-section content-zone"><div class="section-toolbar"><div>{% if all_requests %}<h1>Toutes les demandes d’achat</h1>{% else %}<h2 id="personal-requests-title">Mes demandes d’achat</h2>{% endif %}</div><div class="section-actions">{% if perms.purchasing.add_purchaserequest %}<a class="button ui-icon" href="{% url 'purchasing:create' %}" aria-label="Créer une demande" title="Créer une demande">{% include 'purchasing/action_icon.html' with icon='create' %}</a>{% endif %}{% include 'purchasing/excel_export.html' with compact=True export_label="Exporter les demandes affichées en Excel" %}</div></div>
+<div class="table-wrap"><table><thead><tr><th>Demande</th>{% if all_requests %}<th>Demandeur</th>{% endif %}<th>Fournisseur</th><th>Statut</th><th>Réception</th><th>Création</th></tr></thead><tbody>
+{% for purchase in requests %}<tr><td><a href="{% url 'purchasing:detail' purchase.pk %}">{{ purchase.number }}</a></td>{% if all_requests %}<td>{{ purchase.created_by }}</td>{% endif %}<td>{{ purchase.supplier }}</td><td><span class="status-badge status-{{ purchase.status }}">{{ purchase.get_status_display }}</span></td><td>{{ purchase.receipt_label }}</td><td>{{ purchase.created_at }}</td></tr>{% empty %}<tr><td colspan="{% if all_requests %}6{% else %}5{% endif %}">Aucune demande.</td></tr>{% endfor %}
+</tbody></table></div>
+</section>
+{% endblock %}

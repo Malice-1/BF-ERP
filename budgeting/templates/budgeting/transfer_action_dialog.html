@@ -1,0 +1,15 @@
+{% load static %}
+<dialog id="transfer-action-dialog" aria-labelledby="transfer-action-title" style="width:min(480px,90vw);padding:1.5rem;border:0;border-radius:.5rem">
+<form id="transfer-action-confirm">
+<h2 id="transfer-action-title"></h2>
+<p id="transfer-action-description"></p>
+<label id="transfer-action-reason-label" for="transfer-action-reason">Motif
+<textarea id="transfer-action-reason" rows="3"></textarea>
+</label>
+<div class="ui-action-bar">
+<button type="button" id="transfer-action-close">Retour</button>
+<button type="submit" id="transfer-action-submit">Confirmer</button>
+</div>
+</form>
+</dialog>
+<script src="{% static 'budgeting/transfer_actions.js' %}?v=4" defer></script>

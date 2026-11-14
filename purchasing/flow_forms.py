@@ -4,7 +4,7 @@ from .forms import RevisionForm
 
 
 class DecisionForm(RevisionForm):
-    decision = forms.ChoiceField(label="Décision", choices=[("approve", "Approuver"), ("correct", "Retourner toute la demande pour correction"), ("reject", "Rejeter définitivement toute la demande")])
+    decision = forms.ChoiceField(label="Décision", choices=[("approve_all", "Valider tout le circuit"), ("approve", "Approuver"), ("correct", "Retourner toute la demande pour correction"), ("reject", "Rejeter définitivement toute la demande")])
     reason = forms.CharField(label="Motif (obligatoire pour correction ou rejet)", required=False, widget=forms.Textarea(attrs={"rows": 3}))
 
 

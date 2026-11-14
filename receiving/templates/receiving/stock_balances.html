@@ -1,0 +1,9 @@
+{% extends 'purchasing/base.html' %}{% load ui_actions %}{% block content %}{% back_action %}
+
+
+<h1>Quantités disponibles</h1>
+<p>Les quantités utilisent l’unité de référence du produit.</p>
+<section class="configuration-section content-zone"><div class="section-toolbar"><h2>Stocks disponibles</h2>{% include "purchasing/excel_export.html" with compact=True export_label="Exporter les stocks disponibles en Excel" %}</div>
+<div class="table-wrap"><table><thead><tr><th>Dépôt</th><th>Produit</th><th>Quantité</th></tr></thead><tbody>{% for balance in balances %}<tr><td>{{ balance.warehouse }}</td><td>{{ balance.product }}</td><td>{{ balance.quantity }}</td></tr>{% empty %}<tr><td colspan="3">Aucun stock.</td></tr>{% endfor %}</tbody></table></div>
+</section>
+{% endblock %}

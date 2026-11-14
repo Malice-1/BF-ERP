@@ -8,7 +8,7 @@ from suppliers.models import Supplier
 from workflow.models import AuditEvent
 from .exceptions import PurchaseRequestConflict, PurchaseRequestError
 from .models import PurchaseRequest
-from .services import add_purchase_request_line, approve_purchase_request, cancel_purchase_request, create_purchase_request
+from .services import add_purchase_request_line, cancel_purchase_request, create_purchase_request
 from .services import update_purchase_request_line, delete_purchase_request_line
 
 
@@ -86,10 +86,6 @@ class PurchaseDraftTests(TestCase):
         with self.assertRaises(PurchaseRequestError):
             self.add_line(expected_revision=repeated.revision)
 
-    def test_legacy_approval_cannot_bypass_workflow(self):
-        with self.assertRaises(PurchaseRequestError):
-            approve_purchase_request(self.request)
-
     def test_inactive_requester_is_denied(self):
         self.owner.is_active = False
         self.owner.save()
@@ -99,7 +95,7 @@ class PurchaseDraftTests(TestCase):
     def test_numbers_are_generated_and_unique(self):
         other = create_purchase_request(actor=self.owner, supplier=self.supplier)
         self.assertNotEqual(other.number, self.request.number)
-        self.assertEqual(len(other.number), 29)
+        self.assertRegex(other.number, r"^DA-\d{4}-\d{4,}$")
 
     def test_line_edit_and_delete_are_audited(self):
         line = self.add_line()
@@ -129,7 +125,8 @@ class PurchaseDraftTests(TestCase):
         result = self.client.post(f"/achats/{self.request.pk}/lignes/ajouter/", data)
         self.assertEqual(result.status_code, 302)
         detail = self.client.get(f"/achats/{self.request.pk}/")
-        self.assertContains(detail, "6,801531")
+        self.assertContains(detail, "6,80")
+        self.assertNotContains(detail, "6,801531")
         stale = self.client.post(f"/achats/{self.request.pk}/lignes/ajouter/", data)
         self.assertEqual(stale.status_code, 409)
         self.assertEqual(self.request.lines.count(), 1)

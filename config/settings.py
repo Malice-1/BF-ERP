@@ -35,8 +35,6 @@ INSTALLED_APPS = [
     'purchasing',
     'budgeting',
     'receiving',
-    'accounting',
-    'documents',
     'workflow',
 ]
 
@@ -62,6 +60,7 @@ TEMPLATES = [
         'OPTIONS': {
             'libraries': {
                 'admin_navigation': 'purchasing.templatetags.admin_navigation',
+                'ui_actions': 'purchasing.templatetags.ui_actions',
             },
             'context_processors': [
                 'django.template.context_processors.request',

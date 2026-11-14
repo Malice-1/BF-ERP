@@ -1,8 +1,8 @@
-{% extends 'purchasing/base.html' %}
-{% block content %}
+{% extends 'purchasing/base.html' %}{% load ui_actions %}
+{% block content %}{% back_action %}
 <h1>Créer une version budgétaire</h1>
 
-<form method="post">{% csrf_token %}{{ form.as_p }}<button>Créer le brouillon</button></form>
-<p>Après création, vous accédez directement à la saisie des lignes.</p>
-<p><a href="{% url 'purchasing:allocation_versions' %}">Alimenter ou consulter une version existante</a></p>
+<form method="post">{% csrf_token %}{{ form.as_p }}<div class="ui-action-bar"><button class="ui-icon" aria-label="Créer la version vide" type="submit" title="Créer la version vide">{% include 'purchasing/action_icon.html' with icon='create' %}</button></div></form>
+<p>La version est enregistrée immédiatement, même sans allocation. Vous pouvez la compléter maintenant ou la retrouver plus tard dans « Alimenter ou consulter une version existante ».</p>
+<p><a href="{% url 'purchasing:allocation_versions' %}" class="ui-icon" aria-label="Alimenter ou consulter une version existante" title="Alimenter ou consulter une version existante">{% include 'purchasing/action_icon.html' with icon='search' %}</a></p>
 {% endblock %}

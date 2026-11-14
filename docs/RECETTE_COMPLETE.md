@@ -1,14 +1,27 @@
 # Recette complète depuis une base vierge
 
-Le nouvel éditeur **Configuration → Workflows et validations → Règles de
-validation** et sa simulation sont décrits dans [Règles de validation](REGLES_VALIDATION.md).
-Les circuits historiques ci-dessous restent disponibles pour leurs scénarios de
-non-régression ; pour configurer de nouvelles règles « Si… alors… », utiliser le
-nouvel éditeur. Les règles correspondantes y sont toutes cumulatives.
+Évolution du 9 novembre 2026 : les nouveaux scénarios de transferts budgétaires,
+d’étapes automatiques/manuelles et de gestion de stock sont décrits dans
+[Transferts et stock](TRANSFERTS_ET_STOCK.md). Cette extension complète le périmètre
+historique ci-dessous ; les anciens résultats de recette restent à retester si concernés.
 
-État du périmètre : 3 novembre 2026. Ce document décrit les tests à réaliser ; il ne constitue pas un compte rendu de tests exécutés.
+**Mise à jour du 12 novembre 2026 :** les circuits configurables, leur éditeur et
+la simulation sont retirés. Pour les nouvelles soumissions, suivre les scénarios
+de [validation fixe](REGLES_VALIDATION.md) : un responsable CDF par ligne d’achat,
+ou CDF source puis destination pour un transfert. Les sections et classeurs
+ci-dessous consacrés à la configuration des règles sont des archives de recette,
+et ne décrivent plus des écrans disponibles.
 
-Classeur de suivi : [BF_ERP_Recette_Complete_Enrichie.xlsx](BF_ERP_Recette_Complete_Enrichie.xlsx), également disponible au format ODS. Les résultats déjà saisis sont conservés ; les nouveaux tests RSP-01 à RSP-15 et les tests ADM-07/08, absents de l’ancien classeur, commencent au statut **Non exécuté**. Un statut conservé reste le résultat de l’exécution antérieure : si la procédure a changé, consigner séparément le retest et sa date. ADM-07/08 se réalisent après le parcours nominal, sur des données de test dédiées, en respectant leurs précautions.
+État du périmètre : 9 novembre 2026. Ce document décrit les tests à réaliser ; il ne constitue pas un compte rendu de recette manuelle exécutée.
+
+Classeurs actualisés : [Excel](BF_ERP_Recette_Complete_Enrichie_20261109.xlsx) et
+[ODS](BF_ERP_Recette_Complete_Enrichie_20261109.ods). La copie reprend les résultats
+enregistrés du classeur historique, conservé séparément. Les modifications non
+enregistrées dans un classeur ouvert ne peuvent pas être reprises. Les nouveaux
+tests commencent au statut **Non exécuté**. Un statut conservé reste le résultat
+de l’exécution antérieure : si la procédure a changé, consigner séparément le
+retest et sa date. ADM-07/08 se réalisent après le parcours nominal, sur des données
+de test dédiées, en respectant leurs précautions.
 
 Présentation du produit : [Synthèse de l’application](SYNTHESE_APPLICATION.md).
 
@@ -479,8 +492,13 @@ Aucun rappel fondé sur la seule ancienneté. Après échec permanent, `--recove
 | TEC-06 | Flux, seuils, preuves, rôles, délégations, documents, notifications | purchasing/test_flow.py |
 | TEC-07 | Concurrence, double soumission, décisions simultanées, verrou annuel, historique SQL | purchasing/test_flow_postgresql.py |
 | TEC-08 | Habilitations immuables en SQL et affectations CDF concurrentes | accounts/test_postgresql.py ; budgeting/test_postgresql.py |
+| TEC-09 | Règles conditionnelles, étapes automatiques et décision manuelle obligatoire | purchasing/test_rules.py |
+| TEC-10 | Transferts, réservations, rejets, versions, droits et blocage des achats | budgeting/test_transfers.py |
+| TEC-11 | Stock, inventaires, transferts atomiques, déduplication et permissions | receiving/test_stock.py |
+| TEC-12 | Transferts concurrents sans dépassement du budget source | budgeting/test_transfers_postgresql.py |
+| TEC-13 | Sorties concurrentes sans quantité de stock négative | receiving/test_stock_postgresql.py |
 
-TEC-07/08 nécessitent PostgreSQL : SQLite ne démontre pas ces garanties. Configurer TEST_PG_DATABASE, TEST_PG_USER, TEST_PG_PASSWORD, TEST_PG_HOST, TEST_PG_PORT sur une instance dédiée. Django crée puis supprime une base de tests : ne jamais utiliser une base de production nommée comme base de tests.
+TEC-07/08/12/13 nécessitent PostgreSQL : SQLite ne démontre pas ces garanties. Configurer TEST_PG_DATABASE, TEST_PG_USER, TEST_PG_PASSWORD, TEST_PG_HOST, TEST_PG_PORT sur une instance dédiée. Django crée puis supprime une base de tests : ne jamais utiliser une base de production nommée comme base de tests.
 
 ```powershell
 .\.venv\Scripts\python.exe manage.py test --settings=config.postgresql_test_settings
@@ -494,10 +512,12 @@ Attendus : réservations concurrentes sans dépassement ; un seul BC et engageme
 - Annulation de BC, régularisations d’engagement, avenants TVA, ajustements approuvés.
 - Alertes automatiques de déficit BUD-019/020/021.
 - Exports SUI-003 et suivants, archivage des notifications informatives.
-- Clôture annuelle et règles comptables, de stock ou vente non implémentées.
+- Clôture annuelle, règles comptables, valorisation du stock et ventes non implémentées.
 - Restriction financière par périmètre ; finalisation des notifications et du durcissement d’exploitation.
 
-Cette campagne couvre **DA → commande** et sa configuration ; elle ne vaut pas validation de toute la spécification ERP ni accord de mise en production.
+Cette campagne couvre **DA → commande**, les workflows, les transferts budgétaires
+et le stock en quantités ; elle ne vaut pas validation de toute la spécification
+ERP ni accord de mise en production.
 
 ## 16. Registre et clôture
 
@@ -582,3 +602,92 @@ Préparation : conserver le circuit nominal, puis en publier une copie REC-CDF-S
 Rétablir les affectations de HAB-02 et le circuit voulu après la campagne. Les tests de réutilisation d’une preuve par un même acteur aux deux niveaux restent décrits dans CFG-08/10 ; une telle preuve peut approuver automatiquement une autre étape éligible de la même ligne.
 
 Les responsables CDF historiques dont la période est active sont repris par la migration. Les étapes des soumissions antérieures conservent leur mode historique ; les nouvelles soumissions suivent la version du workflow active.
+
+## 18. Workflows, transferts budgétaires et stock
+
+Exécuter la préparation des comptes et données, puis les scénarios détaillés de
+[Transferts et stock](TRANSFERTS_ET_STOCK.md#recette-du-lot). Les identifiants
+WF-12 à WF-19, TB-01 à TB-12, STK-01 à STK-08 et SEC-03 à SEC-05 figurent dans
+les classeurs actualisés, ainsi que TEC-09 à TEC-13.
+
+Les droits stock et transferts sont distincts des droits d’achat. Tester les URL
+directes et les POST, les profils en lecture seule et le retrait des affectations.
+Pour les transferts, le compteur de validations inclut les tâches traitables,
+mais les délégations et courriels d’achat ne s’appliquent pas à ce lot.
+
+Rapprocher les disponibilités avec la formule : **allocation de base − réservations
+DA − engagements + crédits de transferts approuvés − sorties de transferts en
+attente ou approuvés**. Une nouvelle version budgétaire ne réincorpore pas les
+transferts dans ses allocations de base. Les quantités de stock ne portent pas
+de valorisation et ne sont pas alimentées automatiquement par les commandes.
+
+### Actualiser le classeur sans perdre le suivi
+
+```powershell
+.\.venv\Scripts\python.exe docs/regenerer_classeur_recette.py --source docs/BF_ERP_Recette_Complete_Enrichie.ods --output docs/BF_ERP_Recette_Complete_Enrichie_20261109.ods
+```
+
+Pour les actualisations suivantes, utiliser le dernier ODS renseigné comme
+`--source` et un nouveau nom de sortie. Le script conserve les sept colonnes de
+suivi existantes et refuse les identifiants dupliqués. Il ajoute les nouveaux
+tests à « Non exécuté », actualise le tableau de bord et les scénarios métier.
+Il refuse d’écraser la source si son verrou LibreOffice est présent. L’Excel est
+un export de l’ODS : enregistrer les résultats dans un seul classeur de référence
+et les reporter avant toute régénération depuis un autre format.
+
+
+## Sélection d’une version et historique de ses transferts
+
+1. Avec le droit de création des transferts, ouvrir **Budget → Transferts budgétaires**, choisir une version et créer une demande sans configurer d’enveloppe. L’année du transfert est déduite de la version.
+2. Vérifier que les versions bloquées ou supprimées ne sont pas sélectionnables et qu’un POST direct les ciblant est refusé.
+3. Créer deux versions de la même année, puis soumettre et approuver un transfert sur la première. Seuls les soldes de cette version changent ; la seconde conserve son solde de transferts.
+4. Depuis le détail de la première version, ouvrir **Historique des transferts de cette version** : demandes, validations, motifs et annulations sont visibles. Le même événement apparaît dans son historique budgétaire daté.
+5. Vérifier que cet événement n’apparaît pas dans la chronologie de la seconde version. Publier la seconde : le transfert reste rattaché à la première.
+6. Comme demandeur sans droit de lecture globale, vérifier que l’historique spécifique et son export Excel ne présentent que ses propres transferts.
+7. Bloquer une version avec un transfert en attente : l’approbation est refusée, mais le rejet ou l’annulation du transfert en attente restent possibles.
+
+## Suivi des transferts, annulation et historique budgétaire
+
+### Exports Excel
+
+Le bouton **Exporter en Excel** produit un fichier `.xlsx` sur les listes d’achats, le détail d’une DA,
+le suivi des validations, les versions budgétaires, les allocations d’une version, les disponibilités,
+l’état historique sélectionné, les transferts, les produits, les dépôts, les quantités et les mouvements de stock.
+
+1. Ouvrir les exports dans Excel : vérifier les en-têtes, les filtres, les accents, les montants/quantités numériques et les dates locales.
+2. Filtrer le suivi des transferts par année/état ou le suivi des achats par numéro/état : le fichier reprend tous les résultats filtrés, pas seulement la page visible.
+3. Pour les mouvements, vérifier l’export complet de l’historique, y compris au-delà des 200 derniers mouvements affichés à l’écran.
+4. Consulter un état historique à une date passée et exporter : l’onglet **État budgétaire** reprend cet état, avec son contexte et la chronologie dans des onglets distincts.
+5. Comme demandeur, vérifier que les exports personnels ne contiennent pas les demandes/transferts d’autres utilisateurs. Sans droit de consultation, les URLs avec `export=xlsx` sont également refusées.
+6. Le suivi opérationnel des validations ne doit exporter ni fournisseurs ni montants. Un taux de TVA non renseigné doit conserver un total TVAC vide dans l’export de la DA.
+7. Un texte commençant par `=` doit rester un texte, sans exécution de formule.
+
+### Création vide et blocage d’une version
+
+La liste et le détail proposent **Supprimer** pour les brouillons non bloqués, avec le droit
+`budgeting.delete_envelopeversion`. Vérifier la confirmation, la disparition de la liste de travail,
+la conservation de l’historique et le refus de modification/publication après suppression.
+Une version publiée, active, bloquée ou utilisée par un achat ne peut pas être supprimée.
+Les allocations sont conservées pour les états historiques et le nom reste réservé pour l’année.
+
+Le nom d’une version doit être unique pour une même année, sans distinction de casse ni d’espaces autour du nom.
+Essayer un nom existant pour la même année : message de refus et aucune version supplémentaire.
+Le même nom reste autorisé pour une autre année.
+
+1. **Budget → Créer une version** : saisir l’année et le libellé, puis **Créer la version vide**. Quitter sans allocation.
+2. Retrouver cette version dans **Alimenter une version** : elle existe en brouillon et reste modifiable. Ajouter des allocations et enregistrer.
+3. Comme administrateur système, ouvrir la version et utiliser **Bloquer la version** après enregistrement des lignes. Le blocage est possible même pour une version vide.
+4. Revenir sur la version : état **Bloquée**, allocations en lecture seule, aucun formulaire de saisie. L’ajout, la modification, la suppression des allocations et la publication sont refusés, même par requête directe et même pour l’administrateur.
+5. Comme gestionnaire non superutilisateur, vérifier l’absence du bouton et le refus d’un POST avec `action=lock`.
+6. Dans l’historique budgétaire, consulter les états avant et après blocage : l’état **Bloquée** et l’auteur du blocage sont conservés. Une version publiée était déjà en lecture seule ; le blocage permet de figer un brouillon sans le publier ni le rendre actif.
+
+### Vérifications des transferts et des états datés
+
+1. Comme administrateur, ouvrir **Budget → Suivi de tous les transferts** ; vérifier les demandes et les filtres année/état. Sans droit de lecture globale ni d’annulation globale, l’accès est refusé.
+2. Annuler avec motif le transfert en validation d’un autre demandeur : réservation source libérée, étapes arrêtées, motif et auteur conservés dans le détail.
+3. Annuler un transfert approuvé avec le droit `budgeting.cancel_any_budgettransfer` : fonds repris à destination et rétablis à la source. Sans motif, sans ce droit ou avec une révision périmée, l’opération est refusée.
+4. Réserver à destination une partie des fonds reçus, puis essayer d’annuler le transfert d’origine : refus sans modification des soldes. Vérifier le refus d’une deuxième annulation.
+5. Ouvrir **Budget → Historique des versions budgétaires** et consulter un état avant/après un transfert ou son annulation : allocations, réservations, engagements et disponible correspondent à la date retenue.
+6. Modifier les allocations d’un brouillon, publier puis remplacer la version. Vérifier la chronologie et la conservation des anciens montants et statuts.
+7. Soumettre, approuver ou annuler une DA : la réservation, sa conversion en engagement ou sa libération apparaissent dans l’historique.
+8. Choisir une date antérieure au premier état disponible : aucun état n’est inventé. Un utilisateur sans droit budgétaire ne peut pas consulter cet écran.

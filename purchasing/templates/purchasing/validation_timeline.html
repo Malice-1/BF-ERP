@@ -1,0 +1,23 @@
+<section class="configuration-section content-zone" aria-labelledby="purchase-workflow-title">
+<h2 id="purchase-workflow-title">Parcours de validation</h2>
+<p>Chaque ligne est valid&eacute;e par le responsable de son CDF. Les lignes peuvent &ecirc;tre valid&eacute;es en parall&egrave;le. Les &eacute;tapes du circuit de chaque ligne sont suivies dans l&rsquo;ordre.</p>
+{% regroup steps by snapshot.submission as submissions %}
+{% for group in submissions %}
+<div class="purchase-validation-cycle{% if not group.grouper.active %} validation-cycle-closed{% endif %}">
+<h3>Soumission {{ group.grouper.pk }}{% if group.grouper.active %} &middot; En cours{% else %} &middot; Cl&ocirc;tur&eacute;e{% endif %}</h3>
+<p>{{ group.grouper.created_at }}{% if not group.grouper.active %} &middot; Les validations de cette soumission ne valent pas pour une nouvelle soumission.{% endif %}</p>
+<ol class="transfer-timeline purchase-validation-timeline">
+{% for step in group.list %}
+<li class="timeline-{{ step.state }}"{% if step.is_current %} aria-current="step"{% endif %}>
+<strong class="validation-step-title">Ligne {{ step.snapshot.original_line_id }} &middot; {{ step.function_label }}</strong>
+<p>{% if step.state == 'future' %}En attente de la validation pr&eacute;c&eacute;dente{% else %}{{ step.get_state_display }}{% endif %}</p>
+<p>{% if step.rule_snapshot.automatic %}Syst&egrave;me{% elif step.approved_by %}{{ step.approved_by }}{% elif step.state == 'approved' %}Compte supprim&eacute; (voir journal){% else %}{% for candidate in step.candidates.all %}{{ candidate }}{% if not forloop.last %}, {% endif %}{% empty %}&Agrave; affecter{% endfor %}{% endif %}{% if step.approved_at %} &middot; {{ step.approved_at }}{% endif %}</p>
+{% if step.role_id %}<p>R&ocirc;le : {{ step.role }}</p>{% endif %}
+{% if step.approved_at %}<p>{% if step.rule_snapshot.automatic %}Automatique selon la r&egrave;gle{% elif step.evidence_id %}Automatique, preuve {{ step.evidence_id }}{% else %}Validation manuelle{% endif %}</p>{% endif %}
+{% if step.evaluated_scope.role_code %}<p>R&ocirc;le : {{ step.evaluated_scope.role_code }} &middot; {{ step.evaluated_scope.role_label }}</p>{% endif %}
+{% if step.evaluated_scope.admin_override %}<p>Intervention administrateur</p>{% endif %}
+</li>
+{% endfor %}
+</ol></div>
+{% empty %}<p>La demande n&rsquo;a pas encore &eacute;t&eacute; soumise. Le circuit sera cr&eacute;&eacute; &agrave; la soumission.</p>{% endfor %}
+</section>

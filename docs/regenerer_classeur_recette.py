@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
 from zipfile import ZipFile
+import argparse
 
 ROOT = Path(__file__).resolve().parent
 ODS = ROOT / "BF_ERP_Recette_Complete_Enrichie.ods"
@@ -82,8 +83,11 @@ def tracking(table):
     return result
 
 
-def main():
-    with ZipFile(ODS) as source:
+def main(source_path=ODS, output_path=None):
+    output_path = output_path or source_path
+    if output_path.resolve() == source_path.resolve() and source_path.with_name(f".~lock.{source_path.name}#").exists():
+        raise SystemExit("Classeur ouvert : utilisez --output pour créer une copie sans écraser le fichier en cours d’édition.")
+    with ZipFile(source_path) as source:
         entries = [(info, source.read(info.filename)) for info in source.infolist()]
     raw = dict((info.filename, data) for info, data in entries)["content.xml"]
     namespaces = {}
@@ -101,15 +105,27 @@ def main():
             q("style", "name"): "RecetteRow", q("style", "family"): "table-row"})
         ET.SubElement(row_style, q("style", "table-row-properties"), {
             q("style", "use-optimal-row-height"): "true", q("style", "min-row-height"): "0.5cm"})
-    tables = {t.get(q("table", "name")): t for t in document.findall(".//table:table", NS)}
+    tables = {t.get(q("table", "name")).replace("_", " "): t for t in document.findall(".//table:table", NS)}
     tests = tables["Tests de recette"]
     before = tracking(tests)
     markdown = (ROOT / "RECETTE_COMPLETE.md").read_text(encoding="utf-8")
     descriptions = {}
+    references = {}
     for line in markdown.splitlines():
         parts = [p.strip() for p in line.strip().strip("|").split("|")]
         if len(parts) == 3 and re.fullmatch(r"[A-Z]+-\d+", parts[0]):
             descriptions[parts[0]] = parts[1:]
+            references[parts[0]] = "RECETTE_COMPLETE.md"
+    extension = (ROOT / "TRANSFERTS_ET_STOCK.md").read_text(encoding="utf-8")
+    extension_ids = []
+    for line in extension.splitlines():
+        parts = [p.strip() for p in line.strip().strip("|").split("|")]
+        if len(parts) == 3 and re.fullmatch(r"[A-Z]+-\d+", parts[0]):
+            if parts[0] in extension_ids:
+                raise ValueError(f"Identifiant dupliqué dans l’extension : {parts[0]}")
+            descriptions[parts[0]] = parts[1:]
+            references[parts[0]] = "TRANSFERTS_ET_STOCK.md"
+            extension_ids.append(parts[0])
 
     for row in tests.findall("table:table-row", NS)[1:]:
         items = normalized_test_cells(row)
@@ -119,8 +135,8 @@ def main():
         if test_id in descriptions:
             action, expected = descriptions[test_id]
             set_value(items[2], action)
-            set_value(items[3], f"RECETTE_COMPLETE.md — {test_id}")
-            set_value(items[4], expected)
+            set_value(items[3], f"{references[test_id]} — {test_id}")
+            set_value(items[4], "Contrôles techniques réussis ; fichiers : " + expected if test_id.startswith("TEC-") else expected)
         elif test_id.startswith("TEC-"):
             # Les références techniques se trouvaient dans l'ancienne colonne Attendu.
             reference = value(items[4])
@@ -142,14 +158,20 @@ def main():
             "En fin de campagne, tester les suppressions de maintenance de rôles, référentiels, versions publiées et étapes ; vérifier les dépendances avant confirmation et les suppressions groupées ; essayer hors superadministrateur.",
             "Dépendances annoncées ; traces maintenance conservées ; suppression d’étape arrête le cycle, libère les réservations et remet la DA en correction ; journal non supprimable ; accès refusé hors superadministrateur."),
     })
-    new_ids = ["ADM-07", "ADM-08"] + [f"RSP-{i:02}" for i in range(1, 16)]
+    technical_ids = [test_id for test_id in descriptions if test_id.startswith("TEC-")]
+    new_ids = ["ADM-07", "ADM-08"] + [f"RSP-{i:02}" for i in range(1, 16)] + extension_ids + technical_ids
     for test_id in new_ids:
         if test_id in before:
             continue
         action, expected = descriptions[test_id]
         section = "17. Responsables par CDF et par support" if test_id.startswith("RSP-") else "Administration — conservation des traces et maintenance"
+        if test_id in extension_ids:
+            section = {"WF": "Workflows manuels et automatiques", "TB": "Transferts budgétaires", "STK": "Gestion de stock", "SEC": "Sécurité transferts et stock"}[test_id.split("-")[0]]
+        if test_id.startswith("TEC-"):
+            section = "14. Vérifications techniques complémentaires"
+            expected = "Contrôles techniques réussis ; fichiers : " + expected
         row = new_row([test_id, section, action,
-                       f"RECETTE_COMPLETE.md — {test_id}", expected, "Haute", "Non exécuté"] + [""] * 6)
+                       f"{references.get(test_id, 'RECETTE_COMPLETE.md')} — {test_id}", expected, "Haute", "Non exécuté"] + [""] * 6)
         row_cells = row.findall("table:table-cell", NS)
         row_cells[5].set(q("table", "content-validation-name"), "val1")
         row_cells[6].set(q("table", "content-validation-name"), "val2")
@@ -164,11 +186,30 @@ def main():
         scenarios.remove(scenario)
     empty = next((r for r in scenarios.findall("table:table-row", NS)[1:] if not value(cells(r, 1)[0])), None)
     scenarios.insert(list(scenarios).index(empty) if empty is not None else len(scenarios), scenario)
+    for scenario_id, label, ids in [
+        ("S10", "Workflows manuels et automatiques", "WF-12 à WF-19"),
+        ("S11", "Transferts budgétaires", "TB-01 à TB-12 ; SEC-03 à SEC-05"),
+        ("S12", "Gestion de stock", "STK-01 à STK-08 ; SEC-03 à SEC-05"),
+    ]:
+        if any(value(cells(r, 1)[0]) == scenario_id for r in scenarios.findall("table:table-row", NS)):
+            continue
+        empty = next((r for r in scenarios.findall("table:table-row", NS)[1:] if not value(cells(r, 1)[0])), None)
+        row = new_row([scenario_id, label, ids, "Non exécuté", "", ""])
+        scenarios.insert(list(scenarios).index(empty) if empty is not None else len(scenarios), row)
     mode = tables["Mode emploi"]
+    excluded = tables.get("Hors périmètre")
+    if excluded is not None:
+        for row in excluded.findall("table:table-row", NS)[1:]:
+            items = cells(row, 2)
+            if "stock" in value(items[0]).lower():
+                set_value(items[0], "Clôture annuelle, règles comptables, valorisation du stock et ventes")
+                for child in list(row):
+                    row.remove(child)
+                row.extend(items)
     for row in mode.findall("table:table-row", NS):
         items = cells(row, 2)
         if value(items[0]) == "Référence":
-            set_value(items[1], "RECETTE_COMPLETE.md du 03/11/2026 ; section 17 ajoutée")
+            set_value(items[1], "RECETTE_COMPLETE.md et TRANSFERTS_ET_STOCK.md — périmètre du 09/11/2026")
             for child in list(row):
                 row.remove(child)
             row.extend(items)
@@ -204,12 +245,33 @@ def main():
             set_value(cell, str(cached.get(label, 0)))
             cell.set(q("office", "value-type"), "float")
             cell.set(q("office", "value"), str(cached.get(label, 0)))
-            cell.set(q("table", "formula"), "of:=" + formulas[label])
+            cell.set(q("table", "formula"), "of:=" + formulas[label].replace("Tests de recette", tests.get(q("table", "name"))))
             for child in list(row):
                 row.remove(child)
             row.extend(items)
 
-    for table in tables.values():
+    # LibreOffice conserve jusqu’à un million de lignes vides répétées. Leur
+    # appliquer un style gonfle fortement l’export XLSX ; garder 500 lignes utiles.
+    widths = {"Tests de recette": 13, "Scénarios métier": 6, "Anomalies": 12}
+    for name, table in tables.items():
+        position = 0
+        for row in list(table.findall("table:table-row", NS)):
+            items = cells(row, widths.get(name, 2))
+            meaningful = any(value(cell) or cell.get(q("table", "formula")) for cell in items)
+            repeat = int(row.get(q("table", "number-rows-repeated"), 1))
+            if not meaningful:
+                repeat = min(repeat, max(0, 500 - position))
+                if not repeat:
+                    table.remove(row)
+                    continue
+            if repeat == 1:
+                row.attrib.pop(q("table", "number-rows-repeated"), None)
+            else:
+                row.set(q("table", "number-rows-repeated"), str(repeat))
+            position += repeat
+            for child in list(row):
+                row.remove(child)
+            row.extend(items)
         for row in table.findall("table:table-row", NS)[1:]:
             row.set(q("table", "style-name"), "RecetteRow")
             for cell in row.findall("table:table-cell", NS):
@@ -222,7 +284,8 @@ def main():
     existing_range = next((r for r in ranges if r.get(q("table", "name")) == "RecetteTests"), None)
     if existing_range is None:
         existing_range = ET.SubElement(ranges, q("table", "database-range"), {q("table", "name"): "RecetteTests"})
-    existing_range.set(q("table", "target-range-address"), f"'Tests de recette'.A1:'Tests de recette'.M{total + 1}")
+    test_sheet = tests.get(q("table", "name"))
+    existing_range.set(q("table", "target-range-address"), f"'{test_sheet}'.A1:'{test_sheet}'.M{total + 1}")
     existing_range.set(q("table", "display-filter-buttons"), "true")
     existing_range.set(q("table", "contains-header"), "true")
 
@@ -232,7 +295,7 @@ def main():
         declaration = f'xmlns:{prefix}=' if prefix else 'xmlns='
         if declaration not in updated.split(">", 1)[0]:
             updated = updated.replace(">", f' {declaration}"{uri}">', 1)
-    temporary = ODS.with_suffix(".tmp.ods")
+    temporary = output_path.with_suffix(".tmp.ods")
     with ZipFile(temporary, "w") as target:
         for info, data in entries:
             target.writestr(info, updated.encode("utf-8") if info.filename == "content.xml" else data)
@@ -241,9 +304,14 @@ def main():
         saved = ET.fromstring(check.read("content.xml"))
         saved_table = saved.find(".//table:table", NS)
         assert tracking(saved_table) == after
-    temporary.replace(ODS)
+    temporary.replace(output_path)
+    print(f"Classeur : {output_path}")
     print(f"{total} tests ; statuts conservés : {dict(counts)} ; {len(set(after) - set(before))} nouveaux tests.")
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--source", type=Path, default=ODS)
+    parser.add_argument("--output", type=Path)
+    args = parser.parse_args()
+    main(args.source, args.output)

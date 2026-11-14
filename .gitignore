@@ -7,6 +7,7 @@ __pycache__/
 venv/
 .venv/
 db.demo.sqlite3
+backups/*.sqlite3
 .env
 
 # Django
@@ -20,9 +21,3 @@ staticfiles/
 # IDE
 .vscode/
 .idea/
-
-# Environment
-.env
-
-# sqlite3
-db.sqlite3

@@ -3,9 +3,8 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from accounts.models import Authorization, Role, ValidationFunction
+from accounts.models import Authorization, ValidationFunction
 from purchasing.models import ApprovalStep, PurchaseNotice, PurchaseOrder
-from suppliers.models import Supplier
 from workflow.models import ActivityLog
 
 

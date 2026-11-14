@@ -1,0 +1,40 @@
+{% extends 'purchasing/base.html' %}{% load static ui_actions %}
+{% block content %}{% back_action %}
+
+<h1>Créer un transfert</h1>
+{% if submission_errors %}<div class="login-error" role="alert"><strong>Transfert impossible.</strong>{% for error in submission_errors %}<p>{{ error }}</p>{% endfor %}</div>{% endif %}
+<p>Choisissez la version budgétaire du transfert. Le montant est réservé à la source à la soumission et crédité à destination après toutes les validations, uniquement sur cette version.</p>
+{% if can_create %}
+<section class="configuration-section content-zone">
+<h2>Nouveau transfert vers une destination</h2>
+<p>Saisissez les sources et leurs montants, puis la destination commune. Chaque ligne source est validée individuellement par son responsable CDF, puis par celui du CDF destination. Si une erreur bloque la soumission, aucune ligne n’est enregistrée.</p>
+<form method="post" id="transfer-lines-form">{% csrf_token %}
+<input type="hidden" name="shared_destination" value="1">
+{{ header.as_p }}{{ formset.management_form }}{{ formset.non_form_errors }}
+<h3 id="transfer-sources-title" class="transfer-block-title">Sources · budgets débités</h3>
+<div class="table-wrap transfer-entry transfer-sources"><table aria-labelledby="transfer-sources-title">
+<thead><tr><th scope="col">CDF</th><th scope="col">Produit</th><th scope="col">Financement</th><th scope="col">Support</th><th scope="col">Montant (€)</th><th scope="col">Justification</th><th scope="col" class="transfer-remove-cell" aria-label="Action"></th></tr></thead>
+<tbody id="transfer-lines">{% for line in formset %}{% include 'budgeting/transfer_row.html' %}{% endfor %}</tbody>
+</table></div>
+<div class="transfer-add-row">
+<button type="button" id="add-transfer-line" class="ui-icon" aria-label="Ajouter une ligne de transfert" title="Ajouter une ligne de transfert">{% include 'purchasing/action_icon.html' with icon='create' %}</button>
+</div>
+<h3 id="transfer-destination-title" class="transfer-block-title">Destination · budget crédité</h3>
+{{ destination.non_field_errors }}
+<div class="table-wrap transfer-destination-entry"><table aria-labelledby="transfer-destination-title">
+<thead><tr><th scope="col">CDF</th><th scope="col">Produit</th><th scope="col">Financement</th><th scope="col">Support</th><th scope="col">Montant total (€)</th></tr></thead>
+<tbody><tr>
+<td>{{ destination.destination_cdf.errors }}{{ destination.destination_cdf }}</td>
+<td>{{ destination.destination_product.errors }}{{ destination.destination_product }}</td>
+<td>{{ destination.destination_funding.errors }}{{ destination.destination_funding }}</td>
+<td>{{ destination.destination_support.errors }}{{ destination.destination_support }}</td>
+<td class="transfer-total-cell"><output id="transfer-destination-total" aria-label="Montant total de destination" aria-live="polite">{{ destination_total|amount }}</output><small>Somme des lignes sources</small></td>
+</tr></tbody></table></div>
+<div class="ui-action-bar">
+<button type="submit" class="ui-icon ui-icon-primary" aria-label="Soumettre les transferts" title="Soumettre les transferts">{% include 'purchasing/action_icon.html' with icon='publish' %}</button>
+</div>
+</form>
+<template id="transfer-empty-row">{% include 'budgeting/transfer_row.html' with line=formset.empty_form %}</template>
+<script src="{% static 'budgeting/transfer_lines.js' %}?v=destination-total" defer></script>
+</section>{% endif %}
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends 'purchasing/base.html' %}{% load static ui_actions %}
+{% block extra_styles %}<link rel="stylesheet" href="{% static 'purchasing/allocation_import.css' %}?v=1">{% endblock %}
+{% block content %}{% back_action %}
+<h1>Alimenter le budget via Excel</h1>
+<p><strong>{{ version.envelope.year }} · {{ version.label }}</strong></p>
+<div id="allocation-import-result" {% if form.non_field_errors %}class="login-error" role="alert"{% else %}hidden{% endif %} tabindex="-1">{% if form.non_field_errors %}<strong>Import impossible. Aucune modification enregistrée.</strong><ul>{% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}</div>
+<section class="configuration-section content-zone"><h2>Préparer le fichier</h2>
+<p><a href="?template=xlsx">Télécharger le modèle Excel</a></p>
+<p>La feuille « Allocations » contient les montants actuels de cette version. Les autres feuilles fournissent les codes BI, CDF et financements disponibles.</p>
+<p>Renseignez une ligne par combinaison, avec les colonnes <strong>Code BI, Code CDF, Code financement et Montant TVAC</strong>. Conservez les codes comme texte, notamment leurs zéros initiaux. Utilisez des valeurs numériques, sans formules.</p>
+<p><strong>Chaque montant représente le budget total de la combinaison :</strong> l’import crée les lignes absentes et remplace le montant des lignes présentes dans le fichier. Les autres allocations de la version sont conservées. Réimporter les mêmes montants ne les additionne pas.</p>
+<p>Le fichier doit être au format .xlsx, de 5 Mo maximum et de 10 000 lignes maximum. Si une ligne est invalide, aucune modification n’est enregistrée. L’import ne publie pas la version.</p>
+</section>
+{% if can_import %}<form method="post" enctype="multipart/form-data" id="allocation-import-form">{% csrf_token %}<p>{{ form.file.label_tag }}{{ form.file.errors }}{{ form.file }}</p>
+<div id="allocation-import-progress" class="allocation-import-progress" hidden>
+<p id="allocation-import-status" role="status" aria-live="polite">Préparation de l’envoi…</p>
+<progress id="allocation-import-bar" max="100" aria-labelledby="allocation-import-status"></progress>
+<p>Veuillez patienter jusqu’au résultat de l’import.</p>
+</div>
+<button type="submit" id="allocation-import-submit">Importer les allocations</button></form>
+<script src="{% static 'purchasing/allocation_import.js' %}?v=1" defer></script>
+{% else %}<div class="login-error" role="alert">Cette version n’est pas modifiable. Pour une version publiée, seul l’administrateur système peut importer après déblocage des modifications.</div>{% endif %}
+{% endblock %}

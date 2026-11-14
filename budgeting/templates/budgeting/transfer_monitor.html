@@ -1,0 +1,42 @@
+{% extends 'purchasing/base.html' %}{% load ui_actions %}{% block content %}{% back_action %}
+
+<h1>Liste des transferts</h1>
+{% for message in messages %}<div {% if message.tags == 'error' %}class="login-error" role="alert"{% else %}class="configuration-section" role="status"{% endif %}>{{ message }}</div>{% endfor %}
+<p>Les annulations conservent la demande, ses validations et son historique. L’annulation d’un transfert approuvé remet les fonds à la source si le disponible à destination le permet.</p>
+<form method="get" class="transfer-filters">
+<label>Numéro <input name="number" value="{{ number }}" type="number" min="1" step="1" placeholder="Numéro du transfert"></label>
+<label>Année <input name="year" value="{{ year }}" type="number" min="2000" max="9999"></label>
+<label>Version <select name="version"><option value="">Toutes</option>{% for version in versions %}<option value="{{ version.pk }}" {% if selected_version == version.pk|stringformat:'s' %}selected{% endif %}>{{ version }}</option>{% endfor %}</select></label>
+<label>État <select name="status"><option value="">Tous</option>{% for value,label in statuses %}<option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label><div class="ui-action-bar"><button class="ui-icon" aria-label="Filtrer" type="submit" title="Filtrer">{% include 'purchasing/action_icon.html' with icon='filter' %}</button></div></form>
+<section class="configuration-section content-zone"><div class="section-toolbar"><h2>Transferts affichés</h2>{% include "purchasing/excel_export.html" with compact=True export_label="Exporter les transferts filtrés en Excel" %}</div>
+<p>Les lignes sont regroupées par saisie. Les montants et lignes affichés tiennent compte des filtres et de vos droits.</p>
+{% for group in page %}
+<section class="transfer-group" aria-labelledby="transfer-group-{{ group.number }}">
+<h3 id="transfer-group-{{ group.number }}" class="transfer-group-number" aria-label="Numéro unique du transfert global : {{ group.number }}">{{ group.number }}</h3>
+<p>{{ group.line_count }} ligne{{ group.line_count|pluralize }} · <strong>{{ group.total|amount }} EUR TVAC</strong></p>
+<p>Statut global : <span class="status-badge status-{{ group.status }}">{{ group.status_label }}</span></p>
+<div class="transfer-actions">
+{% if group.can_approve_all %}<form method="post" action="{% url 'transfer_batch_approve' group.number %}" data-transfer-decision>{% csrf_token %}<input type="hidden" name="snapshot" value="{{ group.snapshot }}"><input type="hidden" name="reason"><div class="ui-action-bar"><button type="submit" name="action" value="approve_batch" class="ui-icon" aria-label="Valider toutes les lignes" title="Valider toutes les lignes">{% include 'purchasing/action_icon.html' with icon='approve_all' %}</button></div></form>{% endif %}
+{% if group.can_return_all or group.can_cancel_all %}<form method="post" action="{% url 'transfer_batch_close' group.number %}" data-transfer-decision>{% csrf_token %}<input type="hidden" name="snapshot" value="{{ group.snapshot }}"><input type="hidden" name="reason"><div class="ui-action-bar">
+{% if group.can_return_all %}<button type="submit" name="action" value="return_batch" class="ui-icon ui-icon-danger" aria-label="Refuser le transfert global" title="Refuser le transfert global">{% include 'purchasing/action_icon.html' with icon='reject' %}</button>{% endif %}
+{% if group.can_cancel_all %}<button type="submit" name="action" value="cancel_batch" class="ui-icon ui-icon-danger" aria-label="Annuler définitivement le transfert" title="Annuler définitivement le transfert">{% include 'purchasing/action_icon.html' with icon='cancel' %}</button>{% endif %}
+</div></form>{% endif %}
+</div>
+<p>{{ group.first.budget_version }} · {{ group.first.created_at }} · {{ group.first.created_by|default:'Compte supprimé' }}</p>
+<div class="table-wrap"><table><thead><tr><th>Numéro de transaction</th><th>Année</th><th>Version</th><th>Demandeur</th><th>Source</th><th>Destination</th><th>Montant TVAC</th><th>État</th><th>Action</th></tr></thead><tbody>
+{% for item in group.lines %}<tr><td><a href="{% url 'transfer_timeline' item.pk %}" aria-label="Voir le workflow de la transaction {{ item.pk }}" title="Voir le workflow de la transaction {{ item.pk }}">{{ item.pk }}</a></td><td>{{ item.envelope }}</td><td><a href="{% url 'version_transfers' item.budget_version_id %}">{{ item.budget_version.label }}</a></td><td>{{ item.created_by|default:'Compte supprimé' }}</td>
+<td><div><strong>CDF :</strong> {{ item.source_cdf }}</div><div><strong>Produit :</strong> {{ item.source_product }}</div><div><strong>Financement :</strong> {{ item.source_funding }}</div></td>
+<td><div><strong>CDF :</strong> {{ item.destination_cdf }}</div><div><strong>Produit :</strong> {{ item.destination_product }}</div><div><strong>Financement :</strong> {{ item.destination_funding }}</div></td>
+<td>{{ item.amount|amount }} EUR</td><td>{{ item.get_status_display }}</td><td>
+<div class="transfer-actions">
+{% if item.status == 'returned' and item.created_by_id == user.pk and perms.budgeting.add_budgettransfer %}<a href="{% url 'transfer_correct' item.pk %}" class="ui-icon" aria-label="Corriger et resoumettre" title="Corriger et resoumettre">{% include 'purchasing/action_icon.html' with icon='edit' %}</a>{% endif %}
+{% if item.decision_step %}{% include 'budgeting/transfer_decision.html' with transfer=item step=item.decision_step %}{% endif %}
+{% if perms.budgeting.cancel_any_budgettransfer %}{% if item.status == 'draft' or item.status == 'pending' or item.status == 'approved' %}
+<form method="post" action="{% url 'transfer_detail' item.pk %}" data-transfer-decision>{% csrf_token %}<input type="hidden" name="revision" value="{{ item.revision }}"><input type="hidden" name="reason"><div class="ui-action-bar"><button name="action" value="cancel" class="ui-icon ui-icon-danger" aria-label="Annuler {{ item }}" type="submit" title="Annuler {{ item }}">{% include 'purchasing/action_icon.html' with icon='cancel' %}</button></div></form>
+{% endif %}{% endif %}</div></td></tr>{% empty %}<tr><td colspan="9">Aucun transfert.</td></tr>{% endfor %}
+</tbody></table></div>
+</section>
+{% empty %}<p>Aucun transfert.</p>{% endfor %}
+<p>Page {{ page.number }} / {{ page.paginator.num_pages }}{% if page.has_previous %} · <a href="{% querystring page=page.previous_page_number %}" class="ui-icon" aria-label="Précédente" title="Précédente">{% include 'purchasing/action_icon.html' with icon='previous' %}</a>{% endif %}{% if page.has_next %} · <a href="{% querystring page=page.next_page_number %}" class="ui-icon" aria-label="Suivante" title="Suivante">{% include 'purchasing/action_icon.html' with icon='next' %}</a>{% endif %}</p>
+</section>
+{% endblock %}

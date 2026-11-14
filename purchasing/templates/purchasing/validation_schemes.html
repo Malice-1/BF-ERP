@@ -1,0 +1,74 @@
+{% extends 'purchasing/base.html' %}{% load ui_actions %}{% load static %}
+{% block extra_styles %}<link rel="stylesheet" href="{% static 'purchasing/validation_schemes.css' %}">{% endblock %}
+{% block content %}{% back_action %}
+
+<div class="page-heading"><div><h1>Schémas de validation</h1><p>Qui valide, dans quel ordre et avec quel effet sur le budget.</p></div></div>
+<nav class="validation-index" aria-label="Choisir un schéma">
+  <a href="#schema-da">Demandes d’achat</a>
+  <a href="#schema-transfert">Transferts budgétaires</a>
+</nav>
+<p>Ces parcours s’appliquent aux nouvelles soumissions. Ils sont fixes : aucune règle ni publication de circuit n’est nécessaire.</p>
+
+<section class="configuration-section validation-scheme" aria-labelledby="schema-da">
+  <h2 id="schema-da">Demandes d’achat</h2>
+  <p><strong>Une validation par ligne, par le responsable du CDF de cette ligne.</strong> Les lignes peuvent être validées en parallèle. Les étapes de chaque ligne suivent l’ordre du circuit.</p>
+  <ol class="validation-flow" aria-label="Parcours complet d’une demande d’achat">
+    <li><span class="validation-number" aria-hidden="true">1</span><strong>Brouillon</strong><p>Le demandeur renseigne le fournisseur et les lignes : produit, montant, TVA, CDF et financement.</p></li>
+    <li><span class="validation-number" aria-hidden="true">2</span><strong>Soumission et contrôles</strong><p>Le demandeur soumet la DA. Toutes les lignes et le budget disponible sont contrôlés avant de réserver les montants TVAC.</p></li>
+    <li><span class="validation-number" aria-hidden="true">3</span><strong>Validation de chaque ligne</strong><p>Chaque responsable retrouve uniquement les lignes de son CDF dans « Mes validations ».</p>
+      <div class="validation-parallel" aria-label="Exemple de deux lignes validées en parallèle">
+        <div><span class="validation-caption">Exemple · Ligne 1 · CDF A</span><strong>Responsable du CDF A</strong><span>Décision sur la ligne 1</span></div>
+        <div><span class="validation-caption">Exemple · Ligne 2 · CDF B</span><strong>Responsable du CDF B</strong><span>Décision sur la ligne 2</span></div>
+      </div>
+      <p>Une décision distincte est nécessaire pour chaque ligne, même si plusieurs lignes dépendent du même responsable.</p>
+    </li>
+    <li><span class="validation-number" aria-hidden="true">4</span><strong>Toutes les lignes approuvées</strong><p>Un bon de commande unique est créé. Les réservations deviennent des engagements, sans déduire une deuxième fois le budget.</p></li>
+  </ol>
+  <h3>Autres issues du parcours</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th scope="col">Situation</th><th scope="col">Suite du parcours</th><th scope="col">Effet budgétaire</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">Contrôle refusé à la soumission</th><td>La demande reste en brouillon ou en correction. Le demandeur corrige le problème indiqué.</td><td>Aucune réservation partielle.</td></tr>
+      <tr><th scope="row">Une ligne sans responsable actif</th><td>La ligne reste « À affecter ». Les autres lignes peuvent être validées ; la DA attend la validation de toutes ses lignes.</td><td>Les montants restent réservés.</td></tr>
+      <tr><th scope="row">Retour pour correction d’une ligne</th><td>Toute la DA revient au demandeur. Après modification, une nouvelle soumission redemande la validation de chaque ligne.</td><td>Toutes les réservations de la DA sont libérées.</td></tr>
+      <tr><th scope="row">Rejet d’une ligne</th><td>Toute la DA est rejetée définitivement. Aucun bon de commande n’est créé.</td><td>Toutes les réservations de la DA sont libérées.</td></tr>
+      <tr><th scope="row">Annulation par le demandeur avant commande</th><td>La demande est annulée et les validations en cours sont arrêtées.</td><td>Les réservations éventuelles sont libérées.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="configuration-section validation-scheme" aria-labelledby="schema-transfert">
+  <h2 id="schema-transfert">Transferts budgétaires</h2>
+  <p><strong>Responsable du CDF source, puis responsable du CDF destination.</strong> La deuxième validation attend obligatoirement la première.</p>
+  <ol class="validation-flow" aria-label="Parcours complet d’un transfert budgétaire">
+    <li><span class="validation-number" aria-hidden="true">1</span><strong>Saisie des sources et de la destination</strong><p>Le demandeur choisit la version budgétaire, puis saisit une ou plusieurs sources avec leur CDF, produit, financement, support, montant et justification. Il renseigne une destination commune (CDF, produit, financement et support). Le montant de destination est la somme automatique des sources. Chaque ligne source est validée individuellement. Si une ligne échoue lors de la soumission, aucune n’est enregistrée.</p></li>
+    <li><span class="validation-number" aria-hidden="true">2</span><strong>Soumission et réservation à la source</strong><p>La version doit être modifiable et le budget source suffisant. Le montant est réservé à la source ; la destination n’est pas encore créditée.</p></li>
+    <li><span class="validation-number" aria-hidden="true">3</span><strong>Responsable du CDF source</strong><p>Il approuve ou rejette le transfert. Le responsable du CDF destination ne peut pas encore prendre de décision.</p></li>
+    <li><span class="validation-number" aria-hidden="true">4</span><strong>Responsable du CDF destination</strong><p>Après l’approbation de la source, il approuve ou rejette à son tour. Deux décisions sont requises, même si la même personne gère les deux CDF.</p></li>
+    <li><span class="validation-number" aria-hidden="true">5</span><strong>Transfert approuvé</strong><p>Le montant est crédité à destination. Le débit source et le crédit destination s’appliquent uniquement à la version budgétaire choisie.</p></li>
+  </ol>
+  <h3>Autres issues du parcours</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th scope="col">Situation</th><th scope="col">Suite du parcours</th><th scope="col">Effet budgétaire</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">Contrôle refusé à la soumission</th><td>Le formulaire conserve la saisie et affiche le motif du blocage. Aucun transfert n’est créé.</td><td>Aucune réservation.</td></tr>
+      <tr><th scope="row">Aucun responsable actif sur le CDF attendu</th><td>L’étape reste « À affecter » jusqu’à l’affectation d’un responsable actif. Aucune étape n’est approuvée automatiquement.</td><td>Le montant reste réservé à la source.</td></tr>
+      <tr><th scope="row">Rejet par l’un des deux responsables</th><td>Le transfert est rejeté. Les étapes restantes sont arrêtées.</td><td>La réservation source est libérée ; la destination n’est pas créditée.</td></tr>
+      <tr><th scope="row">Annulation d’un brouillon ou d’un transfert en validation</th><td>Le demandeur peut annuler son transfert. Un utilisateur ayant le droit d’annulation globale peut aussi intervenir, avec un motif.</td><td>La réservation éventuelle est libérée.</td></tr>
+      <tr><th scope="row">Annulation après approbation</th><td>Réservée aux utilisateurs ayant le droit d’annulation globale, avec motif. La version doit rester modifiable et les fonds transférés doivent être encore disponibles à destination.</td><td>Le crédit destination et le débit source sont annulés.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="configuration-section validation-scheme" aria-labelledby="schema-responsables">
+  <h2 id="schema-responsables">Qui peut prendre une décision ?</h2>
+  <ul>
+    <li>Si plusieurs responsables actifs sont affectés au même CDF, l’approbation de l’un d’eux suffit pour l’étape concernée.</li>
+    <li>Les affectations sont revérifiées à chaque décision. Un responsable retiré ne peut plus valider ; son remplaçant retrouve les étapes en attente.</li>
+    <li>Être administrateur ne donne pas automatiquement le droit d’approuver : il faut être responsable du CDF concerné.</li>
+    <li>Pour les demandes d’achat, une délégation valide permet d’agir au nom du responsable. Les transferts ne prennent pas en charge ces délégations.</li>
+    <li>Les décisions et étapes des anciennes soumissions restent conservées dans l’historique ; elles peuvent suivre un ancien parcours.</li>
+  </ul>
+  {% if perms.budgeting.manage_cost_center_managers %}<p><a href="{% url 'entity_managers' %}" class="ui-icon" aria-label="Gérer les responsables des CDF et des supports" title="Gérer les responsables des CDF et des supports">{% include 'purchasing/action_icon.html' with icon='publish' %}</a></p>{% endif %}
+</section>
+{% endblock %}

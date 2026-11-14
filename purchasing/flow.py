@@ -3,14 +3,14 @@ from collections import defaultdict
 from decimal import Decimal, localcontext
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
+from django.db import transaction, connection
 from django.db.models import Q
 from django.utils import timezone
 from accounts.services import eligible_authorization
 from accounts.models import Role
 from workflow.models import ConfigurationAuditEvent
-from .models import (PurchaseRequest, AnnualEnvelope, EnvelopeVersion, Allocation,
-    WorkflowVersion, ApprovalStep, Submission, LineSnapshot, BudgetEntry, PurchaseOrder,
+from .models import (PurchaseRequest, AnnualEnvelope, EnvelopeVersion,
+    ApprovalStep, Submission, LineSnapshot, BudgetEntry, PurchaseOrder,
     Delegation, PurchaseNotice)
 from .exceptions import PurchaseRequestError, PurchaseRequestConflict
 from .services import _audit
@@ -37,23 +37,6 @@ def _step_grant(user, step):
     if step.rule_snapshot.get("rule_based") and step.rule_snapshot.get("named_user_id"):
         return user if user.pk == step.rule_snapshot["named_user_id"] else None
     return eligible_authorization(user=user, function=step.function, context=context(step.snapshot)) if step.function_id else None
-
-
-def initial_candidates(rule, snapshot, *, rule_based=False):
-    """Shared by submission and read-only simulation, including legacy grants."""
-    if rule.cdf_manager or rule.support_manager:
-        entity = snapshot.cost_center if rule.cdf_manager else snapshot.support
-        users = entity.managers.filter(is_active=True) if entity else []
-    elif rule.role_id:
-        users = get_user_model().objects.filter(is_active=True, roles=rule.role)
-    elif rule.named_user_id or rule.named_user_reference:
-        users = [rule.named_user] if rule.named_user_id else []
-    else:
-        users = get_user_model().objects.filter(is_active=True, authorizations__function=rule.function).distinct()
-    probe = ApprovalStep(snapshot=snapshot, function=rule.function, role=rule.role,
-        manager_source="cdf" if rule.cdf_manager else "support" if rule.support_manager else "",
-        rule_snapshot={"rule_based": rule_based, "named_user_id": rule.named_user_id})
-    return [user for user in users if _step_grant(user, probe)]
 
 
 def _record_grant(step, auth):
@@ -86,7 +69,7 @@ def authority(user, step):
     return None
 
 
-def pending_validation_count(user, *, refresh=True):
+def pending_validation_count(user):
     """Count actionable tasks, including replacements, using current assignments."""
     if not user.is_authenticated or not user.is_active:
         return 0
@@ -101,9 +84,8 @@ def pending_validation_count(user, *, refresh=True):
     )
     submission_ids = list(relevant.order_by("snapshot__submission_id").values_list(
         "snapshot__submission_id", flat=True).distinct())
-    if refresh:
-        for submission_id in submission_ids:
-            refresh_submission(submission_id)
+    for submission_id in submission_ids:
+        refresh_submission(submission_id)
     steps = ApprovalStep.objects.filter(
         snapshot__submission_id__in=submission_ids, snapshot__submission__active=True,
         state="pending").select_related("function", "role", "snapshot__cost_center", "snapshot__funding").prefetch_related("candidates")
@@ -141,44 +123,62 @@ def _state_notice(step, old):
 
 
 def _advance(submission):
-    """Sequential levels; parallel steps; real manual evidence only."""
-    for snapshot in submission.lines.all():
-        steps = list(snapshot.steps.select_related("function", "snapshot__submission__purchase_request").order_by("level", "pk"))
-        for level in sorted({s.level for s in steps}):
-            current = [s for s in steps if s.level == level]
-            if any(s.state != "approved" for s in steps if s.level < level):
+    """Validate lines in parallel and follow the steps of each line in order."""
+    waiting = False
+    current_snapshot_id = None
+    steps = ApprovalStep.objects.filter(snapshot__submission=submission).select_related(
+        "function", "snapshot__submission__purchase_request", "snapshot__cost_center", "snapshot__support"
+    ).order_by("snapshot__original_line_id", "snapshot_id", "level", "pk")
+    for step in steps:
+        if step.snapshot_id != current_snapshot_id:
+            current_snapshot_id = step.snapshot_id
+            waiting = False
+        if step.state == "approved":
+            continue
+        if waiting:
+            if step.state != "future" or step.waiting_since is not None:
+                step.state = "future"
+                step.waiting_since = None
+                step.save(update_fields=["state", "waiting_since"])
+            PurchaseNotice.objects.filter(step=step, active=True).update(active=False)
+            continue
+        snapshot = step.snapshot
+        old = step.state
+        if step.rule_snapshot.get("automatic"):
+            step.state = "approved"
+            step.approved_at = timezone.now()
+            step.evaluated_scope = {"origin": "system", "reason": "configured_automatic_rule"}
+            step.save()
+            _state_notice(step, old)
+            continue
+        previous_candidates = set(step.candidates.values_list("pk", flat=True))
+        if step.manager_source:
+            entity = snapshot.cost_center if step.manager_source == "cdf" else snapshot.support
+            step.candidates.set(entity.managers.filter(is_active=True) if entity else [])
+            PurchaseNotice.objects.filter(step=step, active=True, recipient_id__in=previous_candidates).exclude(
+                recipient_id__in=step.candidates.values_list("pk", flat=True)).update(active=False)
+        candidates = list(step.candidates.filter(is_active=True))
+        eligible = [u for u in candidates if _step_grant(u, step)]
+        step.state = "pending" if eligible else ("blocked" if step.candidates.exists() else "unassigned")
+        if step.waiting_since is None:
+            step.waiting_since = timezone.now()
+        for proof in snapshot.steps.filter(state="approved", evidence__isnull=True).select_related("approved_by"):
+            if not step.rule_snapshot.get("reuse_evidence", True):
                 break
-            for step in current:
-                if step.state == "approved":
-                    continue
-                old = step.state
-                previous_candidates = set(step.candidates.values_list("pk", flat=True))
-                if step.manager_source:
-                    entity = snapshot.cost_center if step.manager_source == "cdf" else snapshot.support
-                    step.candidates.set(entity.managers.filter(is_active=True) if entity else [])
-                    PurchaseNotice.objects.filter(step=step, active=True, recipient_id__in=previous_candidates).exclude(
-                        recipient_id__in=step.candidates.values_list("pk", flat=True)).update(active=False)
-                candidates = list(step.candidates.filter(is_active=True))
-                eligible = [u for u in candidates if _step_grant(u, step)]
-                step.state = "pending" if eligible else ("blocked" if step.candidates.exists() else "unassigned")
-                if step.waiting_since is None:
-                    step.waiting_since = timezone.now()
-                for proof in snapshot.steps.filter(state="approved", evidence__isnull=True).select_related("approved_by"):
-                    auth = authority(proof.approved_by, step)
-                    if auth:
-                        step.state = "approved"
-                        step.approved_by = proof.approved_by
-                        step.approved_at = timezone.now()
-                        _record_grant(step, auth)
-                        step.evidence = proof
-                        break
-                step.save()
-                _state_notice(step, old)
-                if old == step.state == "pending" and step.manager_source:
-                    for candidate in step.candidates.exclude(pk__in=previous_candidates):
-                        _notice(step, candidate, "manager_assigned", "Une validation vous a été affectée.")
-            if any(s.state != "approved" for s in current):
+            auth = authority(proof.approved_by, step)
+            if auth:
+                step.state = "approved"
+                step.approved_by = proof.approved_by
+                step.approved_at = timezone.now()
+                _record_grant(step, auth)
+                step.evidence = proof
                 break
+        step.save()
+        _state_notice(step, old)
+        if old == step.state == "pending" and step.manager_source:
+            for candidate in step.candidates.exclude(pk__in=previous_candidates):
+                _notice(step, candidate, "manager_assigned", "Une validation vous a été affectée.")
+        waiting = step.state != "approved"
 
 
 def _lock_request(request_id, actor, expected_revision, owner=False):
@@ -195,51 +195,6 @@ def _config_audit(actor, obj, action):
         object_id=obj.pk, action=action)
 
 
-@transaction.atomic
-def activate_workflow(*, actor, version_id):
-    require(actor, "purchasing.change_workflowversion")
-    # Activation locks all configuration rows in stable order, including drafts.
-    list(WorkflowVersion.objects.select_for_update().order_by("pk"))
-    version = WorkflowVersion.objects.select_for_update().get(pk=version_id)
-    if version.published_at:
-        raise ValidationError("Cette version a déjà été publiée. Créez une nouvelle version.")
-    from workflow.rules import schema
-    from .rule_adapter import validate_references
-    schema(version.operation)
-    rules = list(version.rules.select_related("function"))
-    if not rules:
-        raise ValidationError("Ajoutez au moins une règle.")
-    for rule in rules:
-        if version.rule_based:
-            validate_references(version.operation, rule.conditions)
-            if rule.mode != "cumulative":
-                raise ValidationError("Toutes les règles conditionnelles doivent être cumulatives.")
-            if not any((rule.named_user_id, rule.cdf_manager, rule.support_manager, rule.role_id)):
-                raise ValidationError("Choisissez un rôle, un utilisateur ou les responsables CDF/support pour chaque règle. Les fonctions sont réservées aux anciens circuits.")
-        elif not rule.function_id:
-            raise ValidationError("Une règle historique doit préciser une fonction de validation.")
-        if rule.level < 1 or rule.minimum_htva < 0 or (rule.maximum_htva is not None and rule.maximum_htva <= rule.minimum_htva):
-            raise ValidationError("Niveau ou intervalle HTVA invalide (maximum exclusif).")
-        if sum((bool(rule.named_user_id), bool(rule.cdf_manager), bool(rule.support_manager), bool(rule.role_id))) > 1:
-            raise ValidationError("Choisissez un seul mode : utilisateur nommé, responsables CDF, responsables du support ou rôle valideur.")
-        if rule.named_user_id and not rule.named_user.is_active:
-            raise ValidationError("Le valideur nommé doit être actif.")
-    for first in rules:
-        for second in rules:
-            if not version.rule_based and first.level < second.level and first.function.position > second.function.position:
-                raise ValidationError("Les niveaux doivent respecter l'ordre global des fonctions.")
-            if first.pk >= second.pk or first.mode != "exclusive" or second.mode != "exclusive" or first.priority != second.priority:
-                continue
-            scopes_overlap = all(getattr(first, k) is None or getattr(second, k) is None or getattr(first, k) == getattr(second, k) for k in ("cost_center_id", "funding_id", "budget_product_id"))
-            if scopes_overlap and (first.maximum_htva is None or second.minimum_htva < first.maximum_htva) and (second.maximum_htva is None or first.minimum_htva < second.maximum_htva):
-                raise ValidationError("Conflit de règles exclusives de même priorité.")
-    WorkflowVersion.objects.filter(active=True, operation=version.operation).update(active=False)
-    version.active, version.published_at = True, timezone.now()
-    version.save(update_fields=["active", "published_at"])
-    _config_audit(actor, version, "workflow.activated")
-    return version
-
-
 def available(version, cost_center_id, funding_id, budget_product_id):
     allocation = version.allocations.filter(cost_center_id=cost_center_id, funding_id=funding_id,
         budget_product_id=budget_product_id).first()
@@ -247,7 +202,8 @@ def available(version, cost_center_id, funding_id, budget_product_id):
         snapshot__submission__budget_version__envelope_id=version.envelope_id,
         snapshot__cost_center_id=cost_center_id, snapshot__funding_id=funding_id,
         snapshot__budget_product_id=budget_product_id)
-    return (allocation.amount if allocation else Decimal(0)) - sum((e.amount for e in entries), Decimal(0))
+    from budgeting.transfers import transfer_balance
+    return (allocation.amount if allocation else Decimal(0)) - sum((e.amount for e in entries), Decimal(0)) + transfer_balance(version.pk, cost_center_id, funding_id, budget_product_id)
 
 
 @transaction.atomic
@@ -256,6 +212,8 @@ def activate_envelope(*, actor, version_id):
     initial = EnvelopeVersion.objects.get(pk=version_id)
     envelope = AnnualEnvelope.objects.select_for_update().get(pk=initial.envelope_id)
     version = EnvelopeVersion.objects.select_for_update().get(pk=version_id)
+    if version.locked_at or version.deleted_at:
+        raise ValidationError("Cette version est bloquée ou supprimée et ne peut plus être publiée.")
     if version.published_at or not version.allocations.exists():
         raise ValidationError("Version déjà publiée ou sans allocations.")
     for allocation in version.allocations.all():
@@ -268,32 +226,78 @@ def activate_envelope(*, actor, version_id):
     return version
 
 
-def _matching_rules(workflow, line, total, facts=None):
-    if workflow.rule_based:
-        from workflow.rules import matches
-        from .rule_adapter import facts_for_line
-        facts = facts if facts is not None else facts_for_line(line)
-        rules = [rule for rule in workflow.rules.select_related("function", "named_user", "role")
-                 if not rule.named_user_reference.startswith("[référence supprimée:")
-                 and matches(workflow.operation, rule.conditions, facts)]
-        if not rules:
-            raise PurchaseRequestError(f"Aucune règle applicable à la ligne {line.pk}.")
-        return rules
-    rules = [r for r in workflow.rules.select_related("function", "named_user")
-        if not r.named_user_reference.startswith("[référence supprimée:")
-        and r.minimum_htva <= total and (r.maximum_htva is None or total < r.maximum_htva)
-        and (r.cost_center_id is None or r.cost_center_id == line.cost_center_id)
-        and (r.funding_id is None or r.funding_id == line.funding_id)
-        and (r.budget_product_id is None or r.budget_product_id == line.detailed_product.budget_product_id)]
-    exclusive = [r for r in rules if r.mode == "exclusive"]
-    if exclusive:
-        winners = [r for r in exclusive if r.priority == max(x.priority for x in exclusive)]
-        if len(winners) != 1:
-            raise PurchaseRequestError("Conflit de règles exclusives : aucune réservation effectuée.")
-        rules = [r for r in rules if r.mode == "cumulative"] + winners
-    if not rules:
-        raise PurchaseRequestError(f"Aucune règle applicable à la ligne {line.pk}.")
-    return rules
+@transaction.atomic
+def lock_envelope(*, actor, version_id):
+    if not actor.is_active or not actor.is_superuser:
+        raise PermissionDenied
+    initial = EnvelopeVersion.objects.get(pk=version_id)
+    AnnualEnvelope.objects.select_for_update().get(pk=initial.envelope_id)
+    version = EnvelopeVersion.objects.select_for_update().get(pk=version_id)
+    if version.deleted_at or (version.locked_at and not version.editing_unlocked_at) or (version.published_at and not version.editing_unlocked_at):
+        raise ValidationError("Cette version est déjà bloquée ou publiée et en lecture seule.")
+    # A published version stays operational; only its allocation editing is closed.
+    if not version.published_at:
+        version.locked_at = timezone.now()
+    version.editing_unlocked_at = None
+    version._history_actor = actor
+    version._history_reason = "Blocage des modifications de la version budgétaire"
+    _save_editing_state(version, actor)
+    _config_audit(actor, version, "budget.edit_locked")
+    return version
+
+
+@transaction.atomic
+def unlock_envelope(*, actor, version_id):
+    if not actor.is_active or not actor.is_superuser:
+        raise PermissionDenied
+    initial = EnvelopeVersion.objects.get(pk=version_id)
+    AnnualEnvelope.objects.select_for_update().get(pk=initial.envelope_id)
+    version = EnvelopeVersion.objects.select_for_update().get(pk=version_id)
+    if version.deleted_at:
+        raise ValidationError("Une version supprimée ne peut pas être débloquée.")
+    if version.editing_unlocked_at or (not version.published_at and not version.locked_at):
+        raise ValidationError("Les modifications de cette version sont déjà débloquées.")
+    version.locked_at = None
+    version.editing_unlocked_at = timezone.now() if version.published_at else None
+    version._history_actor = actor
+    version._history_reason = "Déblocage des modifications de la version budgétaire"
+    _save_editing_state(version, actor)
+    _config_audit(actor, version, "budget.edit_unlocked")
+    return version
+
+
+def _save_editing_state(version, actor):
+    """Allow only this admin transition through the PostgreSQL publication guard."""
+    version._editing_state_actor = actor
+    previous = ""
+    if connection.vendor == "postgresql":
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT current_setting('bf_erp.budget_edit_state', true)")
+            previous = cursor.fetchone()[0] or ""
+            cursor.execute("SELECT set_config('bf_erp.budget_edit_state', 'on', true)")
+    try:
+        version.save(update_fields=["locked_at", "editing_unlocked_at"])
+    finally:
+        del version._editing_state_actor
+        if connection.vendor == "postgresql":
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT set_config('bf_erp.budget_edit_state', %s, true)", [previous])
+
+
+@transaction.atomic
+def delete_envelope_version(*, actor, version_id):
+    require(actor, "budgeting.delete_envelopeversion")
+    initial = EnvelopeVersion.objects.get(pk=version_id)
+    envelope = AnnualEnvelope.objects.select_for_update().get(pk=initial.envelope_id)
+    version = EnvelopeVersion.objects.select_for_update().get(pk=version_id)
+    if (version.published_at or version.locked_at or version.deleted_at
+            or envelope.active_version_id == version.pk or Submission.objects.filter(budget_version=version).exists() or version.transfers.exists()):
+        raise ValidationError("Seul un brouillon non bloqué et non utilisé peut être supprimé.")
+    version.deleted_at = timezone.now()
+    version._history_actor = actor
+    version._history_reason = "Suppression de la version budgétaire"
+    version.save(update_fields=["deleted_at"])
+    return version
 
 
 @transaction.atomic
@@ -312,18 +316,6 @@ def submit_purchase(*, request_id, actor, expected_revision):
                 raise PurchaseRequestError("Renseignez tous les taux de TVA.")
             if line.total_tvac >= Decimal("1000000000000000000"):
                 raise PurchaseRequestError("Le montant de la ligne dépasse la capacité budgétaire de stockage.")
-        workflow = WorkflowVersion.objects.filter(active=True, operation="purchase").first()
-        if not workflow:
-            raise PurchaseRequestError("Aucune configuration de validation active.")
-        total = sum((line.total_htva for line in lines), Decimal(0))
-        from .rule_adapter import facts_for_line
-        facts = {line.pk: facts_for_line(line, lines) for line in lines}
-        planned = [(line, _matching_rules(workflow, line, total, facts[line.pk])) for line in lines]
-        if any(rule.support_manager for _, rules in planned for rule in rules):
-            if not purchase.support_id:
-                raise PurchaseRequestError("Choisissez un support demandeur pour la validation par responsable du support.")
-            if not actor.supports.filter(pk=purchase.support_id).exists():
-                raise PurchaseRequestError("Vous n’appartenez plus au support choisi. Modifiez la demande.")
         envelope = AnnualEnvelope.objects.select_for_update().filter(year=timezone.localdate().year).first()
         if not envelope or not envelope.active_version_id:
             raise PurchaseRequestError("Aucune version budgétaire active pour l'année courante.")
@@ -334,11 +326,11 @@ def submit_purchase(*, request_id, actor, expected_revision):
         for combination, amount in totals.items():
             balance = available(version, *combination)
             if balance < amount or balance < 0:
-                raise PurchaseRequestError(f"Budget insuffisant : disponible {balance} EUR, nécessaire {amount} EUR. Aucune réservation effectuée.")
-        submission = Submission.objects.create(purchase_request=purchase, workflow=workflow, budget_version=version,
+                raise PurchaseRequestError("Budget insuffisant : disponible "
+                    f"{balance:.2f} EUR, nécessaire {amount:.2f} EUR. Aucune réservation effectuée.".replace(".", ",", 2))
+        submission = Submission.objects.create(purchase_request=purchase, budget_version=version,
             supplier_data={"name": purchase.supplier.name, "code": purchase.supplier.code, "vat_number": purchase.supplier.vat_number})
-        now = timezone.now()
-        for line, rules in planned:
+        for line in lines:
             data = {key: str(getattr(line, key)) for key in ("description", "quantity", "unit_price", "vat_rate", "total_htva", "total_vat", "total_tvac")}
             data.update(product=str(line.detailed_product), cost_center=str(line.cost_center), funding=str(line.funding),
                         support=str(purchase.support) if purchase.support_id else None)
@@ -346,20 +338,17 @@ def submit_purchase(*, request_id, actor, expected_revision):
                 amount=line.total_tvac, cost_center=line.cost_center, funding=line.funding, support=purchase.support,
                 budget_product=line.detailed_product.budget_product)
             BudgetEntry.objects.create(snapshot=snapshot, amount=line.total_tvac)
-            for rule in rules:
-                step = ApprovalStep.objects.create(snapshot=snapshot, function=rule.function,
-                    function_label=rule.label if workflow.rule_based else rule.function.label, level=rule.level, role=rule.role,
-                    rule_snapshot={"id": rule.pk, "label": rule.label, "operation": workflow.operation, "rule_based": workflow.rule_based,
-                        "conditions": rule.conditions if workflow.rule_based else {}, "level": rule.level,
-                        "role_id": rule.role_id, "named_user_id": rule.named_user_id,
-                        "function_id": rule.function_id, "cdf_manager": rule.cdf_manager,
-                        "support_manager": rule.support_manager,
-                        "facts": {key: str(value) if value is not None else None for key, value in facts[line.pk].items()}},
-                    manager_source="cdf" if rule.cdf_manager else ("support" if rule.support_manager else ""))
-                step.candidates.set(initial_candidates(rule, snapshot, rule_based=workflow.rule_based))
+            step = ApprovalStep.objects.create(snapshot=snapshot,
+                function_label="Responsable du CDF de la ligne", level=1, manager_source="cdf",
+                rule_snapshot={"fixed_flow": True, "operation": "purchase", "automatic": False,
+                               "reuse_evidence": False, "cdf_manager": True})
+            step.candidates.set(line.cost_center.managers.filter(is_active=True))
         purchase.status = "SUBMITTED"
         _audit(purchase, actor, "request.submitted", {"submission": submission.pk})
         _advance(submission)
+        _finish(purchase, submission)
+        if purchase.status == "ORDERED":
+            _audit(purchase, None, "request.ordered", {"origin": "system", "submission": submission.pk})
         return purchase
 
 
@@ -371,6 +360,8 @@ def _finish(purchase, submission):
     PurchaseOrder.objects.get_or_create(purchase_request=purchase, defaults=dict(submission=submission,
         supplier_data=submission.supplier_data))
     BudgetEntry.objects.filter(snapshot__submission=submission, state="reserved").update(state="committed")
+    from budgeting.history import capture
+    capture(submission.budget_version.envelope_id, "Réservations converties en engagements")
     purchase.status = "ORDERED"
     submission.active = False
     submission.save(update_fields=["active"])
@@ -384,9 +375,21 @@ def decide(*, request_id, actor, expected_revision, step_id, decision, reason=""
     submission = purchase.submissions.get(active=True)
     AnnualEnvelope.objects.select_for_update().get(pk=submission.budget_version.envelope_id)
     _advance(submission)
-    step = ApprovalStep.objects.select_for_update().select_related("snapshot", "function").get(pk=step_id, snapshot__submission=submission)
+    step = ApprovalStep.objects.select_for_update(of=("self",)).select_related("snapshot", "function").get(pk=step_id, snapshot__submission=submission)
     auth = authority(actor, step)
-    if step.state != "pending" or not auth:
+    admin_override = actor.is_active and actor.has_perm("purchasing.decide_any_purchaserequest")
+    if decision == "approve_all":
+        require(actor, "purchasing.decide_any_purchaserequest")
+        while purchase.status == "SUBMITTED":
+            current = ApprovalStep.objects.filter(snapshot__submission=submission,
+                state__in=["pending", "unassigned", "blocked"]).first()
+            if current is None:
+                raise PurchaseRequestError("Le circuit de validation ne peut pas être terminé.")
+            decide(request_id=purchase.pk, actor=actor, expected_revision=purchase.revision,
+                step_id=current.pk, decision="approve")
+            purchase.refresh_from_db()
+        return purchase
+    if not (admin_override and step.state in ("pending", "unassigned", "blocked")) and (step.state != "pending" or not auth):
         raise PermissionDenied("Étape inaccessible ou habilitation absente.")
     if decision not in ("approve", "correct", "reject"):
         raise ValidationError("Décision inconnue.")
@@ -394,7 +397,11 @@ def decide(*, request_id, actor, expected_revision, step_id, decision, reason=""
         raise ValidationError("Un motif est obligatoire.")
     if decision == "approve":
         step.state, step.approved_by, step.approved_at = "approved", actor, timezone.now()
-        _record_grant(step, auth)
+        if admin_override:
+            step.authorization = None
+            step.evaluated_scope = {**context(step.snapshot), "admin_override": True, "represented_user": actor.pk}
+        else:
+            _record_grant(step, auth)
         step.save()
         PurchaseNotice.objects.filter(step=step, active=True).update(active=False)
         _advance(submission)
@@ -403,13 +410,17 @@ def decide(*, request_id, actor, expected_revision, step_id, decision, reason=""
         _stop(submission)
         purchase.status = "CORRECTION" if decision == "correct" else "REJECTED"
     _audit(purchase, actor, "request." + decision, {"step": step.pk, "reason": reason,
-        "authorization": None if isinstance(auth[0], Role) else auth[0].pk,
-        "role": auth[0].pk if isinstance(auth[0], Role) else None, "represented_user": auth[1].pk})
+        "admin_override": admin_override,
+        "authorization": None if admin_override or isinstance(auth[0], (Role, get_user_model())) else auth[0].pk,
+        "role": auth[0].pk if not admin_override and isinstance(auth[0], Role) else None,
+        "represented_user": actor.pk if admin_override else auth[1].pk})
     return purchase
 
 
 def _stop(submission):
     BudgetEntry.objects.filter(snapshot__submission=submission, state="reserved").update(state="released")
+    from budgeting.history import capture
+    capture(submission.budget_version.envelope_id, "Réservations libérées")
     ApprovalStep.objects.filter(snapshot__submission=submission).exclude(state="approved").update(state="stopped")
     PurchaseNotice.objects.filter(step__snapshot__submission=submission, active=True).update(active=False)
     submission.active = False
@@ -433,7 +444,7 @@ def cancel_submitted(*, request_id, actor, expected_revision):
 def reassign(*, request_id, actor, expected_revision, step_id, user, reason):
     require(actor, "purchasing.reassign_approvals")
     purchase = _lock_request(request_id, actor, expected_revision)
-    step = ApprovalStep.objects.select_for_update().select_related("snapshot", "function").get(
+    step = ApprovalStep.objects.select_for_update(of=("self",)).select_related("snapshot", "function").get(
         pk=step_id, snapshot__submission__purchase_request=purchase, snapshot__submission__active=True)
     if step.state not in ("pending", "blocked", "unassigned") or not reason.strip():
         raise ValidationError("Étape non réaffectable ou justification manquante.")

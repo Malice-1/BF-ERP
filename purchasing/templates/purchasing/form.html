@@ -1,5 +1,5 @@
-{% extends 'purchasing/base.html' %}
-{% block content %}<h1>{{ title }}</h1><form method="post">{% csrf_token %}{{ form.as_p }}{% if form.detailed_product %}
+{% extends 'purchasing/base.html' %}{% load ui_actions %}
+{% block content %}{% back_action %}<h1>{{ title }}</h1>{% if action_failed %}<div role="alert">{{ form.non_field_errors }}{% for field in form %}{{ field.errors }}{% endfor %}</div>{% else %}<form method="post">{% csrf_token %}{{ form.as_p }}{% if form.detailed_product %}
 <p id="selected-bi" role="status" aria-live="polite"><strong>Produit budgétaire (BI) :</strong> <span id="selected-bi-label"></span></p>
 {{ form.budget_product_labels|json_script:"budget-product-labels" }}
 <script>
@@ -12,4 +12,4 @@ const update = () => { output.textContent = labels[product.value] || 'Sélection
 product.addEventListener('change', update);
 update();
 })();
-</script>{% endif %}<button>Confirmer</button></form><p>{% if purchase %}<a href="{% url 'purchasing:detail' purchase.pk %}">Retour à la demande</a>{% else %}<a href="{% url 'purchasing:list' %}">Retour à mes demandes</a>{% endif %}</p>{% endblock %}
+</script>{% endif %}<div class="ui-action-bar"><button class="ui-icon" aria-label="Confirmer" type="submit" title="Confirmer">{% include 'purchasing/action_icon.html' with icon='publish' %}</button></div></form>{% endif %}{% endblock %}

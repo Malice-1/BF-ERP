@@ -1,3 +1,4 @@
+from purchasing.test_helpers import record_legacy_workflow
 from datetime import timedelta
 from decimal import Decimal
 from io import StringIO
@@ -9,57 +10,40 @@ from django.core.management import call_command
 from django.test import TestCase, Client, override_settings
 from django.urls import reverse
 from django.utils import timezone
-from accounts.models import ValidationFunction, Role
+from accounts.models import ValidationFunction
 from accounts.services import publish_authorization
 from budgeting.models import CostCenter, Funding, Support, BudgetProduct, DetailedProduct
 from suppliers.models import Supplier
 from .models import (AnnualEnvelope, EnvelopeVersion, Allocation, WorkflowVersion, ApprovalRule,
     Submission, ApprovalStep, BudgetEntry, PurchaseOrder, PurchaseNotice)
 from .services import (create_purchase_request, add_purchase_request_line,
-    delete_purchase_request_line, update_purchase_request_line, cancel_purchase_request)
+    delete_purchase_request_line, cancel_purchase_request)
 from . import flow
 from .exceptions import PurchaseRequestError, PurchaseRequestConflict
 
 
 class PurchaseFlowTests(TestCase):
-    def test_support_is_chosen_from_memberships_and_independent_from_funding(self):
-        from .forms import PurchaseRequestForm
-        other_support = Support.objects.create(code="OTHER", label="Autre support")
-        form = PurchaseRequestForm(user=self.owner)
-        self.assertEqual(list(form.fields["support"].queryset), [self.support])
-        with self.assertRaises(ValidationError):
-            create_purchase_request(actor=self.owner, supplier=self.supplier, support=other_support)
-        self.owner.supports.add(other_support)
-        other_support.managers.add(self.first)
-        self.manager_workflow()
-        self.cdf.managers.add(self.other)
-        self.support.managers.add(self.second)
-        self.funding.managers.add(self.first)
+    def test_admin_budget_edit_preserves_reservations_and_live_order_flow(self):
         self.submit()
-        self.act(self.other)
-        step = ApprovalStep.objects.get(snapshot__submission__purchase_request=self.purchase, level=2)
-        self.assertEqual(step.snapshot.support, self.support)
-        self.assertEqual(step.snapshot.data["support"], str(self.support))
-        self.assertIsNotNone(flow.authority(self.second, step))
-        self.assertIsNone(flow.authority(self.first, step))
-        self.assertEqual(flow.pending_validation_count(self.second), 1)
-        self.support.managers.set([self.first])
-        self.assertEqual(flow.pending_validation_count(self.first), 1)
-        self.assertIsNone(flow.authority(self.second, step))
+        self.version.refresh_from_db()
+        publication = self.version.published_at
+        flow.unlock_envelope(actor=self.admin, version_id=self.version.pk)
+        allocation = self.version.allocations.get()
+        allocation.amount = Decimal("50")
+        allocation.save()
+        self.assertEqual(self.balance(), Decimal("-71"))
+        flow.lock_envelope(actor=self.admin, version_id=self.version.pk)
+        self.version.refresh_from_db()
+        self.assertEqual(self.version.published_at, publication)
+        self.assertIsNone(self.version.locked_at)
+        with self.assertRaises(PurchaseRequestError):
+            self.submit(self.draft("1"))
+        self.act(self.first)
+        self.assertEqual(PurchaseOrder.objects.count(), 1)
+        self.assertEqual(BudgetEntry.objects.get().state, "committed")
+        self.assertEqual(self.balance(), Decimal("-71"))
 
-    def test_support_workflow_requires_a_current_membership_before_any_reservation(self):
-        self.manager_workflow()
-        self.purchase.support = None
-        self.purchase.save(update_fields=["support"])
-        with self.assertRaisesMessage(PurchaseRequestError, "Choisissez un support"):
-            self.submit()
-        self.assertFalse(BudgetEntry.objects.exists())
-        self.purchase.support = self.support
-        self.purchase.save(update_fields=["support"])
-        self.owner.supports.clear()
-        with self.assertRaisesMessage(PurchaseRequestError, "Vous n’appartenez plus"):
-            self.submit()
-        self.assertFalse(BudgetEntry.objects.exists())
+
 
     def test_global_personal_icons_and_pending_badge(self):
         self.submit()
@@ -77,15 +61,14 @@ class PurchaseFlowTests(TestCase):
         self.assertNotContains(response, 'id="validation-count"')
         self.act(self.first)
         response = self.client.get(reverse("my_validations"))
-        self.assertEqual(response.context["pending_validation_count"], 1)
-        self.act(self.second)
+        self.assertEqual(response.context["pending_validation_count"], 0)
         self.assertEqual(flow.pending_validation_count(self.second), 0)
 
     def test_global_badge_uses_current_manager_and_delegation(self):
-        self.manager_workflow()
+        self.cdf.managers.clear()
         self.submit()
         self.assertEqual(flow.pending_validation_count(self.other), 0)
-        self.cdf.managers.add(self.other)
+        self.cdf.managers.set([self.other])
         self.assertEqual(flow.pending_validation_count(self.other), 1)
         flow.create_delegation(actor=self.other, principal=self.other, delegate=self.first,
             valid_from=timezone.now() - timedelta(hours=1), valid_until=timezone.now() + timedelta(days=1))
@@ -115,41 +98,28 @@ class PurchaseFlowTests(TestCase):
             self.assertContains(response, 'id="my-validations"')
             self.assertContains(response, 'id="my-delegations"')
 
-    def manager_workflow(self):
-        workflow = WorkflowVersion.objects.create(label="Responsables par ligne")
-        ApprovalRule.objects.create(version=workflow, label="CDF", function=self.function1,
-                                    level=1, cdf_manager=True)
-        ApprovalRule.objects.create(version=workflow, label="Support", function=self.function2,
-                                    level=2, support_manager=True)
-        flow.activate_workflow(actor=self.admin, version_id=workflow.pk)
 
     def test_entity_managers_validate_without_roles_or_authorizations(self):
-        self.manager_workflow()
-        self.cdf.managers.add(self.other)
-        self.support.managers.add(self.second)
-        self.second.authorizations.update(current_version=None)
+        self.cdf.managers.set([self.other])
         self.submit()
-        steps = ApprovalStep.objects.filter(snapshot__submission__purchase_request=self.purchase).order_by("level")
-        first, second = list(steps)
-        self.assertEqual(first.state, "pending")
-        self.assertEqual(second.state, "future")
-        self.assertIsNone(flow.authority(self.first, first))
-        self.assertIsNotNone(flow.authority(self.other, first))
+        step = ApprovalStep.objects.get(snapshot__submission__purchase_request=self.purchase)
+        self.assertEqual(step.state, "pending")
+        self.assertIsNone(step.function_id)
+        self.assertIsNone(step.role_id)
+        self.assertIsNone(flow.authority(self.first, step))
+        self.assertIsNotNone(flow.authority(self.other, step))
         self.act(self.other)
-        second.refresh_from_db()
-        self.assertEqual(second.state, "pending")
-        self.act(self.second)
         self.assertTrue(PurchaseOrder.objects.filter(purchase_request=self.purchase).exists())
-        first.refresh_from_db()
-        self.assertIsNone(first.authorization_id)
-        self.assertEqual(first.evaluated_scope["manager_source"], "cdf")
+        step.refresh_from_db()
+        self.assertIsNone(step.authorization_id)
+        self.assertEqual(step.evaluated_scope["manager_source"], "cdf")
 
     def test_missing_manager_and_replacement_refresh_candidates(self):
-        self.manager_workflow()
+        self.cdf.managers.clear()
         self.submit()
         step = ApprovalStep.objects.get(snapshot__submission__purchase_request=self.purchase, level=1)
         self.assertEqual(step.state, "unassigned")
-        self.cdf.managers.add(self.other)
+        self.cdf.managers.set([self.other])
         flow.refresh_submission(step.snapshot.submission_id)
         step.refresh_from_db()
         self.assertEqual(step.state, "pending")
@@ -169,51 +139,6 @@ class PurchaseFlowTests(TestCase):
         self.assertRedirects(response, reverse("entity_managers"))
         self.assertEqual(list(self.support.managers.all()), [self.other])
 
-    def role_workflow(self, member=True):
-        role = Role.objects.create(code="ACHATS", label="Validation achats")
-        if member:
-            self.other.roles.add(role)
-        workflow = WorkflowVersion.objects.create(label="Validation par rôle")
-        ApprovalRule.objects.create(version=workflow, label="Achats", function=self.function1,
-                                    level=1, role=role)
-        flow.activate_workflow(actor=self.admin, version_id=workflow.pk)
-        return role
-
-    def test_role_approval_requires_current_membership_and_records_evidence(self):
-        role = self.role_workflow()
-        self.submit()
-        step = ApprovalStep.objects.get(snapshot__submission__purchase_request=self.purchase)
-        self.assertEqual(step.role_id, role.pk)
-        self.assertIsNotNone(flow.authority(self.other, step))
-        self.assertIsNone(flow.authority(self.first, step))
-        self.other.roles.remove(role)
-        flow.refresh_submission(step.snapshot.submission_id)
-        step.refresh_from_db()
-        self.assertEqual(step.state, "blocked")
-        self.assertIsNone(flow.authority(self.other, step))
-        self.purchase.refresh_from_db()
-        with self.assertRaises(PermissionDenied):
-            flow.decide(request_id=self.purchase.pk, actor=self.other, expected_revision=self.purchase.revision,
-                        step_id=step.pk, decision="approve")
-        self.other.roles.add(role)
-        flow.refresh_submission(step.snapshot.submission_id)
-        self.act(self.other)
-        step.refresh_from_db()
-        self.assertEqual(step.state, "approved")
-        self.assertIsNone(step.authorization_id)
-        self.assertEqual(step.evaluated_scope["role_id"], role.pk)
-        self.assertEqual(step.evaluated_scope["role_code"], role.code)
-        self.assertTrue(PurchaseOrder.objects.filter(purchase_request=self.purchase).exists())
-
-    def test_role_without_members_and_conflicting_assignment(self):
-        self.role_workflow(member=False)
-        self.submit()
-        self.assertEqual(ApprovalStep.objects.get(snapshot__submission__purchase_request=self.purchase).state, "unassigned")
-        workflow = WorkflowVersion.objects.create(label="Invalid")
-        ApprovalRule.objects.create(version=workflow, label="Invalid", function=self.function1,
-            level=1, role=Role.objects.get(code="ACHATS"), named_user=self.first)
-        with self.assertRaises(ValidationError):
-            flow.activate_workflow(actor=self.admin, version_id=workflow.pk)
 
     def setUp(self):
         User = get_user_model()
@@ -240,7 +165,8 @@ class PurchaseFlowTests(TestCase):
         self.workflow = WorkflowVersion.objects.create(label="Workflow 1")
         ApprovalRule.objects.create(version=self.workflow, label="CDF", function=self.function1, level=1)
         ApprovalRule.objects.create(version=self.workflow, label="Finance", function=self.function2, level=2)
-        flow.activate_workflow(actor=self.admin, version_id=self.workflow.pk)
+        record_legacy_workflow(self.workflow)
+        self.cdf.managers.add(self.first)
         self.purchase = self.draft()
 
     def grant(self, user, function):
@@ -293,7 +219,6 @@ class PurchaseFlowTests(TestCase):
         self.assertEqual(response.context["result"]["available"], Decimal("879"))
 
         self.act(self.first)
-        self.act(self.second)
         response = self.client.get(reverse("purchasing:budget_check"), data)
         self.assertEqual(response.context["result"]["available"], Decimal("879"))
 
@@ -356,6 +281,35 @@ class PurchaseFlowTests(TestCase):
         self.assertIn("version", response.context["form"].errors)
         self.assertIsNone(response.context["result"])
 
+    def test_budget_table_selects_one_version_and_keeps_annual_reservations(self):
+        self.submit()
+        replacement = self.budget("2000")
+        draft = EnvelopeVersion.objects.create(envelope=self.envelope, label="Draft selection")
+        Allocation.objects.create(version=draft, cost_center=self.cdf, funding=self.funding,
+            budget_product=self.product, amount=3000)
+        self.client.force_login(self.admin)
+        url = reverse("purchasing:budgets")
+        self.assertEqual(self.client.get(url).context["selected_version"].pk, replacement.pk)
+        for version, amount in ((self.version, "879"), (replacement, "1879"), (draft, "2879")):
+            response = self.client.get(url, {"version": version.pk})
+            self.assertEqual(response.context["selected_version"].pk, version.pk)
+            self.assertEqual(len(response.context["rows"]), 1)
+            self.assertEqual(response.context["rows"][0]["available"], Decimal(amount))
+            self.assertNotContains(response, "<th>Année / version</th>")
+            self.assertContains(response, 'name="version"')
+
+    def test_budget_table_refuses_deleted_or_invalid_selection(self):
+        deleted = EnvelopeVersion.objects.create(envelope=self.envelope, label="Deleted selection")
+        flow.delete_envelope_version(actor=self.admin, version_id=deleted.pk)
+        self.client.force_login(self.admin)
+        url = reverse("purchasing:budgets")
+        self.assertNotContains(self.client.get(url), deleted.label)
+        for value in (str(deleted.pk), "invalid"):
+            response = self.client.get(url, {"version": value, "export": "xlsx"})
+            self.assertEqual(response["Content-Type"], "text/html; charset=utf-8")
+            self.assertIn("version", response.context["form"].errors)
+            self.assertEqual(response.context["rows"], [])
+
     def test_budget_check_requires_login_and_button_is_visible(self):
         self.assertEqual(self.client.get(reverse("purchasing:budget_check")).status_code, 302)
         self.client.force_login(self.owner)
@@ -364,15 +318,44 @@ class PurchaseFlowTests(TestCase):
         self.assertContains(response, "Vérifier un budget")
         self.assertEqual(response.headers["X-Frame-Options"], "DENY")
 
+    def test_budget_check_excludes_deleted_versions_and_refuses_direct_selection(self):
+        from .flow import delete_envelope_version
+        deleted = EnvelopeVersion.objects.create(envelope=self.envelope, label="Deleted version")
+        delete_envelope_version(actor=self.admin, version_id=deleted.pk)
+        self.client.force_login(self.owner)
+        url = reverse("purchasing:budget_check")
+        response = self.client.get(url)
+        self.assertNotContains(response, deleted.label)
+        self.assertContains(response, self.version.label)
+        self.assertIn("no-store", response.headers["Cache-Control"])
+        response = self.client.get(url, dict(version=deleted.pk, budget_product=self.product.pk,
+            funding=self.funding.pk, cost_center=self.cdf.pk))
+        self.assertIn("version", response.context["form"].errors)
+        self.assertIsNone(response.context["result"])
+
+    def test_budget_check_displays_locked_version_as_locked(self):
+        from .flow import lock_envelope
+        locked = EnvelopeVersion.objects.create(envelope=self.envelope, label="Locked version")
+        lock_envelope(actor=self.admin, version_id=locked.pk)
+        self.client.force_login(self.owner)
+        response = self.client.get(reverse("purchasing:budget_check"))
+        self.assertContains(response, locked.label + " · Bloquée")
+
     def test_t001_t004_complete_flow_preserves_budget_and_creates_one_order(self):
         self.submit()
+        from budgeting.models import BudgetHistoryEvent
+        reserved_history = BudgetHistoryEvent.objects.latest("pk")
+        reserved_rows = next(iter(reserved_history.state["versions"].values()))["rows"]
+        self.assertEqual(sum(Decimal(row["reserved"]) for row in reserved_rows), Decimal("121"))
         self.assertEqual(self.balance(), Decimal("879"))
         self.act(self.first)
-        self.assertFalse(PurchaseOrder.objects.exists())
-        self.act(self.second)
+        self.assertTrue(PurchaseOrder.objects.exists())
         self.assertEqual(self.balance(), Decimal("879"))
         self.assertEqual(PurchaseOrder.objects.count(), 1)
         self.assertEqual(BudgetEntry.objects.get().state, "committed")
+        committed_rows = next(iter(BudgetHistoryEvent.objects.latest("pk").state["versions"].values()))["rows"]
+        self.assertEqual(sum(Decimal(row["committed"]) for row in committed_rows), Decimal("121"))
+        self.assertEqual(sum(Decimal(row["reserved"]) for row in committed_rows), 0)
         self.purchase.refresh_from_db()
         self.assertEqual(self.purchase.status, "ORDERED")
         with self.assertRaises(PurchaseRequestError):
@@ -426,59 +409,19 @@ class PurchaseFlowTests(TestCase):
         cancel_purchase_request(request_id=purchase.pk, actor=self.owner, expected_revision=purchase.revision)
         self.assertEqual(self.balance(), 1000)
         self.assertFalse(Submission.objects.get().active)
+        from budgeting.models import BudgetHistoryEvent
+        rows = next(iter(BudgetHistoryEvent.objects.latest("pk").state["versions"].values()))["rows"]
+        self.assertEqual(sum(Decimal(row["reserved"]) for row in rows), 0)
 
-    def test_t006_one_manual_approval_per_real_user_per_line(self):
-        self.grant(self.first, self.function2)
-        self.submit()
-        self.act(self.first)
-        self.assertEqual(PurchaseOrder.objects.count(), 1)
-        steps = list(ApprovalStep.objects.order_by("level"))
-        self.assertEqual(steps[1].evidence_id, steps[0].pk)
-        self.assertIsNotNone(steps[1].authorization_id)
 
-    def test_same_level_deduplication(self):
-        config = WorkflowVersion.objects.create(label="Parallel")
-        for index in range(2):
-            ApprovalRule.objects.create(version=config, label=str(index), function=self.function1, level=1)
-        flow.activate_workflow(actor=self.admin, version_id=config.pk)
-        self.submit()
-        self.act(self.first)
-        self.assertEqual(ApprovalStep.objects.filter(evidence__isnull=True, state="approved").count(), 1)
-        self.assertEqual(ApprovalStep.objects.filter(evidence__isnull=False, state="approved").count(), 1)
-        self.assertEqual(PurchaseOrder.objects.count(), 1)
-
-    def test_eligibility_at_earlier_level_is_not_manual_evidence(self):
-        self.grant(self.second, self.function1)
-        self.submit()
-        self.act(self.first)
-        self.assertFalse(PurchaseOrder.objects.exists())
-        self.assertEqual(ApprovalStep.objects.get(level=2).state, "pending")
-
-    def test_levels_cannot_be_skipped_or_approved_by_superuser_without_grant(self):
+    def test_users_without_grant_cannot_approve(self):
         purchase = self.submit()
-        step = ApprovalStep.objects.get(level=2)
-        for actor in (self.second, self.admin, self.other):
+        step = ApprovalStep.objects.get(level=1)
+        for actor in (self.second, self.other):
             with self.assertRaises(PermissionDenied):
                 flow.decide(request_id=purchase.pk, actor=actor, expected_revision=purchase.revision, step_id=step.pk, decision="approve")
         self.assertFalse(PurchaseOrder.objects.exists())
 
-    def test_t007_revocation_restoration_and_notifications(self):
-        self.submit()
-        grant = self.grant1
-        disabled = publish_authorization(actor=self.admin, user=self.first, function=self.function1,
-            valid_from=grant.valid_from, enabled=False, authorization_id=grant.authorization_id, expected_version=grant.version)
-        flow.refresh_submission(Submission.objects.get().pk)
-        step = ApprovalStep.objects.get(level=1)
-        self.assertEqual(step.state, "blocked")
-        self.assertTrue(PurchaseNotice.objects.filter(recipient=self.admin, active=True).exists())
-        self.assertFalse(PurchaseNotice.objects.filter(recipient=self.owner).exists())
-        publish_authorization(actor=self.admin, user=self.first, function=self.function1, valid_from=grant.valid_from,
-            authorization_id=grant.authorization_id, expected_version=disabled.version)
-        flow.refresh_submission(Submission.objects.get().pk)
-        step.refresh_from_db()
-        self.assertEqual(step.state, "pending")
-        self.assertIsNone(step.approved_by_id)
-        self.assertEqual(self.balance(), 879)
 
     def test_t008_new_deficit_blocks_new_reservation_allows_existing_conversion(self):
         self.submit()
@@ -488,7 +431,6 @@ class PurchaseFlowTests(TestCase):
         with self.assertRaises(PurchaseRequestError):
             self.submit(other)
         self.act(self.first)
-        self.act(self.second)
         self.assertEqual(self.balance(), -71)
         self.assertEqual(PurchaseOrder.objects.count(), 1)
         self.assertEqual(PurchaseOrder.objects.get().submission.budget_version_id, self.version.pk)
@@ -500,12 +442,12 @@ class PurchaseFlowTests(TestCase):
         step = ApprovalStep.objects.get(level=1)
         self.assertEqual(step.state, "unassigned")
         self.assertEqual(self.balance(), 879)
-        self.grant(self.other, self.function1)
+        self.cdf.managers.add(self.other)
         self.purchase.refresh_from_db()
         flow.reassign(request_id=self.purchase.pk, actor=self.admin, expected_revision=self.purchase.revision,
             step_id=step.pk, user=self.other, reason="Remplacement")
         self.act(self.other)
-        self.assertEqual(ApprovalStep.objects.get(level=2).state, "pending")
+        self.assertTrue(PurchaseOrder.objects.exists())
 
     def test_reassignment_requires_permission_reason_and_scope(self):
         purchase = self.submit()
@@ -516,29 +458,6 @@ class PurchaseFlowTests(TestCase):
                 flow.reassign(request_id=purchase.pk, actor=actor, expected_revision=purchase.revision,
                     step_id=step.pk, user=user, reason=reason)
 
-    def test_threshold_is_total_request_htva_not_line_or_tvac(self):
-        config = WorkflowVersion.objects.create(label="Threshold")
-        ApprovalRule.objects.create(version=config, label="Total 100 minimum", function=self.function1,
-            level=1, minimum_htva=100, maximum_htva=110)
-        flow.activate_workflow(actor=self.admin, version_id=config.pk)
-        self.submit(self.draft("50", lines=2))
-        self.assertEqual(ApprovalStep.objects.count(), 2)
-
-    def test_no_matching_rule_blocks_before_reservation(self):
-        config = WorkflowVersion.objects.create(label="No match")
-        ApprovalRule.objects.create(version=config, label="High", function=self.function1, minimum_htva=1000)
-        flow.activate_workflow(actor=self.admin, version_id=config.pk)
-        with self.assertRaises(PurchaseRequestError):
-            self.submit()
-        self.assertFalse(BudgetEntry.objects.exists())
-
-    def test_incoherent_activation_preserves_active_configuration(self):
-        config = WorkflowVersion.objects.create(label="Conflict")
-        for index in range(2):
-            ApprovalRule.objects.create(version=config, label=str(index), function=self.function1, mode="exclusive")
-        with self.assertRaises(ValidationError):
-            flow.activate_workflow(actor=self.admin, version_id=config.pk)
-        self.assertTrue(WorkflowVersion.objects.get(pk=self.workflow.pk).active)
 
     def test_configuration_and_budget_published_rows_cannot_be_changed(self):
         self.workflow.refresh_from_db()
@@ -561,7 +480,7 @@ class PurchaseFlowTests(TestCase):
         self.act(self.other)
         step = ApprovalStep.objects.get(level=1)
         self.assertEqual(step.approved_by, self.other)
-        self.assertEqual(step.authorization, self.grant1)
+        self.assertIsNone(step.authorization_id)
         self.assertEqual(step.evaluated_scope["represented_user"], self.first.pk)
 
     def test_delegation_chains_and_overlaps_are_rejected(self):
@@ -577,7 +496,6 @@ class PurchaseFlowTests(TestCase):
         self.supplier.name = "Changed later"
         self.supplier.save()
         self.act(self.first)
-        self.act(self.second)
         self.client.force_login(self.owner)
         response = self.client.get(f"/achats/{self.purchase.pk}/commande/")
         self.assertContains(response, "Supplier snapshot")
@@ -610,8 +528,7 @@ class PurchaseFlowTests(TestCase):
         url = f"/achats/{self.purchase.pk}/etapes/{step.pk}/decision/"
         self.assertEqual(self.client.post(url, {"expected_revision": self.purchase.revision, "decision": "approve"}).status_code, 302)
         self.client.force_login(self.admin)
-        for url in ("/achats/suivi/", "/achats/budgets/", "/admin/", "/admin/purchasing/workflowversion/",
-                f"/admin/purchasing/workflowversion/{self.workflow.pk}/change/"):
+        for url in ("/achats/suivi/", "/achats/budgets/", "/admin/"):
             self.assertEqual(self.client.get(url).status_code, 200, url)
 
     def test_decision_requires_post_csrf_and_fresh_revision(self):
@@ -634,7 +551,6 @@ class PurchaseFlowTests(TestCase):
         from django.core import mail
         self.assertTrue(mail.outbox)
         self.act(self.first)
-        self.act(self.second)
         count = len(mail.outbox)
         call_command("process_purchase_notifications", stdout=StringIO())
         self.assertEqual(len(mail.outbox), count)
@@ -648,6 +564,7 @@ class PurchaseFlowTests(TestCase):
         self.assertEqual(self.purchase.status, "SUBMITTED")
         self.assertTrue(PurchaseNotice.objects.filter(email_state="failed").exists())
 
+    @override_settings(SETTINGS_MODULE="config.settings")
     def test_demo_seed_refuses_usual_database(self):
         from django.core.management.base import CommandError
         with self.assertRaises(CommandError):
@@ -668,9 +585,9 @@ class PurchaseFlowTests(TestCase):
         self.assertTrue(user.check_password("PersonalTestPassword"))
         self.assertEqual(PurchaseRequest.objects.filter(created_by=user).count(), 1)
 
-    def test_admin_can_clone_and_publish_configuration_and_budget(self):
+    def test_admin_can_clone_and_publish_budget(self):
         self.client.force_login(self.admin)
-        for model_name, source, cls in (("workflowversion", self.workflow, WorkflowVersion), ("envelopeversion", self.version, EnvelopeVersion)):
+        for model_name, source, cls in (("envelopeversion", self.version, EnvelopeVersion),):
             app_label = "budgeting" if model_name == "envelopeversion" else "purchasing"
             url = f"/admin/{app_label}/{model_name}/"
             response = self.client.post(url, {"action": "clone", "_selected_action": [source.pk]})

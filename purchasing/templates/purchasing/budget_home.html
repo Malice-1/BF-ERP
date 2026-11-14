@@ -2,6 +2,16 @@
 <h1>Budget</h1>
 <p>Préparez vos budgets et consultez les montants disponibles.</p>
 <div class="configuration-sections module-menu">
+{% if perms.budgeting.view_budget_balances or perms.budgeting.view_envelopeversion %}<section class="configuration-section"><h2>Historique budgétaire</h2><ul class="configuration-links"><li><a href="{% url 'purchasing:budget_history' %}">Historique des versions budgétaires</a><small>Retrouver les allocations et disponibilités à une date donnée.</small></li></ul></section>{% endif %}
+{% if can_access_transfers %}
+<section class="configuration-section" aria-labelledby="budget-transfers-title">
+<h2 id="budget-transfers-title">Transferts</h2>
+<ul class="configuration-links">
+{% if perms.budgeting.add_budgettransfer %}<li><a href="{% url 'transfer_list' %}">Créer un transfert</a><small>Créer une demande de transfert entre lignes budgétaires.</small></li>{% endif %}
+<li><a href="{% url 'transfer_monitor' %}">Liste des transferts</a><small>Consulter les transferts, leur parcours et les actions disponibles selon vos droits.</small></li>
+</ul>
+</section>
+{% endif %}
 {% if can_manage or perms.budgeting.add_budgetproduct %}
 <section class="configuration-section" aria-labelledby="budget-management-title">
 <h2 id="budget-management-title">Préparer les budgets</h2>

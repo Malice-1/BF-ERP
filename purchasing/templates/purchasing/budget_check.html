@@ -1,16 +1,16 @@
-{% load static %}
+{% load static ui_actions %}
 <!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Vérifier le budget restant</title>
 <script src="{% static 'purchasing/theme.js' %}"></script>
-<link rel="stylesheet" href="{% static 'purchasing/erp.css' %}"></head>
+<link rel="stylesheet" href="{% static 'purchasing/erp.css' %}"><link rel="stylesheet" href="{% static 'purchasing/actions.css' %}"></head>
 <body class="budget-embed">
 {% if form.fields.version.queryset.exists %}
-<form method="get" action="{% url 'purchasing:budget_check' %}">{{ form.as_p }}<button>Vérifier le budget restant</button></form>
-{% else %}<p>Aucune version budgétaire créée. Contactez le gestionnaire budgétaire.</p>{% endif %}
+<form method="get" action="{% url 'purchasing:budget_check' %}">{{ form.as_p }}<div class="ui-action-bar"><button class="ui-icon" aria-label="Vérifier le budget restant" type="submit" title="Vérifier le budget restant">{% include 'purchasing/action_icon.html' with icon='search' %}</button></div></form>
+{% else %}<p>Aucune version budgétaire disponible. Contactez le gestionnaire budgétaire.</p>{% endif %}
 {% if result %}<section role="status" aria-live="polite">
-<p class="balance {% if result.available < 0 %}negative{% endif %}">Solde restant : {{ result.available|floatformat:2 }} € TVAC</p>
+<p class="balance {% if result.available < 0 %}negative{% endif %}">Solde restant : {{ result.available|amount }} €</p>
 <p>Année {{ result.year }} · {{ result.version }}</p>
 {% if not result.allocated %}<p>Aucune allocation pour cette combinaison dans la version sélectionnée.</p>{% endif %}
-<p>Allocation de la version sélectionnée moins les réservations ouvertes et les engagements de la même année, toutes versions confondues. Ce solde est indicatif au moment de la consultation ; il ne réserve aucun budget.</p>
+<p>Allocation de la version sélectionnée moins les réservations ouvertes et les engagements de la même année, toutes versions confondues, plus le solde des transferts de la version. Ce solde est indicatif au moment de la consultation ; il ne réserve aucun budget.</p>
 </section>{% endif %}
 </body></html>

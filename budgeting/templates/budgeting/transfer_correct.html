@@ -1,0 +1,9 @@
+{% extends 'purchasing/base.html' %}{% load ui_actions %}{% block content %}{% back_action %}
+<h1>Corriger la transaction {{ transfer.pk }}</h1>
+<div class="login-error" role="alert">Retour au demandeur : {{ transfer.return_reason }}</div>
+{% if error %}<div class="login-error" role="alert">{{ error }}</div>{% endif %}
+<p>La correction conserve le numéro de transaction et le transfert global. La resoumission relance les deux validations.</p>
+<form method="post">{% csrf_token %}<input type="hidden" name="revision" value="{{ transfer.revision }}">
+{{ form.as_p }}
+<button type="submit">Resoumettre pour validation</button></form>
+{% endblock %}

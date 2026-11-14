@@ -1,7 +1,7 @@
-{% extends 'purchasing/base.html' %}
-{% block content %}
+{% extends 'purchasing/base.html' %}{% load ui_actions %}
+{% block content %}{% back_action %}
 <h1>Déconnexion automatique</h1>
 <p>Durée maximale sans requête utilisateur : 120 minutes par défaut. Saisir une durée de 1 à 10 080 minutes (7 jours). Ce réglage s’applique à tous les comptes, administrateurs compris, dès leur prochaine requête.</p>
 <p>La consultation automatique de l’état de connexion ne prolonge pas la session. Une saisie non enregistrée ne prolonge pas non plus la session.</p>
-<form method="post">{% csrf_token %}{{ form.as_p }}<button>Enregistrer</button></form>
+<form method="post">{% csrf_token %}{{ form.as_p }}<div class="ui-action-bar"><button class="ui-icon" aria-label="Enregistrer" type="submit" title="Enregistrer">{% include 'purchasing/action_icon.html' with icon='save' %}</button></div></form>
 {% endblock %}

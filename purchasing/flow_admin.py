@@ -2,13 +2,10 @@ from accounts.admin_deletion import SystemModelAdmin
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.urls import reverse
-from django.utils.html import format_html
-from .models import (AnnualEnvelope, EnvelopeVersion, Allocation, WorkflowVersion,
-    ApprovalRule, Submission, LineSnapshot, BudgetEntry, ApprovalStep, PurchaseOrder,
+from .models import (Submission, LineSnapshot, ApprovalStep, PurchaseOrder,
     Delegation, PurchaseNotice)
 from accounts.admin import ReadOnlyAdmin
-from .flow import activate_envelope, activate_workflow
+from .flow import activate_envelope
 from budgeting.models import AnnualEnvelope, EnvelopeVersion, Allocation, BudgetEntry
 
 
@@ -17,10 +14,7 @@ class FrenchFields:
         field = super().formfield_for_dbfield(db_field, request, **kwargs)
         labels = {"label": "Libellé", "envelope": "Enveloppe annuelle", "year": "Année",
             "cost_center": "CDF", "funding": "Financement", "budget_product": "Produit budgétaire",
-            "amount": "Allocation TVAC (EUR)", "function": "Fonction de validation", "level": "Niveau",
-            "mode": "Mode de règle", "priority": "Priorité (la plus grande gagne)",
-            "minimum_htva": "Total DA HTVA minimum inclus", "maximum_htva": "Total DA HTVA maximum exclu",
-            "named_user": "Valideur nommé (facultatif)", "cdf_manager": "Affecter au responsable CDF"}
+            "amount": "Allocation TVAC (EUR)"}
         if field is not None and db_field.name in labels:
             field.label = labels[db_field.name]
         return field
@@ -43,16 +37,6 @@ class DraftInline(FrenchFields, admin.TabularInline):
 
 class AllocationInline(DraftInline):
     model = Allocation
-
-
-class RuleInline(DraftInline):
-    model = ApprovalRule
-    readonly_fields = ("named_user_reference",)
-    template = "admin/edit_inline/stacked.html"
-    fieldsets = [
-        ("Conditions", {"fields": ("label", ("minimum_htva", "maximum_htva"), ("cost_center", "funding", "budget_product"), ("mode", "priority"))}),
-        ("Validation", {"fields": (("function", "level"), "role", ("named_user", "cdf_manager", "support_manager"), "named_user_reference")}),
-    ]
 
 
 class PublishedAdmin(FrenchFields, SystemModelAdmin):
@@ -115,49 +99,6 @@ class BudgetVersionAdmin(PublishedAdmin):
         self.message_user(request, "Versions copiées en brouillon.")
 
 
-@admin.register(WorkflowVersion)
-class WorkflowAdmin(PublishedAdmin):
-    list_display = ("label", "active", "published_at")
-    readonly_fields = ("active", "published_at")
-    inlines = [RuleInline]
-    actions = ["activate", "clone"]
-
-    def get_inlines(self, request, obj=None):
-        return [] if obj and obj.rule_based else super().get_inlines(request, obj)
-
-    def get_readonly_fields(self, request, obj=None):
-        return (*super().get_readonly_fields(request, obj), "operation", "rule_based", "rule_editor_link")
-
-    @admin.display(description="Éditeur de règles")
-    def rule_editor_link(self, obj):
-        if not obj or not obj.pk:
-            return "Créez les nouvelles versions depuis Configuration → Règles de validation."
-        return format_html('<a href="{}">Ouvrir les règles et la simulation</a>', reverse("purchasing:rule_set", args=[obj.pk]))
-
-    @admin.action(description="Valider et activer la configuration sélectionnée", permissions=["change"])
-    def activate(self, request, queryset):
-        if queryset.count() != 1:
-            self.message_user(request, "Sélectionnez une seule configuration.", messages.ERROR)
-            return
-        try:
-            activate_workflow(actor=request.user, version_id=queryset.get().pk)
-            self.message_user(request, "Configuration validée et activée.")
-        except ValidationError as error:
-            self.message_user(request, " · ".join(error.messages), messages.ERROR)
-
-    @admin.action(description="Copier en nouvelle configuration brouillon", permissions=["change"])
-    @transaction.atomic
-    def clone(self, request, queryset):
-        for source in queryset:
-            target = WorkflowVersion.objects.create(label=source.label[:90] + " (copie)",
-                operation=source.operation, rule_based=source.rule_based)
-            for rule in source.rules.all():
-                rule.pk = None
-                rule.version = target
-                rule.save()
-        self.message_user(request, "Configurations copiées en brouillon.")
-
-
 class FinancialReadOnlyAdmin(ReadOnlyAdmin):
     def has_view_permission(self, request, obj=None):
         if self.model._meta.app_label == "budgeting":
@@ -173,7 +114,7 @@ class OrderAdmin(FinancialReadOnlyAdmin):
 for model in (Submission, LineSnapshot, BudgetEntry, ApprovalStep):
     admin.site.register(model, FinancialReadOnlyAdmin)
 
-for model in (Allocation, ApprovalRule):
+for model in (Allocation,):
     admin.site.register(model, FinancialReadOnlyAdmin)
 
 admin.site.register(Delegation, ReadOnlyAdmin)

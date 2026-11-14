@@ -1,0 +1,25 @@
+{% extends 'purchasing/base.html' %}{% block content %}
+<h1>Stocks</h1>
+<p>Configurez vos dépôts, suivez les mouvements et consultez les quantités disponibles.</p>
+<div class="configuration-sections module-menu">
+{% if perms.receiving.manage_stock %}<section class="configuration-section"><h2>Réceptions des achats</h2><ul class="configuration-links"><li><a href="{% url 'purchase_receipts' %}">Réceptionner une demande d’achat</a><small>Enregistrer les livraisons partielles ou complètes, alimenter le stock et suivre les quantités reçues par demande.</small></li></ul></section>{% endif %}
+{% if can_access_warehouses %}
+<section class="configuration-section" aria-labelledby="stock-warehouses-title">
+<h2 id="stock-warehouses-title">Dépôts</h2>
+<ul class="configuration-links"><li><a href="{% url 'warehouses' %}">Configuration des dépôts</a><small>Consulter les dépôts et, selon vos droits, en ajouter ou modifier leur code et leur nom.</small></li></ul>
+</section>
+{% endif %}
+{% if can_view_stock_movements %}
+<section class="configuration-section" aria-labelledby="stock-movements-title">
+<h2 id="stock-movements-title">Mouvements de stock</h2>
+<ul class="configuration-links"><li><a href="{% url 'stock_movements' %}">Mouvements de stock</a><small>Consulter l’historique et, selon vos droits, enregistrer les entrées, sorties, transferts et inventaires.</small></li></ul>
+</section>
+{% endif %}
+{% if can_view_stock %}
+<section class="configuration-section" aria-labelledby="stock-balances-title">
+<h2 id="stock-balances-title">Quantités disponibles</h2>
+<ul class="configuration-links"><li><a href="{% url 'stock_balances' %}">Consulter les stocks</a><small>Voir les quantités disponibles par dépôt et par produit.</small></li></ul>
+</section>
+{% endif %}
+</div>
+{% endblock %}

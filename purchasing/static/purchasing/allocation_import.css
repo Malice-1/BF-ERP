@@ -1,0 +1,5 @@
+.allocation-import-progress { margin: 1rem 0; padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--soft); }
+.allocation-import-progress progress { width: 100%; height: 1rem; accent-color: var(--accent); }
+.allocation-import-progress p { margin: 0 0 .75rem; }
+.allocation-import-progress p:last-child { margin: .75rem 0 0; }
+.allocation-import-success { padding: 1rem 1.25rem; margin: 1rem 0; border: 1px solid #15803d; border-radius: 8px; background: var(--soft); }

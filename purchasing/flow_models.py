@@ -2,6 +2,7 @@
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
+from django.db.models.functions import Lower, Trim
 from uuid import uuid4
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -13,14 +14,18 @@ class PublishedVersion(models.Model):
 
     def save(self, *args, **kwargs):
         with transaction.atomic():
-            if not self._state.adding and type(self).objects.select_for_update().get(pk=self.pk).published_at:
-                raise ValidationError("Une version publiée est immuable.")
+            if not self._state.adding:
+                previous = type(self).objects.select_for_update().get(pk=self.pk)
+                if previous.published_at or getattr(previous, "locked_at", None) or getattr(previous, "deleted_at", None):
+                    raise ValidationError("Une version publiée, bloquée ou supprimée est immuable.")
             return super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
-        if self.published_at:
-            raise ValidationError("Une version publiée est immuable.")
-        return super().delete(*args, **kwargs)
+        with transaction.atomic():
+            previous = type(self).objects.select_for_update().get(pk=self.pk)
+            if previous.published_at or getattr(previous, "locked_at", None) or getattr(previous, "deleted_at", None):
+                raise ValidationError("Une version publiée, bloquée ou supprimée est immuable.")
+            return super().delete(*args, **kwargs)
 
 
 class VersionChild(models.Model):
@@ -33,8 +38,9 @@ class VersionChild(models.Model):
     def save(self, *args, **kwargs):
         with transaction.atomic():
             parent = self._meta.get_field("version").remote_field.model
-            if parent.objects.select_for_update().get(pk=self.version_id).published_at:
-                raise ValidationError("Une version publiée est immuable. Copiez-la en brouillon.")
+            version = parent.objects.select_for_update().get(pk=self.version_id)
+            if (version.published_at and not getattr(version, "editing_unlocked_at", None)) or getattr(version, "locked_at", None) or getattr(version, "deleted_at", None):
+                raise ValidationError("Une version publiée, bloquée ou supprimée est immuable.")
             if self.pk is not None and not self._state.adding:
                 old_version = type(self).objects.get(pk=self.pk).version_id
                 if old_version != self.version_id:
@@ -44,8 +50,9 @@ class VersionChild(models.Model):
     def delete(self, *args, **kwargs):
         with transaction.atomic():
             parent = self._meta.get_field("version").remote_field.model
-            if parent.objects.select_for_update().get(pk=self.version_id).published_at:
-                raise ValidationError("Une version publiée est immuable.")
+            version = parent.objects.select_for_update().get(pk=self.version_id)
+            if (version.published_at and not getattr(version, "editing_unlocked_at", None)) or getattr(version, "locked_at", None) or getattr(version, "deleted_at", None):
+                raise ValidationError("Une version publiée, bloquée ou supprimée est immuable.")
             return super().delete(*args, **kwargs)
 
 
@@ -67,6 +74,9 @@ class AnnualEnvelope(models.Model):
 
 
 class EnvelopeVersion(PublishedVersion):
+    editing_unlocked_at = models.DateTimeField(null=True, blank=True, editable=False, verbose_name="Modifications débloquées le")
+    deleted_at = models.DateTimeField(null=True, blank=True, editable=False, verbose_name="Supprimée le")
+    locked_at = models.DateTimeField(null=True, blank=True, editable=False, verbose_name="Bloquée le")
     envelope = models.ForeignKey(AnnualEnvelope, on_delete=models.PROTECT, related_name="versions", verbose_name='Enveloppe annuelle')
     label = models.CharField(max_length=100, verbose_name='Libellé')
     published_at = models.DateTimeField(null=True, blank=True, editable=False, verbose_name='Date de publication')
@@ -75,9 +85,30 @@ class EnvelopeVersion(PublishedVersion):
         verbose_name = "Version budgétaire achats"
         default_permissions = ()
         verbose_name_plural = "Versions budgétaires achats"
+        constraints = [models.UniqueConstraint(Lower(Trim("label")), models.F("envelope"), name="unique_budget_version_name_per_year")]
 
     def __str__(self):
         return f"{self.envelope} · {self.label}"
+
+    @property
+    def allocations_editable(self):
+        return not (self.deleted_at or self.locked_at or (self.published_at and not self.editing_unlocked_at))
+
+    def save(self, *args, **kwargs):
+        actor = getattr(self, "_editing_state_actor", None)
+        fields = set(kwargs.get("update_fields") or ())
+        if not self._state.adding and actor is not None:
+            if not actor.is_active or not actor.is_superuser:
+                from django.core.exceptions import PermissionDenied
+                raise PermissionDenied
+            if not fields or not fields <= {"locked_at", "editing_unlocked_at"}:
+                raise ValidationError("Seul l’état de modification peut être changé par cette action.")
+            with transaction.atomic():
+                previous = type(self).objects.select_for_update().get(pk=self.pk)
+                if previous.deleted_at:
+                    raise ValidationError("Une version supprimée ne peut pas être débloquée.")
+                return models.Model.save(self, *args, **kwargs)
+        return super().save(*args, **kwargs)
 
 
 class Allocation(VersionChild):
@@ -95,7 +126,7 @@ class Allocation(VersionChild):
 
 
 class WorkflowVersion(PublishedVersion):
-    operation = models.CharField(max_length=40, default="purchase", verbose_name="Type d’opération")
+    operation = models.CharField(max_length=40, default="purchase", choices=[("purchase", "Demande d’achat"), ("transfer", "Transfert budgétaire")], verbose_name="Type d’opération")
     rule_based = models.BooleanField(default=False, verbose_name="Éditeur de règles conditionnelles")
     label = models.CharField(max_length=100, verbose_name='Libellé')
     active = models.BooleanField(default=False, editable=False, verbose_name='Active')
@@ -112,6 +143,8 @@ class WorkflowVersion(PublishedVersion):
 
 
 class ApprovalRule(VersionChild):
+    automatic = models.BooleanField(default=False, verbose_name="Validation automatique si les conditions sont satisfaites")
+    reuse_evidence = models.BooleanField(default=True, verbose_name="Réutiliser une validation manuelle antérieure")
     conditions = models.JSONField(default=dict, blank=True, verbose_name="Conditions")
     named_user_reference = models.CharField(max_length=220, blank=True, editable=False,
                                            verbose_name="Valideur nommé mémorisé")
@@ -140,6 +173,7 @@ class ApprovalRule(VersionChild):
     budget_product = models.ForeignKey("budgeting.BudgetProduct", null=True, blank=True, on_delete=models.PROTECT, verbose_name='Produit budgétaire (BI)')
     named_user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, verbose_name='Valideur nommé')
     cdf_manager = models.BooleanField(default=False, verbose_name='Affecter aux responsables CDF')
+    destination_cdf_manager = models.BooleanField(default=False, verbose_name='Affecter aux responsables du CDF destination')
     support_manager = models.BooleanField(default=False, verbose_name="Affecter aux responsables du support")
 
     class Meta:
@@ -150,7 +184,7 @@ class ApprovalRule(VersionChild):
 
 class Submission(models.Model):
     purchase_request = models.ForeignKey("PurchaseRequest", on_delete=models.PROTECT, related_name="submissions", verbose_name='Demande d’achat')
-    workflow = models.ForeignKey(WorkflowVersion, on_delete=models.PROTECT, verbose_name='Circuit de validation')
+    workflow = models.ForeignKey(WorkflowVersion, null=True, blank=True, on_delete=models.PROTECT, verbose_name='Ancien circuit de validation')
     budget_version = models.ForeignKey(EnvelopeVersion, on_delete=models.PROTECT, verbose_name='Version budgétaire')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Date de création')
     active = models.BooleanField(default=True, verbose_name='Active')

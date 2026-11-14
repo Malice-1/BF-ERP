@@ -1,0 +1,20 @@
+{% extends 'purchasing/base.html' %}{% load ui_actions %}
+{% block content %}{% back_action %}
+<h1>Parcours de {{ transfer }}</h1>
+{% if transfer.status == 'returned' %}<div class="login-error" role="alert">Retour au demandeur : {{ transfer.return_reason }}</div>{% if transfer.created_by_id == user.pk and perms.budgeting.add_budgettransfer %}<p><a href="{% url 'transfer_correct' transfer.pk %}">Corriger et resoumettre</a></p>{% endif %}{% endif %}
+<p>{{ transfer.source_cdf }} → {{ transfer.destination_cdf }} · {{ transfer.amount|amount }} EUR · <strong>{{ transfer.get_status_display }}</strong></p>
+<section class="configuration-section content-zone" aria-labelledby="workflow-title">
+<h2 id="workflow-title">Circuit de validation</h2>
+<ol class="transfer-timeline">
+<li><strong>Création</strong><p>{{ transfer.created_at }} · {{ transfer.created_by|default:'Compte supprimé' }}</p></li>
+{% for step in steps %}
+<li class="timeline-{{ step.state }}" {% if step.active and step.state == 'pending' or step.active and step.state == 'unassigned' %}aria-current="step"{% endif %}>
+<strong>{{ step.label }}</strong>{% if not step.active %}<p>Cycle précédent</p>{% endif %}<p>{{ step.get_state_display }}{% if step.active and step.state == 'pending' or step.active and step.state == 'unassigned' %} · Étape actuelle{% endif %}</p>
+{% if step.approved_at %}<p>{{ step.approved_at }} · {{ step.approved_by|default:'Compte supprimé' }}</p>{% endif %}
+{% if step.pk in actionable_step_ids %}{% include 'budgeting/transfer_decision.html' %}{% endif %}
+</li>{% empty %}<li>Le circuit sera créé à la soumission.</li>{% endfor %}
+<li><strong>État du transfert : {{ transfer.get_status_display }}</strong></li>
+</ol></section>
+<section class="configuration-section content-zone"><h2>Journal des événements</h2>
+<ol class="transfer-timeline">{% for event in events %}<li><strong>{{ event.get_action_display }}</strong><p>{{ event.created_at }} · {{ event.actor|default:'Système' }}{% if event.payload.reason %} · {{ event.payload.reason }}{% endif %}</p></li>{% empty %}<li>Aucun événement enregistré.</li>{% endfor %}</ol>
+</section>{% endblock %}

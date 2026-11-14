@@ -1,0 +1,11 @@
+<form method="post" action="{% url 'transfer_detail' transfer.pk %}" data-transfer-decision>
+{% csrf_token %}
+<input type="hidden" name="revision" value="{{ transfer.revision }}">
+<input type="hidden" name="step_id" value="{{ step.pk }}">
+<input type="hidden" name="reason">
+<div class="ui-action-bar">
+<button type="submit" name="action" value="approve" class="ui-icon" aria-label="Valider" title="Valider" formnovalidate>{% include 'purchasing/action_icon.html' with icon='publish' %}</button>
+{% if perms.budgeting.decide_any_budgettransfer %}<button type="submit" name="action" value="approve_all" class="ui-icon" aria-label="Valider tout le circuit" title="Valider tout le circuit" formnovalidate>{% include 'purchasing/action_icon.html' with icon='approve_all' %}</button>{% endif %}
+<button type="submit" name="action" value="reject" class="ui-icon ui-icon-danger" aria-label="Refuser" title="Refuser">{% include 'purchasing/action_icon.html' with icon='reject' %}</button>
+</div>
+</form>

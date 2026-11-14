@@ -1,2 +1,17 @@
-{% extends 'purchasing/base.html' %}{% block content %}<h1>Budgets et disponibilités</h1><p>Disponible = allocation de la version active − réservations ouvertes − engagements. Les anciens compteurs budgétaires ne sont pas repris automatiquement.</p>
-<div class="table-wrap"><table><tr><th>Année / version</th><th>CDF / financement / produit</th><th>Allocation TVAC</th><th>Réservé</th><th>Engagé</th><th>Disponible</th></tr>{% for row in rows %}<tr><td>{{ row.year }} · {{ row.version }}</td><td>{{ row.cdf }}<br>{{ row.funding }}<br>{{ row.product }}</td><td>{{ row.allocated }}</td><td>{{ row.reserved }}</td><td>{{ row.committed }}</td><td>{% if row.available < 0 %}<strong class="budget-deficit">Déficit : {{ row.available }}</strong>{% else %}{{ row.available }}{% endif %}</td></tr>{% empty %}<tr><td colspan="6">Aucun budget annuel actif. Configurez les enveloppes et publiez une version depuis la configuration.</td></tr>{% endfor %}</table></div>{% endblock %}
+{% extends 'purchasing/base.html' %}{% load ui_actions %}{% block content %}{% back_action %}
+<h1>Budgets et disponibilités</h1>
+{% if form.fields.version.queryset.exists %}
+<form method="get" action="{% url 'purchasing:budgets' %}" id="budget-version-selection">
+{{ form.as_p }}
+</form>
+<script>
+document.getElementById('budget-version-selection').querySelector('select').addEventListener('change', function () { this.form.requestSubmit(); });
+</script>
+{% else %}<p>Aucune version budgétaire disponible.</p>{% endif %}
+{% if selected_version %}
+<p>Disponible = allocation de la version sélectionnée − réservations ouvertes − engagements de la même année + solde des transferts de cette version (sorties en attente incluses).</p>
+<section class="configuration-section content-zone"><div class="section-toolbar"><h2>Disponibilités de la version</h2>{% include "purchasing/excel_export.html" with compact=True export_label="Exporter les disponibilités de cette version en Excel" %}</div>
+<div class="table-wrap"><table><tr><th scope="col">CDF</th><th scope="col">Financement</th><th scope="col">Produit</th><th>Allocation TVAC</th><th>Réservé</th><th>Engagé</th><th>Solde transferts</th><th>Disponible</th></tr>{% for row in rows %}<tr><td>{{ row.cdf }}</td><td>{{ row.funding.code }}</td><td>{{ row.product }}</td><td>{{ row.allocated|amount }}</td><td>{{ row.reserved|amount }}</td><td>{{ row.committed|amount }}</td><td>{{ row.transfers|amount }}</td><td>{% if row.available < 0 %}<strong class="budget-deficit">Déficit : {{ row.available|amount }}</strong>{% else %}{{ row.available|amount }}{% endif %}</td></tr>{% empty %}<tr><td colspan="8">Aucune allocation ni mouvement budgétaire pour cette version.</td></tr>{% endfor %}</table></div>
+</section>
+{% endif %}
+{% endblock %}

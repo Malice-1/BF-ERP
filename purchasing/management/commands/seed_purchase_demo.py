@@ -1,4 +1,3 @@
-from datetime import timedelta
 from decimal import Decimal
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -6,14 +5,11 @@ from django.contrib.auth.models import Permission
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
-from accounts.models import ValidationFunction, Authorization
-from accounts.services import publish_authorization
-from budgeting.models import CostCenter, Funding, BudgetProduct, DetailedProduct, CostCenterManagerAssignment
-from budgeting.services import assign_cost_center_manager
+from budgeting.models import CostCenter, Funding, BudgetProduct, DetailedProduct
 from suppliers.models import Supplier
-from purchasing.models import AnnualEnvelope, EnvelopeVersion, Allocation, WorkflowVersion, ApprovalRule, PurchaseRequest
+from purchasing.models import AnnualEnvelope, EnvelopeVersion, Allocation, PurchaseRequest
 from purchasing.services import create_purchase_request, add_purchase_request_line
-from purchasing.flow import activate_envelope, activate_workflow
+from purchasing.flow import activate_envelope
 
 
 class Command(BaseCommand):
@@ -49,25 +45,12 @@ class Command(BaseCommand):
         product, _ = BudgetProduct.objects.get_or_create(code="DEMO-BUREAU", defaults={"label": "Fournitures de démonstration"})
         detailed, _ = DetailedProduct.objects.get_or_create(code="DEMO-PAPIER", defaults={"label": "Papier A4", "budget_product": product})
         supplier, _ = Supplier.objects.get_or_create(code="DEMO-FOURN", defaults={"name": "Fournisseur fictif — recette"})
-        first, _ = ValidationFunction.objects.get_or_create(code="DEMO-CDF", defaults={"label": "Responsable CDF (démo)", "position": 100})
-        second, _ = ValidationFunction.objects.get_or_create(code="DEMO-FINANCE", defaults={"label": "Finance (démo)", "position": 200})
-        for name, function in (("cdf", first), ("finance", second)):
-            if not Authorization.objects.filter(user=users[name], function=function).exists():
-                publish_authorization(actor=admin, user=users[name], function=function,
-                    valid_from=timezone.now() - timedelta(days=1), scope={})
         cdf.managers.add(users["cdf"])
-        if not CostCenterManagerAssignment.objects.filter(cost_center=cdf).exists():
-            assign_cost_center_manager(actor=admin, cost_center=cdf, user=users["cdf"], valid_from=timezone.now() - timedelta(days=1))
         envelope, _ = AnnualEnvelope.objects.get_or_create(year=timezone.localdate().year)
         if not envelope.active_version_id:
             version = EnvelopeVersion.objects.create(envelope=envelope, label="Budget de recette — 10 000 EUR TVAC")
             Allocation.objects.create(version=version, cost_center=cdf, funding=funding, budget_product=product, amount=Decimal("10000"))
             activate_envelope(actor=admin, version_id=version.pk)
-        if not WorkflowVersion.objects.filter(active=True, operation="purchase").exists():
-            workflow = WorkflowVersion.objects.create(label="Recette — CDF puis Finance")
-            ApprovalRule.objects.create(version=workflow, label="Responsable CDF", function=first, level=1, cdf_manager=True)
-            ApprovalRule.objects.create(version=workflow, label="Finance", function=second, level=2)
-            activate_workflow(actor=admin, version_id=workflow.pk)
         if not PurchaseRequest.objects.filter(created_by=users["demandeur"]).exists():
             purchase = create_purchase_request(actor=users["demandeur"], supplier=supplier)
             for description, quantity, price in (("Ramettes A4", "10", "5"), ("Papier pour ateliers", "2", "25")):

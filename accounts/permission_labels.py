@@ -9,6 +9,9 @@ APP_LABELS = {
     "contenttypes": "Types de données",
 }
 MODEL_LABELS = {
+    "transferconfiguration": "ancienne configuration des transferts",
+    "budgettransfer": "transfert budgétaire", "transferstep": "étape de transfert",
+    "warehouse": "dépôt", "stockbalance": "stock", "stockmovement": "mouvement de stock",
     "user": "utilisateur", "role": "rôle ERP", "validationfunction": "fonction de validation",
     "authorization": "habilitation", "authorizationversion": "version d’habilitation",
     "sessionpolicy": "politique de déconnexion", "costcenter": "CDF",

@@ -1,0 +1,11 @@
+{% extends 'purchasing/base.html' %}{% load ui_actions %}
+{% block content %}{% back_action %}
+
+
+<h1>Mouvements de stock</h1>
+<p>Les quantités utilisent l’unité de référence du produit. Un inventaire remplace la quantité disponible par la quantité comptée et conserve l’écart dans l’historique.</p>
+{% if perms.receiving.manage_stock %}<h2>Enregistrer un mouvement</h2><form method="post">{% csrf_token %}{{ form.as_p }}<div class="ui-action-bar"><button name="action" value="movement" class="ui-icon" aria-label="Enregistrer" type="submit" title="Enregistrer">{% include 'purchasing/action_icon.html' with icon='save' %}</button></div></form>{% endif %}
+<section class="configuration-section content-zone"><div class="section-toolbar"><h2>Historique des 200 derniers mouvements</h2>{% include 'purchasing/excel_export.html' with compact=True export_label='Exporter tous les mouvements de stock en Excel' %}</div>
+<div class="table-wrap"><table><tr><th>Date</th><th>Opération</th><th>Dépôt</th><th>Destination</th><th>Produit</th><th>Demande d’achat / réception</th><th>Quantité</th><th>Variation source</th><th>Justification</th><th>Auteur</th></tr>{% for movement in movements %}<tr><td>{{ movement.created_at }}</td><td>{{ movement.get_kind_display }}</td><td>{{ movement.warehouse }}</td><td>{{ movement.destination|default:'—' }}</td><td>{{ movement.product }}</td><td>{% if movement.receipt_line %}{% if perms.receiving.manage_stock %}<a href="{% url 'purchase_receive' movement.receipt_line.receipt.order.purchase_request_id %}">{{ movement.receipt_line.receipt.order.purchase_request.number }}</a>{% else %}{{ movement.receipt_line.receipt.order.purchase_request.number }}{% endif %}<br>Réception {{ movement.receipt_line.receipt_id }}{% else %}—{% endif %}</td><td>{{ movement.quantity }}</td><td>{{ movement.delta }}</td><td>{{ movement.reason }}</td><td>{{ movement.actor|default:'Compte supprimé' }}</td></tr>{% endfor %}</table></div>
+</section>
+{% endblock %}

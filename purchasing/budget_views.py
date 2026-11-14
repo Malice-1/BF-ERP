@@ -2,17 +2,25 @@
 from django import forms
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import ValidationError, PermissionDenied
-from django.db import transaction
+from django.db import transaction, IntegrityError
+from django.db.models import Q, Sum
+from django.core.paginator import Paginator
+from django.urls import reverse
+from urllib.parse import urlencode
+from django.db.models.functions import Trim
 from django.forms import inlineformset_factory
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from decimal import Decimal
+from config import excel
 from django.views.decorators.http import require_http_methods
 
-from .flow import activate_envelope
+from .flow import activate_envelope, lock_envelope, unlock_envelope, delete_envelope_version
 from .models import AnnualEnvelope, EnvelopeVersion, Allocation
 from budgeting.models import BudgetProduct
 from .models import DetailedProduct
 from .navigation_permissions import can_access_budget, can_access_configuration
+from .forms import BudgetAmountInput
 
 MANAGER_PERMISSIONS = tuple("budgeting." + name for name in (
     "add_annualenvelope", "add_envelopeversion", "change_envelopeversion",
@@ -35,6 +43,9 @@ def detailed_products(request):
     if request.method == "POST" and form.is_valid():
         form.save()
         return redirect("purchasing:detailed_products")
+    if excel.requested(request):
+        return excel.response("produits-detailles", [("Produits détaillés", ["Code", "Dénomination", "BI"],
+            ((p.code, p.label, p.budget_product) for p in DetailedProduct.objects.select_related("budget_product").order_by("code").iterator()))])
     return render(request, "purchasing/detailed_products.html", {
         "form": form, "products": DetailedProduct.objects.select_related("budget_product")})
 
@@ -52,8 +63,15 @@ def budget_home(request):
 @permission_required(MANAGER_PERMISSIONS, raise_exception=True)
 @require_http_methods(["GET"])
 def allocation_versions(request):
+    if request.GET.get("template") == "xlsx":
+        from .allocation_excel import template_sheets
+        return excel.response("modele-alimentation-budget", template_sheets())
+    versions = EnvelopeVersion.objects.filter(deleted_at__isnull=True).select_related("envelope").annotate(allocation_total=Sum("allocations__amount")).order_by("-envelope__year", "-pk")
+    if excel.requested(request):
+        return excel.response("versions-budgetaires", [("Versions", ["Année", "Version", "État", "Publication", "Blocage", "Total TVAC"],
+            ((v.envelope.year, v.label, "Bloquée" if v.locked_at else "Active" if v.envelope.active_version_id == v.pk else "Publiée remplacée" if v.published_at else "Brouillon", v.published_at, v.locked_at, v.allocation_total or 0) for v in versions.iterator()))])
     return render(request, "purchasing/allocation_versions.html", {
-        "versions": EnvelopeVersion.objects.select_related("envelope").order_by("-envelope__year", "-pk")})
+        "versions": versions})
 
 
 @login_required
@@ -61,8 +79,6 @@ def allocation_versions(request):
 def configuration(request):
     if not can_access_configuration(request.user):
         raise PermissionDenied
-    from django.urls import reverse
-
     def admin_link(model, label, description):
         app, name = model.split(".")
         if request.user.is_staff and any(request.user.has_perm(f"{app}.{action}_{name}")
@@ -70,15 +86,13 @@ def configuration(request):
             return {"url": reverse(f"admin:{app}_{name}_changelist"), "label": label, "description": description}
 
     workflow = [
-        {"url": reverse("purchasing:rule_sets"), "label": "Règles de validation", "description": "Écrire les règles Si… alors…, simuler les validations et publier une version."}
-        if any(request.user.has_perm(f"purchasing.{action}_workflowversion") for action in ("view", "add", "change")) else None,
-        admin_link("accounts.role", "Rôles ERP et permissions", "Définir les rôles utilisables pour les validations et les droits hérités."),
+        admin_link("accounts.role", "Rôles ERP et permissions", "Définir les droits d’accès des utilisateurs."),
     ]
     if request.user.has_perm("budgeting.manage_cost_center_managers"):
         workflow.append({"url": reverse("entity_managers"), "label": "Responsables des CDF et des supports",
                          "description": "Choisir les utilisateurs qui valident en tant que responsables."})
     workflow += [
-        admin_link("budgeting.costcenter", "CDF et responsables", "Gérer les CDF utilisés par les règles et leurs responsables."),
+        admin_link("budgeting.costcenter", "CDF et responsables", "Gérer les CDF et les responsables qui valident les demandes et les transferts."),
         admin_link("budgeting.support", "Supports et responsables", "Gérer les supports choisis sur les demandes et leurs responsables."),
     ]
     access = [admin_link("accounts.user", "Comptes utilisateurs et droits individuels",
@@ -93,14 +107,10 @@ def configuration(request):
         technical.append({"url": reverse("admin:workflow_activitylog_changelist"), "label": "Journal des actions par utilisateur",
                           "description": "Consulter la traçabilité des actions et des modifications."})
     groups = [
-        {"id": "workflow-settings", "title": "Workflows et validations", "links": [link for link in workflow if link]},
+        {"id": "workflow-settings", "title": "Responsables et validations", "links": [link for link in workflow if link]},
         {"id": "access-settings", "title": "Utilisateurs et accès", "links": [link for link in access if link]},
         {"id": "technical-settings", "title": "Référentiels et suivi technique", "links": technical},
     ]
-    if request.user.has_perm("accounts.manage_authorizations"):
-        groups.append({"id": "legacy-settings", "title": "Compatibilité des anciens circuits", "links": [
-            {"url": reverse("authorizations"), "label": "Habilitations historiques",
-             "description": "Réservées aux anciennes validations par fonction. Inutiles pour les nouvelles règles."}]})
     return render(request, "purchasing/configuration.html", {"configuration_groups": groups})
 
 
@@ -119,20 +129,98 @@ def budget_products(request):
     if request.method == "POST" and form.is_valid():
         form.save()
         return redirect("purchasing:budget_products")
-    return render(request, "purchasing/budget_products.html", {
-        "form": form, "products": BudgetProduct.objects.all()})
+    search = request.GET.get("q", "").strip()
+    products = BudgetProduct.objects.order_by("code")
+    if search:
+        products = products.filter(Q(code__icontains=search) | Q(label__icontains=search))
+    if excel.requested(request):
+        return excel.response("produits-budgetaires", [("Produits budgétaires", ["Code", "Libellé"],
+            ((p.code, p.label) for p in products.iterator()))])
+    template = "purchasing/budget_products_results.html" if request.headers.get("X-Requested-With") == "XMLHttpRequest" else "purchasing/budget_products.html"
+    return render(request, template, {
+        "form": form, "products": products, "search": search})
 
 
 class VersionForm(forms.Form):
     year = forms.IntegerField(label="Année budgétaire", min_value=2000, max_value=9999)
     label = forms.CharField(label="Nom de la version", max_length=100)
 
+    def clean(self):
+        data = super().clean()
+        if data.get("year") and data.get("label") and EnvelopeVersion.objects.filter(
+                envelope__year=data["year"]).annotate(trimmed_label=Trim("label")).filter(
+                    trimmed_label__iexact=data["label"]).exists():
+            self.add_error("label", "Une version portant ce nom existe déjà pour cette année.")
+        return data
+
+
+class BudgetHistoryForm(forms.Form):
+    version = forms.ModelChoiceField(queryset=EnvelopeVersion.objects.select_related("envelope").order_by("-envelope__year", "-pk"), label="Version budgétaire")
+    at = forms.DateTimeField(required=False, label="État à la date et à l’heure", widget=forms.DateTimeInput(attrs={"type": "datetime-local", "step": "1"}))
+
+
+@login_required
+@require_http_methods(["GET"])
+def budget_history(request, version_id=None):
+    if not (request.user.has_perm("budgeting.view_budget_balances") or request.user.has_perm("budgeting.view_envelopeversion")
+            or request.user.has_perms(MANAGER_PERMISSIONS)):
+        raise PermissionDenied
+    from budgeting.models import BudgetHistoryEvent
+    from budgeting.history import describe_timeline
+    data = request.GET.copy()
+    scoped_version = version_id is not None or bool(data.get("version"))
+    if version_id is not None:
+        get_object_or_404(EnvelopeVersion, pk=version_id)
+        data["version"] = str(version_id)
+    if not data.get("version"):
+        latest = EnvelopeVersion.objects.filter(deleted_at__isnull=True).order_by("-envelope__year", "-pk").first()
+        if latest is None:
+            latest = EnvelopeVersion.objects.order_by("-envelope__year", "-pk").first()
+        if latest:
+            data["version"] = str(latest.pk)
+    form = BudgetHistoryForm(data)
+    if scoped_version:
+        form.fields["version"].widget = forms.HiddenInput()
+    state, selected, first, timeline, version = None, None, None, [], None
+    valid = form.is_valid()
+    version = form.cleaned_data.get("version")
+    if valid:
+        events = BudgetHistoryEvent.objects.filter(envelope_id=version.envelope_id).order_by("created_at", "pk")
+        # Earlier snapshots may precede this version's creation.
+        timeline = [event for event in events if event.version_id in (None, version.pk) and str(version.pk) in event.state.get("versions", {})]
+        describe_timeline(timeline, version.pk)
+        first = timeline[0] if timeline else None
+        at = form.cleaned_data["at"] or timezone.now()
+        if at > timezone.now():
+            form.add_error("at", "Choisissez une date passée ou actuelle.")
+        else:
+            selected = next((event for event in reversed(timeline) if event.created_at <= at), None)
+            if selected:
+                state = selected.state["versions"][str(version.pk)]
+    export_scope = request.GET.get("section", "all")
+    if excel.requested(request) and valid and not form.errors and export_scope == "timeline":
+        return excel.response("chronologie-budgetaire", [
+            ("Chronologie", ["Date", "Auteur", "Événement"], ((e.created_at, e.actor, e.display_reason) for e in timeline)),
+            ("Contexte", ["Année", "Version"], [(version.envelope.year, version.label)])])
+    if excel.requested(request) and state and export_scope in ("state", "all"):
+        sheets = [
+            ("État budgétaire", ["CDF", "Financement", "BI", "Montant alloué", "Réservé", "Engagé", "Solde transferts", "Disponible"],
+             ((row["cdf"], row["funding"], row["product"], *(Decimal(row[key]) for key in ("allocated", "reserved", "committed", "transfers", "available"))) for row in state["rows"])),
+            ("Contexte", ["Année", "Version", "État", "Date demandée", "Date de l’état", "Auteur", "Événement"],
+             [(selected.state["year"], state["label"], state["status"], form.cleaned_data["at"], selected.created_at, selected.actor, selected.display_reason)])]
+        if export_scope == "all":
+            sheets.append(("Chronologie", ["Date", "Auteur", "Événement"], ((e.created_at, e.actor, e.display_reason) for e in timeline)))
+        return excel.response("etat-budgetaire" if export_scope == "state" else "historique-budgetaire", sheets)
+    return render(request, "purchasing/budget_history.html", {"form": form, "state": state,
+        "selected": selected, "first": first, "timeline": timeline, "version": version,
+        "scoped_version": scoped_version})
+
 
 AllocationFormSet = inlineformset_factory(EnvelopeVersion, Allocation,
     fields=("budget_product", "cost_center", "funding", "amount"), extra=3,
     labels={"budget_product": "BI / produit budgétaire", "cost_center": "CDF",
             "funding": "Financement", "amount": "Montant TVAC (€)"},
-    widgets={"amount": forms.NumberInput(attrs={"step": "0.01", "min": "0"})})
+    widgets={"amount": BudgetAmountInput(attrs={"step": "0.01", "min": "0"})})
 
 
 @login_required
@@ -142,10 +230,19 @@ def versions(request):
     form = VersionForm(request.POST if request.method == "POST" else None,
                        initial={"year": timezone.localdate().year})
     if request.method == "POST" and form.is_valid():
-        with transaction.atomic():
-            envelope, _ = AnnualEnvelope.objects.get_or_create(year=form.cleaned_data["year"])
-            version = EnvelopeVersion.objects.create(envelope=envelope, label=form.cleaned_data["label"])
-        return redirect("purchasing:budget_version", pk=version.pk)
+        try:
+            with transaction.atomic():
+                envelope, _ = AnnualEnvelope.objects.get_or_create(year=form.cleaned_data["year"])
+                version = EnvelopeVersion.objects.create(envelope=envelope, label=form.cleaned_data["label"])
+        except IntegrityError:
+            # A concurrent creation may have passed the same form validation.
+            if EnvelopeVersion.objects.filter(envelope__year=form.cleaned_data["year"]).annotate(
+                    trimmed_label=Trim("label")).filter(trimmed_label__iexact=form.cleaned_data["label"]).exists():
+                form.add_error("label", "Une version portant ce nom existe déjà pour cette année.")
+            else:
+                raise
+        else:
+            return redirect("purchasing:budget_version", pk=version.pk)
     return render(request, "purchasing/budget_versions.html", {
         "form": form})
 
@@ -154,16 +251,48 @@ def versions(request):
 @permission_required(MANAGER_PERMISSIONS, raise_exception=True)
 @require_http_methods(["GET", "POST"])
 def version_detail(request, pk):
-    version = get_object_or_404(EnvelopeVersion.objects.select_related("envelope"), pk=pk)
+    version = get_object_or_404(EnvelopeVersion.objects.filter(deleted_at__isnull=True).select_related("envelope"), pk=pk)
     error = None
-    formset = AllocationFormSet(instance=version)
+    search = request.GET.get("q", "").strip()
+    all_lines = version.allocations.select_related("budget_product", "cost_center", "funding").order_by("pk")
+    filtered = all_lines.filter(Q(budget_product__code__icontains=search) | Q(budget_product__label__icontains=search)) if search else all_lines
+    if excel.requested(request):
+        lines = filtered
+        return excel.response("allocations-budgetaires", [
+            ("Allocations", ["Année", "Version", "Code BI", "BI", "Code CDF", "CDF", "Code financement", "Financement", "Montant TVAC"],
+             ((version.envelope.year, version.label, line.budget_product.code, line.budget_product.label, line.cost_center.code, line.cost_center.label, line.funding.code, line.funding.label, line.amount) for line in lines.iterator())),
+            ("Version", ["Année", "Version", "Publication", "Blocage"], [(version.envelope.year, version.label, version.published_at, version.locked_at)])])
+    page = Paginator(filtered, 25).get_page(request.GET.get("page"))
+    page_lines = list(page.object_list)
+    selected = all_lines.filter(pk__in=[line.pk for line in page_lines])
+    formset = AllocationFormSet(instance=version, queryset=selected)
+    query = {"q": search} if search else {}
+    full_choices = request.GET.get("full_choices") == "1"
+    if full_choices:
+        query["full_choices"] = "1"
+    if page.number > 1:
+        query["page"] = page.number
+    form_action = reverse("purchasing:budget_version", args=[pk]) + ("?" + urlencode(query) if query else "")
     if request.method == "POST":
         with transaction.atomic():
             # Match the lock order used by publication and purchase submission.
             AnnualEnvelope.objects.select_for_update().get(pk=version.envelope_id)
             version = EnvelopeVersion.objects.select_for_update().select_related("envelope").get(pk=pk)
-            if version.published_at:
-                error = "Cette version est publiée et ne peut plus être modifiée. Créez une nouvelle version."
+            if request.POST.get("action") in ("lock", "unlock"):
+                try:
+                    change_state = lock_envelope if request.POST.get("action") == "lock" else unlock_envelope
+                    change_state(actor=request.user, version_id=version.pk)
+                    return redirect("purchasing:budget_version", pk=pk)
+                except ValidationError as exc:
+                    error = " · ".join(exc.messages)
+            elif version.deleted_at:
+                error = "Cette version a été supprimée et ne peut plus être modifiée."
+            elif version.locked_at:
+                error = "Cette version est bloquée et ne peut plus être modifiée."
+            elif version.published_at and not version.editing_unlocked_at:
+                error = "Cette version publiée est en lecture seule. Un administrateur système peut débloquer ses modifications."
+            elif version.published_at and not request.user.is_superuser:
+                raise PermissionDenied
             elif request.POST.get("action") == "publish":
                 try:
                     activate_envelope(actor=request.user, version_id=version.pk)
@@ -171,10 +300,85 @@ def version_detail(request, pk):
                 except ValidationError as exc:
                     error = " · ".join(exc.messages)
             else:
-                formset = AllocationFormSet(request.POST, instance=version)
+                formset = AllocationFormSet(request.POST, instance=version, queryset=selected)
                 if formset.is_valid():
                     formset.save()
-                    return redirect("purchasing:budget_version", pk=pk)
-    return render(request, "purchasing/budget_version.html", {
+                    return redirect(form_action)
+    can_edit = version.allocations_editable and (not version.published_at or request.user.is_superuser)
+    choices = {}
+    if can_edit:
+        # Send each reference list once, rather than repeating it in every row.
+        choices = {name: [("", "---------")] + [(obj.pk, str(obj)) for obj in formset.empty_form.fields[name].queryset]
+                   for name in ("budget_product", "cost_center", "funding")}
+        labels = {name: {str(key): label for key, label in options} for name, options in choices.items()}
+        for form in formset:
+            for name, options in choices.items():
+                if full_choices:
+                    form.fields[name].choices = options
+                else:
+                    value = str(form[name].value() or "")
+                    selected_option = [(value, labels[name].get(value, "Valeur invalide"))] if value else []
+                    form.fields[name].choices = [("", "---------")] + selected_option
+                    form.fields[name].widget.attrs["data-allocation-reference"] = name
+    context = {
         "version": version, "formset": formset, "error": error,
-        "lines": version.allocations.select_related("budget_product", "cost_center", "funding")})
+        "can_edit_allocations": can_edit, "reference_choices": choices if not full_choices else {},
+        "full_choices": full_choices,
+        "lines": page_lines, "page": page, "search": search, "form_action": form_action,
+        "total": all_lines.aggregate(total=Sum("amount"))["total"] or Decimal(0),
+        "filtered_total": filtered.aggregate(total=Sum("amount"))["total"] or Decimal(0)}
+    template = "purchasing/budget_allocations_results.html" if request.method == "GET" and request.headers.get("X-Requested-With") == "XMLHttpRequest" else "purchasing/budget_version.html"
+    return render(request, template, context)
+
+
+class AllocationImportForm(forms.Form):
+    file = forms.FileField(label="Fichier Excel", widget=forms.ClearableFileInput(attrs={"accept": ".xlsx"}))
+
+
+@login_required
+@permission_required(MANAGER_PERMISSIONS, raise_exception=True)
+@require_http_methods(["GET", "POST"])
+def allocation_import(request, pk):
+    from .allocation_excel import parse_allocations, import_allocations, template_sheets
+    from django.contrib import messages
+    from django.http import JsonResponse
+    ajax = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+    version = get_object_or_404(EnvelopeVersion.objects.filter(deleted_at__isnull=True).select_related("envelope"), pk=pk)
+    if request.method == "GET" and request.GET.get("template") == "xlsx":
+        return excel.response(f"modele-allocations-{version.envelope.year}-{version.pk}", template_sheets(version))
+    form = AllocationImportForm(request.POST if request.method == "POST" else None, request.FILES or None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            upload = form.cleaned_data["file"]
+            rows = parse_allocations(upload, version)
+            counts = import_allocations(actor=request.user, version_id=pk, rows=rows, filename=upload.name)
+            message = (f"Import Excel terminé : {counts['created']} ligne(s) créée(s), "
+                f"{counts['updated']} mise(s) à jour, {counts['unchanged']} inchangée(s).")
+            if ajax:
+                return JsonResponse({"ok": True, "message": message, "counts": counts})
+            messages.success(request, message)
+            return redirect("purchasing:budget_version", pk=pk)
+        except ValidationError as exc:
+            form.add_error(None, exc)
+    if request.method == "POST" and ajax:
+        errors = [str(error) for values in form.errors.values() for error in values]
+        return JsonResponse({"ok": False, "errors": errors}, status=400)
+    return render(request, "purchasing/allocation_import.html", {"version": version, "form": form,
+        "can_import": version.allocations_editable and (not version.published_at or request.user.is_superuser)})
+
+
+@login_required
+@permission_required("budgeting.delete_envelopeversion", raise_exception=True)
+@require_http_methods(["GET", "POST"])
+def version_delete(request, pk):
+    version = get_object_or_404(EnvelopeVersion.objects.filter(deleted_at__isnull=True).select_related("envelope"), pk=pk)
+    error = None
+    can_delete = not (version.published_at or version.locked_at or version.envelope.active_version_id == version.pk or version.submission_set.exists() or version.transfers.exists())
+    if request.method == "POST":
+        try:
+            delete_envelope_version(actor=request.user, version_id=pk)
+            return redirect("purchasing:allocation_versions")
+        except ValidationError as exc:
+            error = " · ".join(exc.messages)
+    return render(request, "purchasing/budget_version_delete.html", {
+        "version": version, "can_delete": can_delete, "error": error, "allocation_count": version.allocations.count()})

@@ -1,6 +1,6 @@
 # BF ERP — Synthèse de l’application
 
-**Dernière mise à jour : 31 octobre 2026.**
+**Dernière mise à jour : 12 novembre 2026.**
 
 Ce document présente les fonctionnalités construites, les profils et les limites actuelles. Il sert de point d’entrée pour comprendre l’application. Les tests à effectuer sont décrits dans [le plan de recette](RECETTE_COMPLETE.md).
 
@@ -8,9 +8,9 @@ Ce document présente les fonctionnalités construites, les profils et les limit
 
 BF ERP est un projet d’ERP destiné à un organisme de formation du secteur public belge. Il vise à réunir progressivement la gestion des achats, des budgets et des autres activités décrites dans la spécification.
 
-Le périmètre actuellement construit couvre la **demande d’achat jusqu’au bon de commande**, avec contrôle budgétaire, validations par ligne, gestion des acteurs et traçabilité. Les écrans permettent de configurer ce parcours depuis une base métier vierge.
+Le périmètre actuellement construit couvre la **demande d’achat jusqu’au bon de commande**, avec contrôle budgétaire, validation fixe par responsable CDF, gestion des acteurs et traçabilité. Les transferts budgétaires et les mouvements de stock disposent également de leurs parcours métier.
 
-L’application est disponible pour la recette de ce périmètre. Les réceptions, factures, comptabilité, stocks et ventes ne constituent pas encore des parcours opérationnels. La présence de leur structure dans le dépôt ne signifie pas qu’ils sont livrés.
+L’application est disponible pour la recette de ce périmètre. Les réceptions de commandes, factures, comptabilité et ventes restent à construire. Les applications vides `accounting` et `documents` ont été retirées du dépôt.
 
 ## 2. Parcours métier principal
 
@@ -18,7 +18,7 @@ L’application est disponible pour la recette de ce périmètre. Les réception
 flowchart TD
     A[Brouillon et saisie des lignes] --> B[Soumission et contrôle budgétaire]
     B -->|Contrôles refusés| A
-    B -->|Réservation TVAC| C[Validation des lignes par niveaux]
+    B -->|Réservation TVAC| C[Chaque ligne est validée par son responsable CDF]
     C -->|Approbation complète| D[Bon de commande et engagement]
     C -->|Correction et libération du budget| E[Correction par le demandeur]
     E --> B
@@ -26,7 +26,7 @@ flowchart TD
     C -->|Annulation avant commande| G[Annulation et libération du budget]
 ```
 
-La demande est soumise dans son ensemble. Les validations portent sur les lignes et suivent les niveaux configurés. La commande est créée lorsque toutes les validations nécessaires sont terminées.
+La demande est soumise dans son ensemble. Chaque ligne exige une décision de son responsable CDF. La commande est créée lorsque toutes les lignes sont approuvées. Aucun circuit n’est à configurer ni à publier.
 
 ## 3. Profils et responsabilités
 
@@ -34,10 +34,10 @@ Ces profils sont des usages composés avec les rôles et permissions ; ce ne son
 
 | Profil | Possibilités principales |
 |---|---|
-| Administrateur système | Gérer comptes, rôles, droits, référentiels, circuits, habilitations et responsables CDF ; suivre et réaffecter les étapes ; régler la déconnexion automatique |
+| Administrateur système | Gérer comptes, rôles, droits, référentiels et responsables CDF ; suivre et réaffecter les étapes ; régler la déconnexion automatique |
 | Budgétiste | Préparer et publier les budgets, consulter les disponibilités, créer BI et produits détaillés selon les droits attribués |
 | Demandeur | Créer ses DA, modifier leurs lignes en brouillon ou correction, soumettre, annuler avant commande, consulter ses BC |
-| Valideur CDF / Finance | Approuver, retourner pour correction ou rejeter les étapes pour lesquelles il est éligible |
+| Responsable CDF | Approuver, retourner pour correction ou rejeter les lignes de son CDF ; valider les transferts selon leur étape source ou destination |
 | Délégué | Traiter temporairement les étapes au nom d’un titulaire, avec conservation de l’acteur réel |
 | Responsable du suivi | Consulter les étapes, acteurs et blocages sans les données commerciales ou montants dans l’écran de suivi |
 | Lecteur de toutes les DA | Consulter toutes les DA et leurs BC avec montants, sans modifier les demandes d’autrui |
@@ -72,7 +72,7 @@ Le journal est réservé au superadministrateur et consultable sans modification
 
 ### Suppression de maintenance dans toutes les tables métier
 
-Le superadministrateur dispose d’un lien **Supprimer** dans chaque liste des tables métier de l’administration, notamment les rôles, référentiels, budgets, règles et données du flux achats. Les tables auparavant accessibles uniquement en lecture disposent aussi de cette action. Les allocations, règles de validation et événements d’historique métier ont leurs propres listes dans l’administration technique.
+Le superadministrateur dispose d’un lien **Supprimer** dans chaque liste des tables métier de l’administration, notamment les rôles, référentiels, budgets et données du flux achats. Les tables auparavant accessibles uniquement en lecture disposent aussi de cette action. Les anciennes configurations de validation restent conservées en base pour l’historique, sans éditeur ni liste d’administration.
 
 La confirmation présente les enregistrements à supprimer, leurs dépendances obligatoires et les références facultatives à détacher. Une dépendance obligatoire est supprimée avec l’enregistrement ; une référence facultative est mise à vide. Les données et l’identité de l’acteur sont copiées dans le journal indépendant au sein de la même transaction. L’opération peut également être lancée sur plusieurs lignes sélectionnées.
 
@@ -82,23 +82,23 @@ La suppression de maintenance peut donc supprimer des données publiées et des 
 
 ### Référentiels
 
-L’application gère les fournisseurs, contacts et adresses, les centres CDF, financements, produits budgétaires (BI), produits détaillés rattachés à un BI et fonctions de validation ordonnées.
+L’application gère les fournisseurs, contacts et adresses, les centres CDF, supports, financements, produits budgétaires (BI) et produits détaillés rattachés à un BI.
 
 Les BI et produits détaillés disposent de pages métier de création et de consultation soumises à permissions. Les autres référentiels se gèrent principalement dans l’administration technique.
 
-Les responsables CDF sont affectés sur des périodes datées, sans chevauchement pour un même CDF. Un changement de responsable ne réaffecte pas automatiquement les demandes déjà soumises.
+Les responsables sont définis directement sur chaque CDF et support depuis l’écran de configuration ou l’administration. Les affectations sont revérifiées avant chaque décision. Les anciennes affectations datées restent uniquement en base pour préserver leur historique.
 
 ### Budgets
 
 - Une enveloppe par année, plusieurs versions et une seule version active par enveloppe.
 - Préparation en brouillon avec ajout, modification et suppression d’allocations avant publication.
 - Allocations **TVAC par BI × CDF × financement** ; doublons et montants négatifs refusés.
-- Publication/activation puis conservation immuable de la version.
+- Publication/activation puis lecture seule par défaut. Un administrateur système peut débloquer les allocations pour modification, puis les rebloquer, sans retirer la publication ni changer la version active. Chaque opération est historisée.
 - Maintien des réservations et engagements à travers les versions.
 - Tableau des allocations, réservations, engagements et disponibilités.
 - Consultation ponctuelle via **Vérifier un budget**, avec sélection d’une version active, remplacée ou brouillon.
 
-**Disponible = allocation de la version considérée − réservations − engagements de l’enveloppe annuelle.**
+**Disponible = allocation de la version considérée − réservations − engagements de l’enveloppe annuelle + solde des transferts de cette version.**
 
 Une nouvelle version contient des montants totaux, pas des variations. La publication d’une version déficitaire est autorisée : le déficit reste visible, les nouvelles réservations sont bloquées, les réservations existantes peuvent être converties. Une combinaison retirée reste visible si elle porte encore des écritures ouvertes.
 
@@ -115,26 +115,22 @@ Les anciennes tables `Budget` et `BudgetLine` restent présentes pour l’histor
 - Contrôle de révision contre l’écrasement d’une modification récente par un ancien formulaire.
 - Historique des modifications et transitions.
 
-### Circuits et habilitations
+### Validations fixes
 
-- Configurations versionnées : brouillon, publication/activation, copie pour préparer une évolution.
-- Règles par fonction et niveau, avec critères facultatifs CDF, financement et BI.
-- Seuils sur le **total HTVA de la DA** : minimum inclus, maximum exclu. Critères non financiers évalués par ligne.
-- Règles cumulatives ou exclusives avec priorité ; contrôles de cohérence avant activation.
-- Affectation par utilisateur nommé, responsable CDF, utilisateurs habilités à une fonction ou membres d’un rôle ERP.
-- Progression par niveaux pour chaque ligne ; première approbation clôturant l’étape concernée.
-- Preuves de décision, avec réutilisation tracée d’une approbation manuelle aux autres étapes éligibles de la même ligne.
+- Demandes d’achat : une validation manuelle distincte par ligne, par un responsable actif du CDF de cette ligne.
+- Transferts : validation par un responsable du CDF source, puis par un responsable du CDF destination.
+- Deux décisions distinctes sont exigées pour un transfert, même si une personne gère les deux CDF.
+- Sans responsable actif, l’étape reste « À affecter » ; aucune approbation automatique n’est effectuée.
+- Les décisions et les anciens parcours déjà enregistrés sont conservés. Le moteur de règles et son éditeur sont retirés.
 
-Les habilitations individuelles sont datées, versionnées et périmétrées. Les critères se combinent par ET, les valeurs d’un même critère par OU. Un retrait peut bloquer une étape sans libérer sa réservation ; un rétablissement permet de reprendre sans inventer de décision.
-
-Dans le mode **rôle valideur**, l’appartenance au rôle suffit pour ce mode d’affectation sans habilitation individuelle supplémentaire. Les candidats sont figés à la soumission ; l’appartenance est de nouveau contrôlée à la décision. Ajouter un membre ne l’affecte donc pas automatiquement aux anciennes étapes ; retirer un membre lui interdit de nouvelles décisions.
+Les détails et les cas de recette actuels figurent dans [REGLES_VALIDATION.md](REGLES_VALIDATION.md).
 
 ### Corrections, rejets et annulations
 
 | Action | Effet |
 |---|---|
 | Retour pour correction motivé | Arrêt de tout le cycle, libération de toutes les réservations, édition rendue au demandeur |
-| Resoumission après correction | Nouveau cycle selon les règles et habilitations courantes, nouvelle réservation, ancien historique conservé |
+| Resoumission après correction | Nouvelle validation par responsable CDF pour chaque ligne, nouvelle réservation, ancien historique conservé |
 | Rejet définitif motivé | Demande non modifiable et non resoumettable ; réservations libérées |
 | Annulation par le demandeur avant commande | Arrêt du circuit et libération des réservations éventuelles |
 
@@ -166,11 +162,13 @@ Les liens visibles dépendent des permissions.
 
 | Rubrique | Écrans principaux |
 |---|---|
-| **Achats** | Mes demandes, Toutes les demandes, Produits détaillés, Mes validations, Mes délégations, Suivi administrateur |
-| **Budget** | Créer une version, Alimenter une version, Produits budgétaires, Budgets et disponibilités |
-| **Configuration** | Comptes et droits, Rôles ERP, administration technique, configurations des validations, habilitations, responsables CDF, déconnexion automatique |
+| **Achats** | Mes demandes, Toutes les demandes, Produits détaillés, Suivi administrateur |
+| **Budget** | Créer une version, Alimenter une version, Produits budgétaires, Budgets et disponibilités, Transferts, Historique budgétaire |
+| **Stocks** | Dépôts, Quantités disponibles, Mouvements de stock |
+| **Configuration** | Comptes et droits, Rôles ERP, administration technique, responsables CDF et supports, déconnexion automatique ; habilitations des anciens parcours |
 
 Le bouton **Vérifier un budget** est accessible à tout utilisateur connecté.
+**Mes validations** et **Mes délégations** sont accessibles dans l’en-tête personnel.
 
 ## 6. Limites actuelles
 
@@ -201,9 +199,9 @@ L’existence de tests automatisés et d’un plan de recette ne signifie pas qu
 | Après commande | Annulation de BC, régularisations d’engagement, avenants TVA, ajustements approuvés |
 | Réceptions et factures | Parcours de réception, factures fournisseurs et rapprochements |
 | Budgets | Alertes automatiques de déficit BUD-019/020/021 ; clôture annuelle |
-| Suivi et notifications | Exports SUI-003 et suivants, archivage des notifications informatives, reprise et alertes d’exploitation |
+| Suivi et notifications | Archivage des notifications informatives, reprise et alertes d’exploitation |
 | Autorisations | Restriction de la consultation financière par périmètre à cadrer |
-| Autres domaines ERP | Comptabilité complète, paiements, stocks, inventaires, immobilisations, ventes et facturation clients selon les règles restant à spécifier |
+| Autres domaines ERP | Comptabilité complète, paiements, immobilisations, ventes et facturation clients selon les règles restant à spécifier |
 | Déploiement | Durcissement, traitements périodiques, intégrations et migration des données selon le cadrage retenu |
 
 Cette liste ne fixe pas un ordre de développement ni de décisions métier nouvelles.

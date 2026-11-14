@@ -4,7 +4,8 @@
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>BF ERP</title>
 <script src="{% static 'purchasing/theme.js' %}"></script>
 <link rel="stylesheet" href="{% static 'purchasing/erp.css' %}">
-<link rel="stylesheet" href="{% static 'purchasing/configuration.css' %}">
+<link rel="stylesheet" href="{% static 'purchasing/configuration.css' %}?v=20261113-allocation-search">
+<link rel="stylesheet" href="{% static 'purchasing/actions.css' %}?v=20261114-validation-dot">
 {% block extra_styles %}{% endblock %}
 </head>
 <body class="{% if not user.is_authenticated %}login-page{% endif %}"><a class="skip-link" href="#main-content">Aller au contenu</a><header class="app-header"><a class="app-title" href="{% if user.is_authenticated %}{% url 'my_validations' %}{% else %}{% url 'login' %}{% endif %}">BF <span>ERP</span></a><span class="header-context">Gestion & ressources</span><button type="button" class="theme-toggle" data-theme-toggle aria-label="Activer le mode sombre" aria-pressed="false"><span data-theme-icon aria-hidden="true">☾</span> <span data-theme-label>Mode sombre</span></button>{% if user.is_authenticated %}
@@ -17,12 +18,12 @@
 <a class="icon-link" id="my-delegations" href="{% url 'my_delegations' %}" title="Mes délégations · Organiser mes remplacements" aria-label="Mes délégations, organiser mes remplacements"{% if request.resolver_match.url_name == 'my_delegations' or request.resolver_match.url_name == 'delegations' %} aria-current="page"{% endif %}>
 <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="7" r="3"/><path d="M2 21v-3a6 6 0 0 1 10-4M16 4a3 3 0 0 1 0 6M14 17h8m-3-3 3 3-3 3"/></svg>
 </a></nav>
-<span class="header-username">{{ user.username }}</span><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button>Déconnexion</button></form>
+<span class="header-username">{{ user.username }}</span><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="ui-icon" aria-label="Déconnexion" title="Déconnexion">{% include 'purchasing/action_icon.html' with icon='exit' %}</button></form>
 </div>{% endif %}</header>
 {% if user.is_authenticated %}<aside class="app-sidebar" aria-label="Navigation de l’application"><div class="brand-wordmark">BRUXELLES<br>FORMATION</div><div class="brand-rays" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><p class="sidebar-caption">Espace de travail</p>{% include 'purchasing/navigation.html' %}<div class="sidebar-footer">BF ERP <span>Votre espace de gestion interne</span></div></aside>{% endif %}
-<div class="app-workspace"><main id="main-content" tabindex="-1">{% if user.is_authenticated %}<div class="workspace-toolbar"><span>{% if nav_section == 'budget' %}Budget{% elif nav_section == 'configuration' %}Configuration{% else %}Achats{% endif %} <span class="toolbar-divider">/</span> Mon espace de gestion</span><button type="button" class="button-secondary" id="budget-check-open">Vérifier un budget</button></div>{% endif %}{% block content %}{% endblock %}</main><footer class="app-footer">Bruxelles Formation <span>ERP · Gestion interne</span></footer></div>{% if user.is_authenticated %}
+<div class="app-workspace"><main id="main-content" tabindex="-1">{% if user.is_authenticated %}<div class="workspace-toolbar"><span>{% if nav_section == 'budget' %}Budget{% elif nav_section == 'stock' %}Stocks{% elif nav_section == 'configuration' %}Configuration{% else %}Achats{% endif %} <span class="toolbar-divider">/</span> Mon espace de gestion</span>{% block budget_check_button %}{% if nav_section == 'purchases' %}<button type="button" class="button-secondary ui-icon" id="budget-check-open" aria-label="Vérifier un budget" title="Vérifier un budget">{% include 'purchasing/action_icon.html' with icon='euro' %}</button>{% endif %}{% endblock %}</div>{% endif %}{% block content %}{% endblock %}</main><footer class="app-footer">Bruxelles Formation <span>ERP · Gestion interne</span></footer></div>{% if user.is_authenticated %}
 <dialog id="budget-check-dialog" aria-labelledby="budget-check-title" style="width:min(560px,90vw);padding:1rem;border:0;border-radius:.5rem">
-<div style="display:flex;align-items:center;justify-content:space-between;gap:1rem"><h2 id="budget-check-title">Vérifier le budget restant</h2><button type="button" id="budget-check-close" aria-label="Fermer la fenêtre">Fermer</button></div>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:1rem"><h2 id="budget-check-title">Vérifier le budget restant</h2><button type="button" id="budget-check-close" aria-label="Fermer la fenêtre" class="ui-icon" title="Fermer la fenêtre">{% include 'purchasing/action_icon.html' with icon='cancel' %}</button></div>
 <iframe id="budget-check-frame" title="Consultation du budget restant" style="width:100%;height:65vh;border:0" data-src="{% url 'purchasing:budget_check' %}"></iframe>
 </dialog>
 <script>
@@ -42,9 +43,9 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) chec
 const dialog = document.getElementById('budget-check-dialog');
 const frame = document.getElementById('budget-check-frame');
 document.querySelectorAll('#budget-check-open, [data-budget-check-open]').forEach(button => button.addEventListener('click', () => {
-if (!frame.getAttribute('src')) frame.src = frame.dataset.src;
+frame.src = frame.dataset.src;
 dialog.showModal();
 }));
 document.getElementById('budget-check-close').addEventListener('click', () => dialog.close());
 })();
-</script>{% endif %}</body></html>
+</script>{% endif %}{% include 'budgeting/transfer_action_dialog.html' %}</body></html>

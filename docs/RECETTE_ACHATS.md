@@ -1,5 +1,14 @@
 # Recette du flux d’achat — DA jusqu’au bon de commande
 
+> Mise à jour du 12 novembre 2026 : les anciennes configurations de validation
+> et les affectations CDF datées décrites ci-dessous ont été retirées. Les
+> parcours actuels sont décrits dans [Validations](REGLES_VALIDATION.md).
+
+> Extension du 9 novembre 2026 : pour les étapes automatiques/manuelles, les
+> transferts budgétaires et le stock, suivre les [nouveaux scénarios](TRANSFERTS_ET_STOCK.md#recette-du-lot)
+> et les [classeurs actualisés](RECETTE_COMPLETE.md). Les parcours historiques
+> ci-dessous restent limités aux achats et ne couvrent pas cette extension.
+
 > Vue d’ensemble : [Synthèse de l’application](SYNTHESE_APPLICATION.md).
 >
 > Pour la campagne complète depuis une base vierge, suivre désormais

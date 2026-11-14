@@ -1,3 +1,4 @@
+from purchasing.test_helpers import record_legacy_workflow
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 from unittest import skipUnless
@@ -15,11 +16,23 @@ from .models import (AnnualEnvelope, EnvelopeVersion, Allocation, WorkflowVersio
     ApprovalStep, PurchaseOrder, BudgetEntry, Submission)
 from .services import create_purchase_request, add_purchase_request_line
 from . import flow
-from .exceptions import PurchaseRequestError, PurchaseRequestConflict
+from .exceptions import PurchaseRequestError
 
 
 @skipUnless(connection.vendor == "postgresql", "Requires PostgreSQL transaction locks")
 class PostgreSQLPurchaseFlowTests(TransactionTestCase):
+    def test_published_allocation_sql_writes_follow_admin_edit_state(self):
+        with self.assertRaises(DatabaseError), transaction.atomic():
+            EnvelopeVersion.objects.filter(pk=self.budget.pk).update(editing_unlocked_at=timezone.now())
+        flow.unlock_envelope(actor=self.admin, version_id=self.budget.pk)
+        self.budget.allocations.update(amount=900)
+        with self.assertRaises(DatabaseError), transaction.atomic():
+            EnvelopeVersion.objects.filter(pk=self.budget.pk).update(label="Not allowed")
+        flow.lock_envelope(actor=self.admin, version_id=self.budget.pk)
+        with self.assertRaises(DatabaseError), transaction.atomic():
+            self.budget.allocations.update(amount=800)
+        self.assertEqual(self.budget.allocations.get().amount, Decimal("900"))
+
     def setUp(self):
         User = get_user_model()
         self.admin = User.objects.create_superuser("admin", "a@example.test", "password")
@@ -28,6 +41,7 @@ class PostgreSQLPurchaseFlowTests(TransactionTestCase):
         self.second = User.objects.create_user("second")
         self.supplier = Supplier.objects.create(code="S", name="Supplier")
         self.cdf = CostCenter.objects.create(code="C", label="CDF")
+        self.cdf.managers.add(self.first, self.second)
         self.funding = Funding.objects.create(code="F", label="Funding")
         self.product = BudgetProduct.objects.create(code="B", label="Product")
         self.detail = DetailedProduct.objects.create(code="D", label="Detail", budget_product=self.product)
@@ -42,7 +56,7 @@ class PostgreSQLPurchaseFlowTests(TransactionTestCase):
         flow.activate_envelope(actor=self.admin, version_id=self.budget.pk)
         self.workflow = WorkflowVersion.objects.create(label="Initial")
         ApprovalRule.objects.create(version=self.workflow, label="Role", function=self.function)
-        flow.activate_workflow(actor=self.admin, version_id=self.workflow.pk)
+        record_legacy_workflow(self.workflow)
 
     def draft(self, price="600"):
         purchase = create_purchase_request(actor=self.owner, supplier=self.supplier)
@@ -77,7 +91,7 @@ class PostgreSQLPurchaseFlowTests(TransactionTestCase):
         self.assertEqual(BudgetEntry.objects.filter(state="reserved").count(), 1)
         self.assertEqual(flow.available(self.budget, self.cdf.pk, self.funding.pk, self.product.pk), 400)
 
-    def test_t005_simultaneous_role_approval_creates_one_order(self):
+    def test_t005_simultaneous_manager_approval_creates_one_order(self):
         purchase = self.draft()
         purchase = flow.submit_purchase(request_id=purchase.pk, actor=self.owner, expected_revision=purchase.revision)
         step = ApprovalStep.objects.get()

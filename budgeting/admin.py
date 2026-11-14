@@ -11,7 +11,6 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import JsonResponse
 from django.urls import path
-
 @admin.register(CostCenter)
 class CostCenterAdmin(SystemModelAdmin):
     form = CostCenterAdminForm

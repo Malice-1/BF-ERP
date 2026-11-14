@@ -1,0 +1,31 @@
+{% extends 'purchasing/base.html' %}{% load ui_actions %}{% block content %}{% back_action %}
+<h1>{{ transfer }} · {{ transfer.get_status_display }}</h1>
+{% if error %}<div class="login-error" role="alert"><strong>Action impossible.</strong> {{ error }}</div>{% endif %}
+{% if transfer.status == 'returned' %}<div class="login-error" role="alert">Retour au demandeur : {{ transfer.return_reason }}</div>{% if transfer.created_by_id == user.pk and perms.budgeting.add_budgettransfer %}<p><a href="{% url 'transfer_correct' transfer.pk %}">Corriger et resoumettre</a></p>{% endif %}{% endif %}
+<section class="configuration-section content-zone" aria-labelledby="transfer-info-title">
+<h2 id="transfer-info-title">Informations du transfert</h2>
+<div class="table-wrap"><table aria-labelledby="transfer-info-title"><tbody>
+<tr><th scope="row">Version budgétaire</th><td>{{ transfer.budget_version }}</td></tr>
+<tr><th scope="row">Montant TVAC</th><td><strong>{{ transfer.amount|amount }} EUR</strong></td></tr>
+<tr><th scope="row">Demandeur</th><td>{{ transfer.created_by|default:"Compte supprimé" }}</td></tr>
+<tr><th scope="row">Date de création</th><td>{{ transfer.created_at }}</td></tr>
+<tr><th scope="row">Justification</th><td>{{ transfer.reason|linebreaksbr }}</td></tr>
+{% if transfer.support %}<tr><th scope="row">Support demandeur historique</th><td>{{ transfer.support }}</td></tr>{% endif %}
+</tbody></table></div>
+<div class="table-wrap"><table aria-label="Budgets source et destination du transfert">
+<thead><tr><th scope="col">Information</th><th scope="col">Source · budget débité</th><th scope="col">Destination · budget crédité</th></tr></thead>
+<tbody>
+<tr><th scope="row">CDF</th><td>{{ transfer.source_cdf }}</td><td>{{ transfer.destination_cdf }}</td></tr>
+<tr><th scope="row">Produit</th><td>{{ transfer.source_product }}</td><td>{{ transfer.destination_product }}</td></tr>
+<tr><th scope="row">Financement</th><td>{{ transfer.source_funding }}</td><td>{{ transfer.destination_funding }}</td></tr>
+<tr><th scope="row">Support</th><td>{{ transfer.source_support|default:"Non renseigné" }}</td><td>{{ transfer.destination_support|default:"Non renseigné" }}</td></tr>
+</tbody></table></div>
+<p>Validation : responsable du CDF source, puis responsable du CDF destination. Les deux décisions sont obligatoires.</p>
+</section>
+{% if transfer.created_by_id == user.pk %}
+{% if transfer.status == 'draft' %}<form method="post">{% csrf_token %}<input type="hidden" name="revision" value="{{ transfer.revision }}"><div class="ui-action-bar"><button name="action" value="submit" class="ui-icon" aria-label="Soumettre" type="submit" title="Soumettre">{% include 'purchasing/action_icon.html' with icon='publish' %}</button></div></form>{% endif %}{% endif %}
+{% if can_cancel %}<form method="post" data-transfer-decision data-reason-required="{{ cancellation_requires_reason|yesno:'true,false' }}">{% csrf_token %}<input type="hidden" name="revision" value="{{ transfer.revision }}"><input type="hidden" name="reason"><div class="ui-action-bar"><button name="action" value="cancel" class="ui-icon ui-icon-danger" aria-label="Annuler le transfert" type="submit" title="Annuler le transfert">{% include 'purchasing/action_icon.html' with icon='cancel' %}</button></div></form>{% endif %}
+<p><a href="{% url 'transfer_timeline' transfer.pk %}">Voir le parcours du transfert</a></p>
+{% if rows %}<h2>Votre validation</h2>{% endif %}
+{% for row in rows %}<section class="configuration-section content-zone"><h3>{{ row.step.level }} · {{ row.step.label }}</h3><p>{{ row.step.get_state_display }}{% if row.step.rule.automatic %} · Automatique{% endif %}{% if row.step.approved_at %} · {{ row.step.approved_at }}{% endif %}{% if row.step.approved_by %} · {{ row.step.approved_by }}{% endif %}{% if row.step.evidence_id %} · Preuve : étape {{ row.step.evidence_id }}{% endif %}</p>
+{% if row.actionable %}{% include 'budgeting/transfer_decision.html' with step=row.step %}{% endif %}</section>{% endfor %}{% endblock %}

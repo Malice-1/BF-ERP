@@ -1,19 +1,33 @@
 from django import forms
+from decimal import Decimal
+from django.template.defaultfilters import floatformat
 from .models import PurchaseRequest, PurchaseRequestLine
 from budgeting.models import BudgetProduct, CostCenter, Funding
 from .models import EnvelopeVersion
 
 
+class BudgetAmountInput(forms.NumberInput):
+    def format_value(self, value):
+        if isinstance(value, Decimal):
+            return floatformat(value, "2u")
+        return super().format_value(value)
+
+
 class BudgetVersionChoiceField(forms.ModelChoiceField):
     def label_from_instance(self, obj):
-        state = "Active" if obj.envelope.active_version_id == obj.pk else (
+        state = "Bloquée" if obj.locked_at else "Active" if obj.envelope.active_version_id == obj.pk else (
             "Publiée · remplacée" if obj.published_at else "Brouillon")
+        if obj.published_at and obj.editing_unlocked_at:
+            state += " · modifications débloquées"
         return f"{obj.envelope.year} · {obj.label} · {state} (#{obj.pk})"
 
 
-class BudgetCheckForm(forms.Form):
-    version = BudgetVersionChoiceField(label="Version budgétaire", queryset=EnvelopeVersion.objects.select_related(
+class BudgetVersionSelectionForm(forms.Form):
+    version = BudgetVersionChoiceField(label="Version budgétaire", queryset=EnvelopeVersion.objects.filter(deleted_at__isnull=True).select_related(
         "envelope").order_by("-envelope__year", "-pk"))
+
+
+class BudgetCheckForm(BudgetVersionSelectionForm):
     budget_product = forms.ModelChoiceField(label="Produit budgétaire", queryset=BudgetProduct.objects.all())
     funding = forms.ModelChoiceField(label="Financement", queryset=Funding.objects.all())
     cost_center = forms.ModelChoiceField(label="CDF", queryset=CostCenter.objects.all())
@@ -23,7 +37,7 @@ class PurchaseRequestForm(forms.ModelForm):
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["support"].queryset = user.supports.all() if user else self.fields["support"].queryset.none()
-        self.fields["support"].help_text = "Choisissez votre support d’appartenance. Obligatoire pour une validation par responsable du support."
+        self.fields["support"].help_text = "Choisissez votre support d’appartenance, si nécessaire. Chaque ligne est validée par le responsable de son CDF."
 
     class Meta:
         model = PurchaseRequest

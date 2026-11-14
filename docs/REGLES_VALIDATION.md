@@ -1,106 +1,131 @@
-# Règles de validation
+# Validations des demandes d’achat et des transferts
 
-Accès : **Configuration → Workflows et validations → Règles de validation**.
-Le même accès figure dans l’administration Django.
+Sur la fiche d’un transfert, chaque valideur voit uniquement sa validation actuellement accessible. Le lien « Parcours » ouvre une ligne du temps distincte : étapes du circuit, étape actuelle, auteurs et dates des validations, puis journal des événements et motifs de rejet ou d’annulation.
 
-## Créer les règles d’une demande d’achat
+Le sous-menu Budget → Transferts regroupe « Créer un transfert » (formulaire de création uniquement, avec le droit de création) et « Liste des transferts » (consultation, filtres par année, version et état, parcours et actions). Les responsables CDF voient les transferts de leurs CDF et ceux qu’ils ont validés ; les demandeurs voient leurs transferts. Les utilisateurs disposant des droits de consultation budgétaire globale conservent la vue complète.
 
-1. Créer une version brouillon et ouvrir cette version.
-2. Choisir **Ajouter une règle**, puis donner un nom à la validation.
-3. Dans **Si…**, choisir **ET** (toutes les conditions) ou **OU** (au moins une),
-   puis ajouter les informations à comparer et leurs valeurs.
-4. Dans **Alors…**, choisir les responsables du CDF, ceux du support de la DA,
-   un rôle ERP ou un utilisateur nommé.
-5. Préciser l’ordre : un même ordre signifie des étapes parallèles sur la ligne ;
-   un ordre supérieur attend les étapes précédentes de cette ligne.
-6. Enregistrer, puis ajouter les autres règles. Une règle sans condition exige
-   de cocher explicitement **Toujours appliquer à toutes les lignes**.
-7. Utiliser les liens de simulation en bas de la version pour tester une DA
-   accessible. Corriger les conditions ou les affectations selon le résultat.
-8. Choisir **Publier et activer cette version**. Les nouvelles soumissions
-   utilisent cette version ; les soumissions existantes conservent leurs étapes.
+Le droit « Valider ou refuser tout transfert budgétaire » (`budgeting.decide_any_budgettransfer`) autorise une décision sur l’étape actuelle de tout transfert, même hors des CDF du valideur ou en l’absence de responsable affecté. Il donne accès à la liste complète et aux validations correspondantes. Les superutilisateurs disposent de ce droit automatiquement ; pour les autres comptes administrateurs, il faut l’attribuer directement ou via un groupe ou rôle. Les deux décisions restent successives, le motif de rejet reste obligatoire et les contrôles budgétaires restent applicables. L’auteur réel de chaque décision est conservé dans l’historique.
 
-Exemple : montant de la ligne TVAC **supérieur ou égal à 5 000** ET CDF
-**égal à Atelier** → validation par le rôle Direction, ordre 2.
-Une autre règle peut demander les responsables CDF à l’ordre 1.
+Le compteur de notifications et « Mes validations » affichent uniquement les étapes en attente réellement assignées à l’utilisateur. Le droit d’intervention global ne crée aucune notification personnelle ; l’administrateur peut toujours intervenir depuis la liste ou le parcours des transferts.
 
-## Informations et montants
+Le bouton « Valider tout le circuit », réservé au droit `budgeting.decide_any_budgettransfer`, valide en une seule action toutes les étapes restantes d’une transaction en cours. Une confirmation précède l’envoi. Chaque étape est validée au nom de l’administrateur et journalisée ; les décisions antérieures conservent leur auteur. L’action est atomique et conserve les contrôles de révision et de blocage de version. Elle ne valide pas les autres transactions du groupe.
 
-Champs disponibles : montant HTVA ou TVAC de la **ligne**, quantité, CDF,
-financement, produit budgétaire, support choisi sur la **DA**, montant total
-HTVA ou TVAC de la **DA**. Le support est indépendant du financement.
+Au niveau du transfert général, le bouton « Valider toutes les lignes » utilise le même droit d’administration pour terminer tous les circuits des lignes encore en validation, y compris celles masquées par un filtre. Il conserve les lignes déjà approuvées et leurs auteurs. La confirmation porte sur l’ensemble du transfert. Une ligne en brouillon, refusée ou annulée empêche cette action ; une modification depuis l’affichage exige de recharger la liste. L’opération entière est atomique : une erreur sur une ligne annule toutes les validations de cette action. Chaque étape validée conserve sa trace habituelle dans le workflow de sa transaction.
 
-Les comparaisons numériques utilisent des décimales exactes : égal, différent,
-supérieur, supérieur ou égal, inférieur, inférieur ou égal. Les référentiels
-se choisissent dans une liste, avec égal ou différent. Une information manquante
-ne satisfait pas une condition, même « différent de ».
+Le bouton global « Refuser le transfert global » demande un motif et renvoie toutes les lignes au demandeur au statut « À corriger ». Le demandeur les retrouve dans « Mes validations », avec une notification et le motif du retour. Il peut corriger et resoumettre chaque transaction en conservant ses numéros de transaction et de transfert général. Les étapes précédentes restent consultables ; une resoumission ouvre un nouveau cycle de deux validations. Le budget est de nouveau vérifié à cette occasion.
 
-Toutes les règles correspondantes se cumulent, sans priorité exclusive. Chaque
-ligne doit correspondre à au moins une règle, sinon la soumission est refusée
-sans réservation. Les ordres s’appliquent par ligne, pas comme une barrière
-globale entre toutes les lignes de la DA.
+Un transfert global « Accompli » ne peut plus être refusé ni renvoyé au demandeur, y compris par un appel direct à l’action. Le bouton de refus disparaît. L’annulation reste possible avec le droit d’annulation globale, un motif et les contrôles habituels sur les fonds disponibles à destination.
 
-Les responsables et les membres des rôles doivent être actifs. Un utilisateur
-nommé dans le nouvel éditeur valide directement cette étape. Les fonctions et
-leurs habilitations appartiennent uniquement à l’ancien système : elles ne sont
-plus proposées dans l’éditeur courant. Une approbation par l’un des candidats
-suffit pour une étape. Comme dans le circuit existant, une décision peut couvrir
-une autre étape où le même utilisateur est éligible : cette étape conserve le
-lien vers la décision servant de preuve.
+Le bouton global « Annuler définitivement le transfert », réservé au droit d’annulation globale, demande un motif et annule toutes les lignes. Elles ne peuvent plus être corrigées, resoumises ou validées. Les anciennes décisions et leurs auteurs restent dans le workflow. Les deux actions globales sont atomiques et couvrent aussi les lignes masquées par les filtres. Si une ligne était déjà approuvée, ses fonds ne peuvent être retirés de la destination que s’ils sont encore disponibles ; sinon aucune ligne du transfert n’est modifiée.
 
-## Simulation et traçabilité
+Les lignes créées lors d’une même saisie partagent un identifiant de regroupement. La liste les présente dans une section commune avec leur nombre et leur montant total, tout en conservant les validations, le parcours et les actions de chaque ligne. La pagination porte sur les groupes pour ne pas séparer leurs lignes. Les filtres et les droits de consultation s’appliquent avant le calcul des totaux affichés. Les anciennes lignes sans lien de saisie connu restent indépendantes.
 
-Dans la fiche d’une DA, **Simuler les validations** évalue la version active.
-Dans une version de règles, les liens de simulation évaluent ce brouillon ou
-cette version précise. Le résultat donne les règles correspondantes par ligne,
-leurs conditions, leur ordre et les valideurs actuellement éligibles.
+Chaque transfert général affiche un statut calculé sur toutes ses lignes, indépendamment des filtres : « Accompli » uniquement lorsque toutes sont approuvées, « En cours » tant qu’une ligne attend une validation, « Refusé » ou « Annulé » si toutes ses lignes ont cet état. Un résultat mêlant des lignes approuvées et des lignes refusées ou annulées est « Partiellement accompli ». Une annulation ultérieure met à jour le statut global.
 
-La simulation ne réserve aucun budget et ne crée ni soumission, ni étape, ni
-notification. Elle ne garantit pas la disponibilité budgétaire ; les contrôles
-sont refaits lors de la soumission. Les remplaçants éventuels sont gérés ensuite
-par les délégations existantes, et ne remplacent pas les titulaires affichés.
+Les schémas complets sont consultables depuis **Configuration → Schémas de
+validation des DA et des transferts** (`/achats/configuration/schemas-validation/`).
+Cette page est réservée aux administrateurs système et présente les étapes,
+les décideurs, les effets budgétaires et les issues possibles.
 
-À la soumission, chaque étape mémorise la règle, les conditions, les valeurs
-évaluées et le mode d’affectation. Une version publiée et ses règles ne sont
-plus modifiables. Copier une version produit un nouveau brouillon.
+Les validations suivent un parcours fixe. Il n’y a plus de règles conditionnelles,
+de seuils, de versions de circuit à créer ni de publication à effectuer.
 
-## Anciennes configurations et extensions
+## Demandes d’achat : un responsable CDF par ligne
 
-Les configurations historiques restent utilisables avec leur comportement
-initial. **Copier en nouveau brouillon** convertit leurs critères de montant
-total, CDF, financement et BI en conditions lisibles. La conversion automatique
-des circuits contenant des règles exclusives est refusée : créer dans ce cas
-une nouvelle version cumulative. Aucune activation n’est automatique.
+À la soumission, chaque ligne reçoit une seule étape de validation, affectée
+aux responsables actifs du **CDF de cette ligne**.
 
-Les anciennes fonctions restent conservées dans la base pour les règles et
-les preuves existantes, mais leur écran est retiré de l’administration. Les
-habilitations sont rangées dans **Compatibilité des anciens circuits**. Lorsqu’une
-copie contient une règle affectée uniquement à une fonction, remplacer ce mode
-par un rôle, un utilisateur ou des responsables avant de publier. Le moteur
-continue à traiter les soumissions et les versions historiques existantes.
+- Les lignes peuvent être validées indépendamment, dans n’importe quel ordre.
+- Un responsable d’un autre CDF ne peut pas approuver la ligne.
+- Si plusieurs responsables actifs gèrent un CDF, la décision de l’un d’eux suffit.
+- Chaque ligne exige sa propre décision, même si plusieurs lignes ont le même CDF.
+- Le support demandeur et le financement ne créent aucune validation supplémentaire.
+- Sans responsable actif, la ligne reste **À affecter**. Les autres lignes peuvent
+  être validées, mais la demande ne peut pas être terminée.
 
-L’évaluateur commun est dans `workflow/rules.py` ; il ne connaît ni les modèles
-d’achat, ni les réservations. Un type d’opération déclare ses champs typés et
-fournit ses valeurs. L’adaptateur DA se trouve dans `purchasing/rule_adapter.py`.
-La version conserve le type d’opération et l’unicité de sa version active.
+Exemple : une DA contient une ligne du CDF A et une ligne du CDF B. Le responsable
+du CDF A voit et valide la première ; celui du CDF B voit et valide la deuxième.
+Le bon de commande est créé uniquement lorsque les deux lignes sont approuvées.
 
-Pour les futurs transferts, ajouter un adaptateur (montant, CDF source,
-destination, etc.), son cycle de validation et ses contrôles transactionnels.
-Les transferts ne sont pas proposés tant que ce module n’existe pas. Le moteur
-accepte aussi des groupes ET/OU imbriqués ; l’éditeur actuel propose un groupe
-ET ou OU par règle, avec plusieurs règles cumulables.
+Le budget TVAC de toutes les lignes est réservé lors de la soumission. Les
+réservations deviennent des engagements après l’approbation de toutes les lignes.
+Un rejet ou un retour pour correction porte sur toute la demande et libère ses
+réservations. Une nouvelle soumission crée de nouvelles étapes de validation.
 
-## Recette du nouvel éditeur
+## Transferts : CDF source, puis CDF destination
 
-| Cas | Attendu |
+Chaque nouveau transfert suit deux étapes successives :
+
+1. Validation par un responsable actif du **CDF source**.
+2. Validation par un responsable actif du **CDF destination**.
+
+La deuxième étape reste inaccessible tant que la première n’est pas approuvée.
+Deux décisions distinctes sont nécessaires, même si la même personne gère les
+deux CDF. Un transfert entre deux combinaisons budgétaires du même CDF conserve
+également les deux étapes.
+
+Le montant est réservé à la source lors de la soumission. La destination n’est
+créditée qu’après les deux validations. Sans responsable actif, l’étape reste
+**À affecter** ; aucune validation automatique n’est effectuée.
+
+## Affecter les responsables
+
+Dans **Configuration → Responsables des CDF et des supports**, sélectionner un
+CDF et ses responsables. Le droit `budgeting.manage_cost_center_managers` est
+nécessaire pour modifier ces affectations.
+
+Les responsables doivent avoir un compte actif. Aucune fonction, habilitation ou
+règle de validation n’est nécessaire pour les nouveaux parcours. Un administrateur
+ne peut pas approuver une ligne ou un transfert uniquement parce qu’il est
+administrateur : il doit être responsable du CDF concerné.
+
+Les affectations sont revérifiées avant chaque décision. Un responsable retiré
+perd son accès à la validation ; un nouveau responsable retrouve les étapes
+en attente dans **Mes validations**. Les délégations existantes restent prises
+en charge pour les demandes d’achat.
+
+## Historique et anciens circuits
+
+Les étapes déjà enregistrées conservent leurs affectations et leurs décisions.
+Les anciennes configurations sont conservées en base pour l’historique, mais
+elles ne sont plus utilisées pour les nouvelles soumissions. L’éditeur, la
+simulation et l’administration des circuits configurables sont retirés.
+
+Les règles budgétaires, le suivi des transferts par version et les possibilités
+d’annulation restent décrits dans [Transferts et stock](TRANSFERTS_ET_STOCK.md).
+
+## Modification administrative d’une version budgétaire
+
+Dans **Budget → Alimenter une version**, ouvrir la version puis utiliser
+**Débloquer pour modification**. Cette action est réservée à l’administrateur
+système, y compris pour une version publiée. Les gestionnaires ordinaires
+conservent un accès en lecture seule aux versions publiées, même débloquées.
+
+Après modification, cliquer sur **Enregistrer les lignes**, puis sur **Bloquer
+les modifications** pour revenir en lecture seule. La version conserve sa date
+de publication et reste active si elle l’était déjà. Les modifications prennent
+effet immédiatement à l’enregistrement ; les réservations et engagements
+existants ne sont pas effacés. Les états datés antérieurs restent consultables.
+
+Une version brouillon bloquée peut également être débloquée par l’administrateur.
+Une version supprimée ne peut pas être débloquée. Le reblocage des modifications
+d’une version publiée ne suspend pas les achats et transferts en cours.
+
+## Vérifications de recette
+
+| Cas | Résultat attendu |
 |---|---|
-| Ligne 100 € HTVA dans une DA de deux lignes identiques ; seuil ligne 150 €, puis seuil total 150 € | Seule la condition sur le total correspond |
-| Montant TVAC exactement au seuil, puis juste en dessous | Comparaison supérieure ou égale respecte la frontière |
-| Conditions CDF ET montant, puis CDF OU support | Toutes les conditions sont nécessaires en ET ; une suffit en OU |
-| Deux règles correspondantes au même ordre, puis une règle à l’ordre suivant | Deux étapes parallèles ; l’ordre suivant attend leur validation |
-| Aucun responsable ou aucun membre actif du rôle | Simulation indique l’absence de candidat ; aucune approbation silencieuse |
-| Simulation d’un brouillon | Aucune réservation, étape ou notification créée |
-| Modification d’une version publiée | Refus ; copie en brouillon possible |
-| Compte sans permission de configuration, ou simulation de la DA d’un tiers sans droit de lecture financière ni droit de lecture global | Accès refusé |
-| Règle sans condition et option « Toujours » décochée | Enregistrement refusé |
-| Règle sans correspondance pour une ligne | Soumission refusée sans réservation partielle |
+| DA avec deux lignes de CDF différents | Chaque responsable valide uniquement sa ligne |
+| Deux lignes du même CDF | Deux décisions manuelles, une par ligne |
+| Une seule ligne approuvée sur deux | Demande toujours en validation ; aucun bon de commande |
+| Toutes les lignes approuvées | Bon de commande unique ; réservations converties en engagements |
+| Ligne sans responsable actif | Étape « À affecter », jamais approuvée automatiquement |
+| Responsable remplacé après soumission | Ancien responsable refusé, nouveau responsable autorisé |
+| Transfert : destination avant source | Validation refusée |
+| Transfert : même responsable pour les deux CDF | Deux décisions successives obligatoires |
+| Ancienne règle automatique encore présente | Aucun effet sur une nouvelle soumission |
+
+
+Les nouveaux transferts sont soumis directement depuis le formulaire de creation. Creation, journalisation et soumission sont atomiques : si le controle budgetaire refuse la soumission, le formulaire conserve la saisie sans creer de brouillon ni reserver de montant. Les anciens brouillons restent consultables et peuvent encore etre soumis depuis leur fiche.
+
+La saisie des transferts utilise un tableau de 1 a 100 lignes, avec version et destination communes. Chaque ligne source conserve ses CDF, produit, financement, support optionnel, montant, justification et deux validations successives. La destination est saisie une seule fois (CDF, produit, financement et support optionnel). Son montant non editable est calcule comme la somme des sources actives ; il ne constitue pas une valeur financiere acceptee depuis le navigateur. Les lignes vides ou retirees sont ignorees. Le lot entier est atomique, y compris si plusieurs lignes debitent la meme combinaison source : le disponible tient compte des lignes precedentes du lot.

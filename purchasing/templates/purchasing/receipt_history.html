@@ -1,0 +1,4 @@
+{% if receipts %}<section class="configuration-section content-zone"><h2>Réceptions liées à la demande</h2>
+<div class="table-wrap"><table><thead><tr><th>Réception</th><th>Date</th><th>Dépôt</th><th>Réceptionné par</th><th>Référence / commentaire</th></tr></thead><tbody>
+{% for receipt in receipts %}<tr><td>{{ receipt.pk }}</td><td>{{ receipt.created_at }}</td><td>{{ receipt.warehouse }}</td><td>{{ receipt.actor|default:'Compte supprimé' }}</td><td>{{ receipt.reason }}</td></tr>{% endfor %}
+</tbody></table></div></section>{% endif %}

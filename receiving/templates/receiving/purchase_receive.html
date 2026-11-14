@@ -1,0 +1,17 @@
+{% extends 'purchasing/base.html' %}{% load ui_actions %}{% block content %}{% back_action %}
+<h1>Réception · {{ purchase.number }}</h1>
+{% for message in messages %}<div class="configuration-section" role="status">{{ message }}</div>{% endfor %}
+{% if error %}<div class="login-error" role="alert">{{ error }}</div>{% endif %}
+<p>{{ purchase.supplier }} · {{ purchase.receipt_label }}</p>
+{% if purchase.receipt_status != 'complete' %}
+<p>Choisissez le dépôt et indiquez les quantités livrées aujourd’hui. Laissez zéro pour les produits non livrés. Le stock et le suivi de la demande seront mis à jour ensemble.</p>
+<form method="post">{% csrf_token %}{{ form.as_p }}{{ formset.management_form }}{{ formset.non_form_errors }}
+<div class="table-wrap"><table><thead><tr><th>Produit</th><th>Description</th><th>Commandé</th><th>Déjà réceptionné</th><th>Reste à recevoir</th><th>Réception aujourd’hui</th></tr></thead><tbody>
+{% for row in rows %}<tr><td>{{ row.line.detailed_product }}{{ row.form.line_id }}{{ row.form.line_id.errors }}{{ row.form.non_field_errors }}</td><td>{{ row.line.description }}</td><td>{{ row.line.quantity }}</td><td>{{ row.line.received_quantity }}</td><td>{{ row.line.remaining_quantity }}</td><td>{{ row.form.quantity.errors }}{{ row.form.quantity }}</td></tr>{% endfor %}
+</tbody></table></div><button type="submit">Enregistrer la réception</button></form>
+{% endif %}
+<section class="configuration-section content-zone"><h2>Historique des réceptions</h2>
+{% for receipt in receipts %}<h3>Réception {{ receipt.pk }}</h3><p>{{ receipt.created_at }} · {{ receipt.warehouse }} · {{ receipt.actor|default:'Compte supprimé' }} · {{ receipt.reason }}</p>
+<ul>{% for row in receipt.lines.all %}<li>{{ row.purchase_line.detailed_product }} · {{ row.movement.quantity }} · Mouvement {{ row.movement_id }}</li>{% endfor %}</ul>
+{% empty %}<p>Aucune réception enregistrée.</p>{% endfor %}</section>
+{% endblock %}

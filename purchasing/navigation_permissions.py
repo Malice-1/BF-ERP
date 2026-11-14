@@ -9,7 +9,7 @@ def has_category_permission(user, *categories):
 
 
 def can_access_purchases(user):
-    return has_category_permission(user, "purchasing")
+    return has_category_permission(user, "purchasing", "suppliers")
 
 
 def can_access_budget(user):
@@ -21,8 +21,4 @@ def can_access_configuration(user):
         return True
     if not user.is_authenticated or not user.is_active:
         return False
-    return any(
-        permission == "budgeting.manage_cost_center_managers"
-        or (permission.startswith("purchasing.") and permission.endswith(("_workflowversion", "_approvalrule")))
-        for permission in user.get_all_permissions()
-    )
+    return user.has_perm("budgeting.manage_cost_center_managers")

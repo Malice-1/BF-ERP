@@ -1,6 +1,6 @@
-from django.db import models
+from django.db import models, transaction
 from decimal import Decimal
-from uuid import uuid4
+from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
 
 from django.contrib.auth import get_user_model
@@ -12,8 +12,24 @@ from budgeting.models import DetailedProduct as BudgetDetailedProduct, CostCente
 User = get_user_model()
 
 
+class PurchaseRequestSequence(models.Model):
+    """Persistent annual counter, locked during number allocation."""
+
+    year = models.PositiveIntegerField(primary_key=True)
+    last_number = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        default_permissions = ()
+
+
 def request_number():
-    return "DA-" + uuid4().hex[:26].upper()
+    with transaction.atomic():
+        counter, _ = PurchaseRequestSequence.objects.select_for_update().get_or_create(
+            year=timezone.localdate().year
+        )
+        counter.last_number += 1
+        counter.save(update_fields=["last_number"])
+        return f"DA-{counter.year}-{counter.last_number:04d}"
 
 
 class PurchaseRequest(models.Model):
@@ -35,7 +51,6 @@ class PurchaseRequest(models.Model):
         max_length=30,
         unique=True,
         editable=False,
-        default=request_number,
         verbose_name='Numéro',
     )
 
@@ -69,7 +84,14 @@ class PurchaseRequest(models.Model):
         verbose_name = 'demande d’achat'
         verbose_name_plural = 'demandes d’achat'
         ordering = ["-created_at"]
-        permissions = [("view_all_purchase_requests", "Consulter toutes les demandes d’achat")]
+        permissions = [("decide_any_purchaserequest", "Intervenir sur toutes les validations des demandes d’achat"), ("view_all_purchase_requests", "Consulter toutes les demandes d’achat")]
+
+    def save(self, *args, **kwargs):
+        if self._state.adding and not self.number:
+            with transaction.atomic():
+                self.number = request_number()
+                return super().save(*args, **kwargs)
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return self.number

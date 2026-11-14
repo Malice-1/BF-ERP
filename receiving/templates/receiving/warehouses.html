@@ -1,0 +1,12 @@
+{% extends 'purchasing/base.html' %}{% load ui_actions %}{% block content %}{% back_action %}
+
+<section class="configuration-section content-zone"><div class="section-toolbar"><h1>Dépôts</h1>{% include 'purchasing/excel_export.html' with compact=True export_label='Exporter la liste des dépôts en Excel' %}</div>
+
+<p>Consultez les dépôts et configurez leur code et leur nom.</p>
+<div class="table-wrap"><table><thead><tr><th>Code</th><th>Dépôt</th>{% if perms.receiving.change_warehouse %}<th>Configuration</th>{% endif %}</tr></thead><tbody>
+{% for item in warehouses %}<tr><td>{{ item.code }}</td><td>{{ item.label }}</td>{% if perms.receiving.change_warehouse %}<td><a href="{% url 'warehouse_edit' item.pk %}" class="ui-icon" aria-label="Configurer" title="Configurer">{% include 'purchasing/action_icon.html' with icon='reassign' %}</a></td>{% endif %}</tr>
+{% empty %}<tr><td colspan="3">Aucun dépôt configuré.</td></tr>{% endfor %}
+</tbody></table></div></section>
+{% if can_edit %}<h2>{% if warehouse %}Configurer {{ warehouse.code }}{% else %}Nouveau dépôt{% endif %}</h2>
+<form method="post">{% csrf_token %}{{ form.as_p }}<div class="ui-action-bar"><button class="ui-icon" aria-label="Enregistrer le dépôt" type="submit" title="Enregistrer le dépôt">{% include 'purchasing/action_icon.html' with icon='save' %}</button>{% if warehouse %} <a href="{% url 'warehouses' %}" class="ui-icon ui-icon-danger" aria-label="Annuler" title="Annuler">{% include 'purchasing/action_icon.html' with icon='cancel' %}</a>{% endif %}</div></form>{% endif %}
+{% endblock %}

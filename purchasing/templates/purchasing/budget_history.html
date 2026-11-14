@@ -1,0 +1,26 @@
+{% extends 'purchasing/base.html' %}{% load ui_actions %}{% block content %}{% back_action %}
+<h1>{% if scoped_version and version %}Historique · {{ version.envelope.year }} · {{ version.label }}{% else %}Historique des versions budgétaires{% endif %}</h1>
+<p>{% if scoped_version %}Retrouvez les allocations, réservations, engagements et soldes de transferts de cette version à la date souhaitée.{% else %}Choisissez une version pour consulter ses allocations, réservations, engagements et soldes de transferts à une date donnée.{% endif %}</p>
+<section class="configuration-section content-zone" aria-labelledby="budget-state-title">
+<div class="section-toolbar"><h2 id="budget-state-title">État budgétaire enregistré</h2>
+{% if state %}{% include 'purchasing/excel_export.html' with compact=True export_scope='state' export_version=version.pk export_label='Exporter l’état budgétaire en Excel' %}{% endif %}
+</div>
+<form method="get" class="budget-history-filter">{{ form.as_p }}<div class="budget-history-filter-actions"><button class="ui-icon" aria-label="Consulter cet état" type="submit" title="Consulter cet état">{% include 'purchasing/action_icon.html' with icon='search' %}</button></div></form>
+{% if first %}<p>Premier état disponible : {{ first.created_at|date:'d/m/Y H:i:s' }}. Les états antérieurs à cet enregistrement ne sont pas reconstitués.</p>{% endif %}
+{% if state %}
+
+<h3>{{ state.label }} · {{ state.status }}</h3><p>État enregistré le {{ selected.created_at|date:'d/m/Y H:i:s' }} · {{ selected.actor }} · {{ selected.display_reason }}</p>
+<div class="table-wrap"><table><thead><tr><th>CDF</th><th>Financement</th><th>BI</th><th>Montant alloué</th><th>Réservé</th><th>Engagé</th><th>Solde transferts</th><th>Disponible</th></tr></thead><tbody>
+{% for row in state.rows %}<tr><td>{{ row.cdf }}</td><td>{{ row.funding }}</td><td>{{ row.product }}</td><td>{{ row.allocated|amount }}</td><td>{{ row.reserved|amount }}</td><td>{{ row.committed|amount }}</td><td>{{ row.transfers|amount }}</td><td>{{ row.available|amount }}</td></tr>{% empty %}<tr><td colspan="8">Aucune ligne budgétaire à cette date.</td></tr>{% endfor %}
+</tbody></table></div>
+{% elif not form.errors %}<p>Aucun état enregistré pour cette version à la date demandée.</p>{% endif %}
+</section>
+<section class="configuration-section content-zone" aria-labelledby="budget-timeline-title">
+<div class="section-toolbar"><h2 id="budget-timeline-title">Chronologie des changements</h2>
+<div class="section-actions">
+{% if version %}<a href="{% url 'version_transfers' version.pk %}" class="ui-icon" aria-label="Historique spécifique des transferts de cette version" title="Historique spécifique des transferts de cette version">{% include 'purchasing/action_icon.html' with icon='history' %}</a>{% endif %}
+{% if timeline and not form.errors %}{% include 'purchasing/excel_export.html' with compact=True export_scope='timeline' export_version=version.pk export_label='Exporter la chronologie en Excel' %}{% endif %}
+</div></div>
+<ul>{% for event in timeline %}<li><a href="?version={{ form.version.value }}&amp;at={{ event.created_at|date:'c'|urlencode }}">{{ event.created_at|date:'d/m/Y H:i:s' }}</a> · {{ event.actor }} · {{ event.display_reason }}</li>{% empty %}<li>Aucun état enregistré.</li>{% endfor %}</ul>
+</section>
+{% endblock %}

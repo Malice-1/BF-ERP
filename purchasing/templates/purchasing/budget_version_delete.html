@@ -1,0 +1,10 @@
+{% extends 'purchasing/base.html' %}{% load ui_actions %}{% block content %}{% back_action %}
+<h1>Supprimer la version {{ version }}</h1>
+{% if error %}<p role="alert" class="errorlist">{{ error }}</p>{% endif %}
+{% if can_delete %}
+<p>Cette version contient {{ allocation_count }} allocation{{ allocation_count|pluralize }}. Elle sera retirée des versions de travail et ne pourra plus être modifiée ni publiée.</p>
+<p>Les allocations et l’historique restent conservés pour la consultation des états passés. Son nom reste réservé pour cette année.</p>
+<form method="post">{% csrf_token %}<div class="ui-action-bar"><button class="ui-icon ui-icon-danger" aria-label="Confirmer la suppression" type="submit" title="Confirmer la suppression">{% include 'purchasing/action_icon.html' with icon='delete' %}</button> <a href="{% url 'purchasing:budget_version' version.pk %}" class="ui-icon ui-icon-danger" aria-label="Conserver la version" title="Conserver la version">{% include 'purchasing/action_icon.html' with icon='cancel' %}</a></div></form>
+{% else %}<p>Cette version ne peut pas être supprimée : seules les versions en brouillon, non bloquées et non utilisées peuvent l’être.</p>
+{% endif %}
+{% endblock %}

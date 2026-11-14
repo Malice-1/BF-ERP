@@ -1,0 +1,5 @@
+<div class="zone-actions">{% include 'purchasing/excel_export.html' with compact=True export_label='Exporter les produits affichés en Excel' %}</div>
+<div class="table-wrap"><table><thead><tr><th>Code BI</th><th>Libellé</th></tr></thead><tbody>
+{% for product in products %}<tr data-product><td>{{ product.code }}</td><td>{{ product.label }}</td></tr>
+{% empty %}<tr><td colspan="2">{% if search %}Aucun produit ne correspond à cette recherche.{% else %}Aucun produit budgétaire.{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>

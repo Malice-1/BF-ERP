@@ -1,0 +1,7 @@
+{% extends 'purchasing/base.html' %}{% load ui_actions %}{% block content %}
+{% back_action %}<h1>Fournisseurs</h1>
+{% if perms.suppliers.add_supplier %}<p><a class="button" href="{% url 'purchasing:supplier_create' %}">Créer un fournisseur</a></p>{% endif %}
+<form method="get"><label for="supplier-search">Rechercher par code, nom ou numéro de TVA</label><input id="supplier-search" name="q" value="{{ query }}" type="search"><button type="submit" style="margin-inline-start:12px">Rechercher</button></form>
+<section class="configuration-section content-zone"><h2>Fournisseurs existants</h2><div class="table-wrap"><table><thead><tr><th>Code</th><th>Nom</th><th>Numéro de TVA</th>{% if perms.suppliers.change_supplier %}<th>Actions</th>{% endif %}</tr></thead><tbody>
+{% for supplier in suppliers %}<tr><td>{{ supplier.code }}</td><td>{{ supplier.name }}</td><td>{{ supplier.vat_number|default:'—' }}</td>{% if perms.suppliers.change_supplier %}<td><a class="ui-icon" href="{% url 'purchasing:supplier_edit' supplier.pk %}" aria-label="Modifier {{ supplier.name }}" title="Modifier {{ supplier.name }}">{% include 'purchasing/action_icon.html' with icon='edit' %}</a></td>{% endif %}</tr>{% empty %}<tr><td colspan="4">Aucun fournisseur trouvé.</td></tr>{% endfor %}
+</tbody></table></div></section>{% endblock %}

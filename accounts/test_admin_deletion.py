@@ -1,3 +1,4 @@
+from purchasing.test_helpers import record_legacy_workflow
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.db import DatabaseError, connection, transaction
@@ -39,7 +40,6 @@ class SystemDeletionTests(TestCase):
     def test_published_budget_deletion_previews_required_dependents(self):
         self.submit()
         self.act(self.first)
-        self.act(self.second)
         self.client.force_login(self.admin)
         url = reverse("admin:budgeting_envelopeversion_delete", args=[self.version.pk])
         response = self.client.get(url)
@@ -99,29 +99,36 @@ class SystemDeletionTests(TestCase):
 
     def test_deleting_used_role_does_not_broaden_rule_or_approval(self):
         from purchasing import flow
-        from purchasing.exceptions import PurchaseRequestError
         from purchasing.models import ApprovalStep, WorkflowVersion
         role = Role.objects.create(code="VALID", label="Approvers")
         self.first.roles.add(role)
         config = WorkflowVersion.objects.create(label="Role circuit")
         rule = ApprovalRule.objects.create(version=config, label="Role rule", function=self.function1,
                                            role=role, level=1)
-        flow.activate_workflow(actor=self.admin, version_id=config.pk)
+        record_legacy_workflow(config)
         self.submit()
+        # Preserve coverage for a recorded step from an older role-based circuit.
+        recorded = ApprovalStep.objects.get()
+        recorded.manager_source = ""
+        recorded.role = role
+        recorded.function = self.function1
+        recorded.rule_snapshot = {}
+        recorded.save()
+        recorded.candidates.set([self.first])
         delete_as_superuser(Role.objects.filter(pk=role.pk), self.admin)
         step = ApprovalStep.objects.get()
         self.assertFalse(step.candidates.exists())
         self.assertIsNone(flow.authority(self.first, step))
         new_purchase = self.draft()
-        with self.assertRaises(PurchaseRequestError):
-            self.submit(new_purchase)
+        self.submit(new_purchase)
+        new_step = ApprovalStep.objects.get(snapshot__submission__purchase_request=new_purchase)
+        self.assertEqual(new_step.manager_source, "cdf")
         rule.refresh_from_db()
         self.assertTrue(rule.named_user_reference.startswith("[référence supprimée:"))
 
     def test_each_populated_business_table_can_be_deleted_without_orphans(self):
         self.submit()
         self.act(self.first)
-        self.act(self.second)
         class RestoreFixture(Exception):
             pass
         for model in admin.site._registry:

@@ -1,3 +1,4 @@
+from purchasing.test_helpers import record_legacy_workflow
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.db import DatabaseError, transaction
@@ -21,7 +22,6 @@ class IndependentHistoryTests(TestCase):
     def test_admin_deletes_requester_and_approvers_without_losing_order_or_log(self):
         self.submit()
         self.act(self.first)
-        self.act(self.second)
         owner_id, first_id = self.owner.pk, self.first.pk
         existing_logs = set(ActivityLog.objects.filter(actor_identifier=str(owner_id)).values_list("pk", flat=True))
         self.assertTrue(existing_logs)
@@ -51,7 +51,7 @@ class IndependentHistoryTests(TestCase):
         config = WorkflowVersion.objects.create(label="Named")
         rule = ApprovalRule.objects.create(version=config, label="Named", function=self.function1,
                                            level=1, named_user=self.first)
-        flow.activate_workflow(actor=self.admin, version_id=config.pk)
+        record_legacy_workflow(config)
         self.first.delete()
         rule.refresh_from_db()
         self.assertIsNone(rule.named_user_id)
@@ -72,7 +72,6 @@ class IndependentHistoryTests(TestCase):
         self.submit()
         self.owner.delete()
         self.act(self.first)
-        self.act(self.second)
         self.assertEqual(PurchaseOrder.objects.count(), 1)
 
     def test_deleted_publisher_and_pending_candidate_can_be_removed(self):
@@ -119,18 +118,17 @@ class IndependentHistoryTests(TestCase):
         from datetime import timedelta
         from django.core.management import call_command
         from django.utils import timezone
-        from budgeting.services import assign_cost_center_manager
+        from budgeting.models import CostCenterManagerAssignment
         from purchasing.models import PurchaseNotice
         from io import StringIO
         begin = timezone.now() - timedelta(days=1)
-        assignment = assign_cost_center_manager(actor=self.admin, cost_center=self.cdf,
-                                               user=self.first, valid_from=begin)
+        assignment = CostCenterManagerAssignment.objects.create(cost_center=self.cdf,
+                                                               user=self.first, valid_from=begin)
         self.submit()
         self.first.delete()
         assignment.refresh_from_db()
         self.assertIsNone(assignment.user_id)
-        replacement = assign_cost_center_manager(actor=self.admin, cost_center=self.cdf,
-                                                 user=self.other, valid_from=begin)
-        self.assertEqual(replacement.user_id, self.other.pk)
+        self.cdf.managers.add(self.other)
+        self.assertEqual(flow.pending_validation_count(self.other), 1)
         call_command("process_purchase_notifications", stdout=StringIO(), stderr=StringIO())
         self.assertFalse(PurchaseNotice.objects.filter(recipient__isnull=True, email_state="pending").exists())

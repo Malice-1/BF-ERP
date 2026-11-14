@@ -1,0 +1,11 @@
+<form method="post" action="{% url 'purchasing:decision' purchase.pk step.pk %}" data-purchase-decision>
+{% csrf_token %}<input type="hidden" name="expected_revision" value="{{ purchase.revision }}"><input type="hidden" name="reason">
+<div class="ui-row-actions">
+{% if global_scope %}
+<button type="submit" name="decision" value="approve_all" class="ui-icon" aria-label="Valider tout le circuit" title="Valider tout le circuit">{% include 'purchasing/action_icon.html' with icon='approve_all' %}</button>
+<button type="submit" name="decision" value="correct" class="ui-icon" aria-label="Retourner la DA pour correction" title="Retourner la DA pour correction">{% include 'purchasing/action_icon.html' with icon='history' %}</button>
+<button type="submit" name="decision" value="reject" class="ui-icon ui-icon-danger" aria-label="Rejeter la DA" title="Rejeter la DA">{% include 'purchasing/action_icon.html' with icon='reject' %}</button>
+{% else %}
+<button type="submit" name="decision" value="approve" class="ui-icon" aria-label="Valider la ligne {{ line.pk }}" title="Valider la ligne {{ line.pk }}">{% include 'purchasing/action_icon.html' with icon='publish' %}</button>
+{% endif %}
+</div></form>

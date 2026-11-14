@@ -4,8 +4,6 @@ from django.urls import reverse
 register = template.Library()
 
 WORKFLOW_MODELS = (
-    ("purchasing", "WorkflowVersion"),
-    ("purchasing", "ApprovalRule"),
     ("accounts", "Role"),
     ("budgeting", "CostCenter"),
     ("budgeting", "Support"),
@@ -29,12 +27,6 @@ def grouped_admin_apps(context, app_list):
         if models:
             remaining.append({**app, "models": models})
     models = [workflow[key] for key in WORKFLOW_MODELS if key in workflow]
-    if ("purchasing", "WorkflowVersion") in workflow:
-        entry = workflow[("purchasing", "WorkflowVersion")]
-        entry["name"] = "Règles de validation"
-        entry["admin_url"] = reverse("purchasing:rule_sets")
-        if entry.get("add_url"):
-            entry["add_url"] = reverse("purchasing:rule_sets")
     user = context["request"].user
     for permission, url_name, label, object_name in (
         ("budgeting.manage_cost_center_managers", "entity_managers", "Responsables des CDF et des supports", "EntityManagers"),
@@ -43,7 +35,7 @@ def grouped_admin_apps(context, app_list):
             models.append({"name": label, "object_name": object_name,
                            "admin_url": reverse(url_name), "view_only": False})
     if models:
-        remaining.insert(0, {"app_label": "workflow-settings", "name": "Workflows et validations",
+        remaining.insert(0, {"app_label": "workflow-settings", "name": "Responsables et validations",
                              "app_url": reverse("purchasing:configuration") + "#workflow-settings",
                              "models": models})
     if user.has_perm("accounts.manage_authorizations"):

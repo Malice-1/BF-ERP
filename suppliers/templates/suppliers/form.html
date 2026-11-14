@@ -1,0 +1,3 @@
+{% extends 'purchasing/base.html' %}{% load ui_actions %}{% block content %}
+{% back_action %}<h1>{% if supplier %}Modifier le fournisseur{% else %}Créer un fournisseur{% endif %}</h1>
+<form method="post">{% csrf_token %}{{ form.as_p }}<div class="ui-action-bar"><button class="ui-icon ui-icon-primary" type="submit" aria-label="Enregistrer le fournisseur" title="Enregistrer le fournisseur">{% include 'purchasing/action_icon.html' with icon='save' %}</button><a href="{% url 'purchasing:suppliers' %}">Annuler</a></div></form>{% endblock %}

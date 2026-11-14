@@ -69,11 +69,6 @@ def cancel_purchase_request(*, request_id, actor, expected_revision):
     return request
 
 
-def approve_purchase_request(purchase_request):
-    """Legacy shortcut bypassed line approvals and reservations."""
-    raise PurchaseRequestError("Approbation directe désactivée : workflow et réservation atomique requis.")
-
-
 @transaction.atomic
 def update_purchase_request(*, request_id, actor, expected_revision, supplier, **values):
     request = _locked(request_id, actor, expected_revision)

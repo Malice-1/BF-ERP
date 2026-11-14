@@ -1,19 +1,35 @@
 {% if user.is_authenticated %}
 <nav class="tabs" aria-label="Rubriques principales">
+{% if can_access_stock %}<a href="{% url 'stock' %}" {% if nav_section == 'stock' %}aria-current="page"{% endif %}>Stocks</a>{% endif %}
 {% if can_access_purchases %}<a href="{% url 'purchasing:list' %}" {% if nav_section == 'purchases' %}aria-current="page"{% endif %}>Achats</a>{% endif %}
-{% if can_access_budget %}<a href="{% url 'purchasing:budget_home' %}" {% if nav_section == 'budget' %}aria-current="page"{% endif %}>Budget</a>{% endif %}
+{% if can_access_budget or can_access_transfers %}<a href="{% url 'purchasing:budget_home' %}" {% if nav_section == 'budget' %}aria-current="page"{% endif %}>Budget</a>{% endif %}
 {% if can_configure %}<a href="{% url 'purchasing:configuration' %}" {% if nav_section == 'configuration' %}aria-current="page"{% endif %}>Configuration</a>{% endif %}
 </nav>
 <nav class="subnav" aria-label="Pages de la rubrique">
-{% if nav_section == 'budget' %}
+{% if nav_section == 'stock' %}
+{% if perms.receiving.manage_stock %}<a href="{% url 'purchase_receipts' %}" {% if request.resolver_match.url_name == 'purchase_receipts' or request.resolver_match.url_name == 'purchase_receive' %}aria-current="page"{% endif %}>Réceptions des achats</a>{% endif %}
+{% if can_view_stock_movements %}<a href="{% url 'stock_movements' %}" {% if request.resolver_match.url_name == 'stock_movements' %}aria-current="page"{% endif %}>Mouvements de stock</a>{% endif %}
+{% if can_view_stock %}<a href="{% url 'stock_balances' %}" {% if request.resolver_match.url_name == 'stock_balances' %}aria-current="page"{% endif %}>Quantités disponibles</a>{% endif %}
+{% if can_access_warehouses %}<a href="{% url 'warehouses' %}" {% if request.resolver_match.url_name == 'warehouses' or request.resolver_match.url_name == 'warehouse_edit' %}aria-current="page"{% endif %}>Dépôts</a>{% endif %}
+{% elif nav_section == 'budget' %}
+{% if can_access_transfers %}
+<details class="transfer-submenu" open>
+<summary>Transferts</summary>
+<div class="transfer-submenu-links">
+{% if perms.budgeting.add_budgettransfer %}<a href="{% url 'transfer_list' %}" {% if request.resolver_match.url_name == 'transfer_list' %}aria-current="page"{% endif %}>Créer un transfert</a>{% endif %}
+<a href="{% url 'transfer_monitor' %}" {% if request.resolver_match.url_name == 'transfer_monitor' %}aria-current="page"{% endif %}>Liste des transferts</a>
+</div>
+</details>
+{% endif %}
+{% if perms.budgeting.view_budget_balances or perms.budgeting.view_envelopeversion %}<a href="{% url 'purchasing:budget_history' %}">Historique budgétaire</a>{% endif %}
 {% if can_manage_budgets %}<a href="{% url 'purchasing:budget_versions' %}">Créer une version</a><a href="{% url 'purchasing:allocation_versions' %}">Alimenter une version</a>{% endif %}
 {% if perms.budgeting.add_budgetproduct %}<a href="{% url 'purchasing:budget_products' %}">Produits budgétaires</a>{% endif %}
 {% if perms.budgeting.view_budget_balances %}<a href="{% url 'purchasing:budgets' %}">Budgets et disponibilités</a>{% endif %}
 {% elif nav_section == 'purchases' and can_access_purchases %}
 {% if perms.purchasing.view_all_purchase_requests %}<a href="{% url 'purchasing:all_requests' %}">Toutes les demandes</a>{% endif %}
+{% if perms.suppliers.view_supplier or perms.suppliers.add_supplier or perms.suppliers.change_supplier %}<a href="{% url 'purchasing:suppliers' %}">Fournisseurs</a>{% endif %}
 {% if perms.purchasing.add_detailedproduct %}<a href="{% url 'purchasing:detailed_products' %}">Produits détaillés</a>{% endif %}
 {% if perms.purchasing.add_purchaserequest %}<a href="{% url 'purchasing:list' %}">Mes demandes</a>{% endif %}
-{% if perms.purchasing.monitor_purchases %}<a href="{% url 'purchasing:monitor' %}">Suivi administrateur</a>{% endif %}
 {% endif %}
 </nav>
 {% endif %}

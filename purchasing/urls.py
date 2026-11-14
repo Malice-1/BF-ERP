@@ -4,8 +4,14 @@ from . import flow_views
 from . import budget_views
 from . import rule_views
 
+from suppliers import views as supplier_views
+
 app_name = "purchasing"
 urlpatterns = [
+    path("fournisseurs/", supplier_views.supplier_list, name="suppliers"),
+    path("fournisseurs/nouveau/", supplier_views.supplier_edit, name="supplier_create"),
+    path("fournisseurs/<int:pk>/modifier/", supplier_views.supplier_edit, name="supplier_edit"),
+    path("configuration/schemas-validation/", flow_views.validation_schemes, name="validation_schemes"),
     path("regles-validation/", rule_views.rule_sets, name="rule_sets"),
     path("regles-validation/<int:pk>/", rule_views.rule_set, name="rule_set"),
     path("regles-validation/<int:pk>/ajouter/", rule_views.rule_edit, name="rule_add"),
@@ -16,10 +22,14 @@ urlpatterns = [
     path("produits-detailles/", budget_views.detailed_products, name="detailed_products"),
     path("espace-budget/", budget_views.budget_home, name="budget_home"),
     path("alimentation-budgets/", budget_views.allocation_versions, name="allocation_versions"),
+    path("historique-budgets/", budget_views.budget_history, name="budget_history"),
+    path("historique-budgets/<int:version_id>/", budget_views.budget_history, name="budget_version_history"),
     path("configuration/", budget_views.configuration, name="configuration"),
     path("produits-budgetaires/", budget_views.budget_products, name="budget_products"),
     path("gestion-budgets/", budget_views.versions, name="budget_versions"),
     path("gestion-budgets/<int:pk>/", budget_views.version_detail, name="budget_version"),
+    path("gestion-budgets/<int:pk>/import-excel/", budget_views.allocation_import, name="allocation_import"),
+    path("gestion-budgets/<int:pk>/supprimer/", budget_views.version_delete, name="budget_version_delete"),
     path("verifier-budget/", flow_views.budget_check, name="budget_check"),
     path("validations/", flow_views.inbox, name="inbox"),
     path("suivi/", flow_views.monitor, name="monitor"),
