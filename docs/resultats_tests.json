@@ -1,0 +1,1547 @@
+{
+  "started_at": "2026-11-14T22:39:42.028634+00:00",
+  "finished_at": "2026-11-14T22:40:15.003373+00:00",
+  "commit_base": "dc67883c538dd14d7073d2c2e3cac074cf957482",
+  "working_tree": "Local documentary and unit-test changes included",
+  "settings": "config.test_settings",
+  "database": "SQLite in memory",
+  "summary": {
+    "total": 306,
+    "passed": 295,
+    "skipped": 11,
+    "failed": 0,
+    "errors": 0
+  },
+  "tests": [
+    {
+      "test": "accounts.test_admin_deletion.SystemDeletionTests.test_all_registered_business_tables_have_superuser_delete",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.test_admin_deletion.SystemDeletionTests.test_bulk_role_deletion_and_no_bypass_for_non_superuser",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.test_admin_deletion.SystemDeletionTests.test_deleting_a_step_stops_cycle_and_releases_remaining_budget",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.test_admin_deletion.SystemDeletionTests.test_deleting_used_role_does_not_broaden_rule_or_approval",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.test_admin_deletion.SystemDeletionTests.test_each_populated_business_table_can_be_deleted_without_orphans",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.test_admin_deletion.SystemDeletionTests.test_journal_cannot_be_targeted_by_service",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.test_admin_deletion.SystemDeletionTests.test_postgres_history_guards_remain_enabled_outside_deletion",
+      "status": "Ignoré",
+      "reason": "PostgreSQL guard"
+    },
+    {
+      "test": "accounts.test_admin_deletion.SystemDeletionTests.test_published_budget_deletion_previews_required_dependents",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.test_admin_deletion.SystemDeletionTests.test_role_has_visible_delete_link_and_members_survive",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.test_admin_french.FrenchAdministrationTests.test_index_and_creation_forms_are_french",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.test_admin_french.FrenchAdministrationTests.test_readonly_fields_states_and_object_names_are_french",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.test_admin_french.FrenchAdministrationTests.test_registered_business_fields_have_explicit_labels",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.test_login.LoginMessageTests.test_disabled_account_with_correct_password_has_specific_message",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.test_login.LoginMessageTests.test_reactivated_account_can_login",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.test_login.LoginMessageTests.test_wrong_password_or_unknown_user_keeps_invalid_credentials_message",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.test_role_permissions.RolePermissionTests.test_permissions_combine_with_standard_grants_and_inactive_denied",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.test_role_permissions.RolePermissionTests.test_role_grant_and_revocation_on_protected_page",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.test_sessions.IdleSessionTests.test_activity_slides_timeout_but_poll_does_not",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.test_sessions.IdleSessionTests.test_default_expiry_blocks_post_before_view",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.test_sessions.IdleSessionTests.test_expiry_also_protects_admin",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.test_sessions.IdleSessionTests.test_login_initializes_activity",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.test_sessions.IdleSessionTests.test_new_policy_applies_to_existing_sessions",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.test_sessions.IdleSessionTests.test_old_session_without_timestamp_expires",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.test_sessions.IdleSessionTests.test_policy_superuser_only_validated_and_audited",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.tests.AuthorizationTests.test_configuration_pages_are_permission_protected",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.tests.AuthorizationTests.test_deterministic_selection",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.tests.AuthorizationTests.test_hab001_date_bounds_and_inactive_user",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.tests.AuthorizationTests.test_hab002_and_between_criteria_or_between_values",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.tests.AuthorizationTests.test_hab002_does_not_combine_partial_authorizations",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.tests.AuthorizationTests.test_new_version_preserves_old_and_checks_revision",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.tests.AuthorizationTests.test_permission_and_invalid_scope_leave_no_records",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_admin_managers.CostCenterAdminManagersTests.test_change_cdf_permission_alone_cannot_change_managers",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_admin_managers.CostCenterAdminManagersTests.test_choices_include_active_application_users_without_staff_status",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_admin_managers.CostCenterAdminManagersTests.test_create_and_update_responsables_from_cdf_form",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_admin_managers.CostCenterAdminManagersTests.test_dropdown_is_paginated_and_permission_protected",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_admin_managers.CostCenterAdminManagersTests.test_dropdown_loads_active_users_and_searches_partial_names_and_identifiers",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_admin_managers.CostCenterAdminManagersTests.test_existing_inactive_assignment_is_preserved_and_can_be_removed",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_admin_managers.CostCenterAdminManagersTests.test_inactive_user_cannot_be_newly_assigned",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_admin_managers.CostCenterAdminManagersTests.test_old_dated_assignment_urls_redirect_without_writing",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_history.BudgetHistoryTests.test_allocation_changes_publication_and_replacement_are_frozen",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_history.BudgetHistoryTests.test_allocation_history_records_product_amount_cdf_and_funding",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_history.BudgetHistoryTests.test_cancel_approved_is_audited_and_restores_balances_once",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_history.BudgetHistoryTests.test_cancel_approved_refused_if_destination_is_reserved",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_history.BudgetHistoryTests.test_cancellation_permission_and_reason_are_required",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_history.BudgetHistoryTests.test_generic_legacy_allocation_label_is_explained_without_rewriting_it",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_history.BudgetHistoryTests.test_history_at_date_and_before_first_record",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_history.BudgetHistoryTests.test_history_export_actions_are_attached_to_their_sections",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_history.BudgetHistoryTests.test_history_rolls_back_with_budget_transaction",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_history.BudgetHistoryTests.test_monitor_filters_and_permissions",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_history.BudgetHistoryTests.test_version_history_is_fixed_and_only_date_remains_selectable",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_permissions.BudgetPermissionTests.test_budget_balance_reading_does_not_require_purchase_financial_access",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_permissions.BudgetPermissionTests.test_budget_navigation_follows_actual_permissions_including_roles",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_permissions.BudgetPermissionTests.test_budget_permissions_have_one_namespace_and_french_labels",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_permissions.BudgetPermissionTests.test_detailed_product_grants_move_to_purchases_without_duplicate_or_data_loss",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_permissions.BudgetPermissionTests.test_permission_choices_are_in_french_for_role_and_user",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_permissions.BudgetPermissionTests.test_purchase_reader_cannot_access_budget_navigation_or_urls",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_permissions.BudgetPermissionTests.test_section_menus_follow_categories_and_survive_last_permission_removal",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_permissions.BudgetPermissionTests.test_transfer_preserves_individual_group_role_and_legacy_grants",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_supports.SupportConfigurationTests.test_shared_manager_configuration_edits_support_not_funding",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_supports.SupportConfigurationTests.test_support_managers_are_independent_from_funding_and_membership",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_supports.SupportConfigurationTests.test_user_fiche_records_multiple_supports_without_manager_rights",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfer_batch_returns.BatchReturnTests.test_completed_batch_cannot_be_refused_but_can_be_cancelled_with_permission",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfer_batch_returns.BatchReturnTests.test_correction_cannot_exceed_budget_or_be_submitted_by_someone_else",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfer_batch_returns.BatchReturnTests.test_failed_reversal_rolls_back_the_entire_global_action",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfer_batch_returns.BatchReturnTests.test_global_cancellation_is_permanent_and_has_no_more_actions",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfer_batch_returns.BatchReturnTests.test_global_close_requires_permission_reason_and_fresh_snapshot",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfer_batch_returns.BatchReturnTests.test_global_refusal_returns_every_line_and_notifies_requester",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfer_batch_returns.BatchReturnTests.test_requester_can_correct_and_resubmit_without_losing_previous_decisions",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_approval_after_version_lock_is_refused_and_rejection_remains_possible",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_budget_selection_isolates_transfers_by_version",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_budget_table_includes_destination_without_allocation",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_cancel_and_owner_permissions",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_common_destination_budget_failure_rolls_back_every_source",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_common_destination_ignores_deleted_and_blank_sources",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_configured_automatic_rule_cannot_bypass_fixed_http_validation",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_direct_submission_failure_preserves_form_without_creating_a_draft",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_existing_transfer_cannot_switch_version",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_fixed_steps_without_any_configuration",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_inbox_and_detail_authorization",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_insufficient_budget_rolls_back_all_steps",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_locked_and_deleted_versions_cannot_receive_transfers",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_missing_manager_waits_then_follows_current_assignments",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_multiple_sources_feed_common_destination_with_individual_approvals",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_pending_transfer_prevents_purchase_overspend",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_rejection_releases_reservation_and_requires_reason",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_reservation_then_balanced_posting_and_double_decision",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_same_manager_requires_two_successive_decisions",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_selected_version_determines_year_without_configuration",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_table_header_has_no_common_support_and_rejects_unknown_row_support",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_table_ignores_removed_and_empty_rows",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_table_requires_at_least_one_valid_row",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_table_rolls_back_all_rows_when_combined_budget_is_insufficient",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_table_stores_distinct_supports_per_side_and_per_row",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_table_submits_each_row_with_its_own_validation",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_transfer_survives_budget_version_replacement",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_transfer_without_source_or_destination_support_can_be_submitted",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_version_history_enforces_owner_scope",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_version_history_isolated_from_other_versions",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferTests.test_version_with_transfers_cannot_be_deleted",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferVisibilityTests.test_admin_can_approve_entire_remaining_workflow",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferVisibilityTests.test_batch_approval_is_forbidden_for_regular_manager",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferVisibilityTests.test_batch_approval_rejects_stale_snapshot_and_terminal_lines",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferVisibilityTests.test_batch_approval_rolls_back_all_lines_if_later_line_is_invalid",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferVisibilityTests.test_creation_page_only_contains_creation_form",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferVisibilityTests.test_filter_by_global_transfer_number",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferVisibilityTests.test_full_workflow_preserves_previous_validator",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferVisibilityTests.test_full_workflow_requires_global_permission_and_checks_revision_and_lock",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferVisibilityTests.test_global_batch_approval_validates_all_lines_and_workflows",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferVisibilityTests.test_global_decision_permission_works_outside_managed_cdf",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferVisibilityTests.test_global_permission_does_not_assign_personal_notifications",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferVisibilityTests.test_global_status_handles_rejected_and_cancelled_lines",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferVisibilityTests.test_global_status_is_accomplished_only_after_all_lines_are_approved",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferVisibilityTests.test_global_validator_can_reject_unassigned_step",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferVisibilityTests.test_group_totals_only_include_visible_and_filtered_lines",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferVisibilityTests.test_multiple_lines_share_a_group_and_separate_submissions_do_not",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferVisibilityTests.test_read_only_user_is_directed_to_transfer_list",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferVisibilityTests.test_requester_cannot_decide_from_timeline",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferVisibilityTests.test_reviewer_sees_only_current_validation_and_separate_timeline",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferVisibilityTests.test_staff_status_alone_does_not_allow_global_decision",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferVisibilityTests.test_unassigned_step_does_not_notify_global_validator",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "budgeting.test_transfers.TransferVisibilityTests.test_unrelated_user_cannot_read_timeline_or_listed_transfer",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "config.test_excel.ExcelExportTests.test_budget_export_contains_only_the_selected_version",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "config.test_excel.ExcelExportTests.test_budget_product_export_follows_search",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "config.test_excel.ExcelExportTests.test_exports_are_valid_workbooks_and_preserve_number_types",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "config.test_excel.ExcelExportTests.test_exports_enforce_view_permissions_and_monitor_has_no_financial_columns",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "config.test_excel.ExcelExportTests.test_history_exports_are_scoped_to_their_sections",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "config.test_excel.ExcelExportTests.test_history_exports_the_selected_past_state",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "config.test_excel.ExcelExportTests.test_purchase_and_transfer_exports_do_not_expose_other_owners",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "config.test_excel.ExcelExportTests.test_transfer_filters_export_all_matching_pages",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "config.test_excel.ExcelExportTests.test_warehouse_text_cannot_become_a_formula",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_admin_decisions.AdminDecisionTests.test_actions_are_on_lines_and_da_but_not_timeline",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_admin_decisions.AdminDecisionTests.test_admin_can_approve_all_lines",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_admin_decisions.AdminDecisionTests.test_admin_can_validate_unassigned_step_with_audit",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_admin_decisions.AdminDecisionTests.test_admin_correction_requires_reason_and_releases_budget",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_admin_decisions.AdminDecisionTests.test_admin_rejection_is_terminal",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_admin_decisions.AdminDecisionTests.test_permission_allows_non_superuser_and_actions_on_timeline",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_admin_decisions.AdminDecisionTests.test_regular_validator_cannot_approve_all",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_admin_decisions.AdminDecisionTests.test_stale_revision_cannot_validate",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_allocation_excel.AllocationExcelTests.test_async_errors_are_returned_to_the_import_page_without_changes",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_allocation_excel.AllocationExcelTests.test_async_import_reports_success_without_redirecting_to_large_form",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_allocation_excel.AllocationExcelTests.test_current_export_can_be_imported_and_wrong_year_or_version_is_rejected",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_allocation_excel.AllocationExcelTests.test_duplicate_combination_empty_file_invalid_headers_and_invalid_workbook",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_allocation_excel.AllocationExcelTests.test_import_creates_updates_preserves_other_allocations_and_is_not_additive",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_allocation_excel.AllocationExcelTests.test_import_rolls_back_previous_rows_when_a_save_fails",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_allocation_excel.AllocationExcelTests.test_invalid_rows_abort_entire_file_with_row_numbers",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_allocation_excel.AllocationExcelTests.test_permissions_and_published_version_rules_match_manual_editing",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_allocation_excel.AllocationExcelTests.test_template_can_be_downloaded_from_allocation_versions_page",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_allocation_excel.AllocationExcelTests.test_template_contains_current_allocations_and_reference_codes",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_allocation_search.AllocationSearchTests.test_complete_selects_remain_available_without_javascript",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_allocation_search.AllocationSearchTests.test_filtered_edits_and_deletions_preserve_other_allocations",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_allocation_search.AllocationSearchTests.test_filtered_export_includes_all_matching_pages",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_allocation_search.AllocationSearchTests.test_large_reference_list_is_sent_once_and_response_stays_small",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_allocation_search.AllocationSearchTests.test_lightweight_selects_still_allow_changing_to_another_valid_product",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_allocation_search.AllocationSearchTests.test_pagination_limits_edit_forms_and_totals_cover_all_pages",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_allocation_search.AllocationSearchTests.test_published_read_only_allocations_have_the_same_search_and_totals",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_allocation_search.AllocationSearchTests.test_search_by_product_code_or_label_returns_filtered_total_and_full_total",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_budget_workspace.BudgetWorkspaceTests.test_access_control",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_budget_workspace.BudgetWorkspaceTests.test_admin_unlocks_edits_and_relocks_published_allocations",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_budget_workspace.BudgetWorkspaceTests.test_allocation_input_displays_two_decimals_without_changing_stored_precision",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_budget_workspace.BudgetWorkspaceTests.test_budget_manager_cannot_create_requests_without_permission",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_budget_workspace.BudgetWorkspaceTests.test_budget_product_search_matches_code_or_label",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_budget_workspace.BudgetWorkspaceTests.test_create_fill_publish_and_replace",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_budget_workspace.BudgetWorkspaceTests.test_delete_draft_preserves_history_and_requires_confirmation",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_budget_workspace.BudgetWorkspaceTests.test_delete_empty_draft_and_refuse_published_or_locked_versions",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_budget_workspace.BudgetWorkspaceTests.test_deleted_row_can_be_saved_with_only_its_hidden_fields",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_budget_workspace.BudgetWorkspaceTests.test_draft_unlock_and_deleted_version_refusal",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_budget_workspace.BudgetWorkspaceTests.test_empty_version_is_saved_and_can_be_reopened",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_budget_workspace.BudgetWorkspaceTests.test_invalid_duplicate_negative_and_empty_publication",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_budget_workspace.BudgetWorkspaceTests.test_live_product_search_returns_only_results_and_filtered_export_link",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_budget_workspace.BudgetWorkspaceTests.test_locked_version_rejects_allocation_and_version_writes",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_budget_workspace.BudgetWorkspaceTests.test_only_superuser_can_lock_an_empty_version",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_budget_workspace.BudgetWorkspaceTests.test_product_permission_grant_group_and_revocation",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_budget_workspace.BudgetWorkspaceTests.test_sections_and_detailed_product_permissions",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_budget_workspace.BudgetWorkspaceTests.test_version_name_is_unique_within_the_year",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_configuration.ConfigurationGroupingTests.test_django_admin_groups_workflow_models_and_application_links",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_configuration.ConfigurationGroupingTests.test_django_admin_workflow_group_preserves_permissions",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_configuration.ConfigurationGroupingTests.test_nonstaff_manager_only_sees_authorized_application_links",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_configuration.ConfigurationGroupingTests.test_workflow_settings_are_grouped_with_direct_links",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_admin_budget_edit_preserves_reservations_and_live_order_flow",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_admin_can_clone_and_publish_budget",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_all_requests_grant_revoke_and_read_only",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_browser_submit_approve_and_role_pages",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_budget_check_displays_locked_version_as_locked",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_budget_check_excludes_deleted_versions_and_refuses_direct_selection",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_budget_check_requires_login_and_button_is_visible",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_budget_check_standard_user_sees_live_balance",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_budget_check_uses_selected_draft_or_replaced_version",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_budget_check_validation_and_missing_allocation",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_budget_table_refuses_deleted_or_invalid_selection",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_budget_table_selects_one_version_and_keeps_annual_reservations",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_configuration_and_budget_published_rows_cannot_be_changed",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_decision_requires_post_csrf_and_fresh_revision",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_delegation_chains_and_overlaps_are_rejected",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_demo_seed_is_repeatable_and_preserves_password_and_draft",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_demo_seed_refuses_usual_database",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_document_uses_immutable_supplier_and_line_snapshot",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_entity_managers_validate_without_roles_or_authorizations",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_global_badge_uses_current_manager_and_delegation",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_global_delegation_uses_principal_authorization_and_real_actor",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_global_personal_icons_and_pending_badge",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_mail_failure_does_not_undo_submission",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_manager_configuration_screen_permissions_and_save",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_missing_manager_and_replacement_refresh_candidates",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_no_eligible_approver_reserves_and_can_be_reassigned",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_notification_delivery_and_obsolete_suppression",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_one_missing_combination_rolls_back_other_lines",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_operational_monitor_does_not_leak_financial_payload",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_personal_pages_are_global_and_do_not_select_purchases",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_reassignment_requires_permission_reason_and_scope",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_rejection_is_terminal_and_no_reservation_remains",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_requester_can_cancel_submitted_without_order",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_t001_t004_complete_flow_preserves_budget_and_creates_one_order",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_t002_combination_aggregate_shortage_rolls_back_all",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_t003_correction_releases_every_line_and_preserves_history",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_t008_new_deficit_blocks_new_reservation_allows_existing_conversion",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_flow.PurchaseFlowTests.test_users_without_grant_cannot_approve",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_request_numbers.PurchaseRequestNumberTests.test_legacy_reference_is_preserved",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_request_numbers.PurchaseRequestNumberTests.test_numbers_are_not_reused_after_deletion",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_request_numbers.PurchaseRequestNumberTests.test_numbers_increment_and_restart_each_year",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_request_numbers.PurchaseRequestNumberTests.test_unsaved_instance_does_not_consume_number",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_rules.FixedValidationTests.test_any_active_manager_of_the_line_cdf_can_validate",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_rules.FixedValidationTests.test_each_line_goes_only_to_its_cdf_manager_and_all_must_approve",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_rules.FixedValidationTests.test_editor_and_admin_configuration_are_retired",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_rules.FixedValidationTests.test_missing_manager_blocks_its_line_without_blocking_others",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_rules.FixedValidationTests.test_old_automatic_configuration_is_ignored_for_new_submissions",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_rules.FixedValidationTests.test_old_recorded_steps_are_not_rewritten",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_rules.FixedValidationTests.test_rejection_of_one_line_releases_the_whole_request",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_rules.FixedValidationTests.test_request_page_explains_line_validation_without_rule_editor",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_rules.FixedValidationTests.test_revoked_or_inactive_manager_cannot_validate",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_rules.FixedValidationTests.test_same_cdf_still_requires_one_decision_per_line",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_rules.FixedValidationTests.test_steps_follow_order_within_each_line",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_rules.FixedValidationTests.test_support_is_not_required_and_does_not_add_validation",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_ui_actions.SharedActionNavigationTests.test_nonfinancial_reviewer_returns_to_its_inbox",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_ui_actions.SharedActionNavigationTests.test_order_can_be_loaded_for_direct_print_with_access_controls",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_ui_actions.SharedActionNavigationTests.test_purchase_has_accessible_icons_and_actions_below_content",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_ui_actions.SharedActionNavigationTests.test_submit_returns_destination_after_success",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_ui_actions.SharedActionNavigationTests.test_submit_returns_error_for_popup_without_changing_request",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_validation_schemes.ValidationSchemesTests.test_admin_can_read_both_fixed_schemes_in_configuration",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_validation_schemes.ValidationSchemesTests.test_non_admin_cannot_read_even_with_configuration_permissions",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_validation_schemes.ValidationSchemesTests.test_requires_login",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_validation_schemes.ValidationSchemesTests.test_scheme_link_is_only_in_admin_configuration",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.tests.PurchaseDraftTests.test_ach001_exact_amounts_without_rounding",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.tests.PurchaseDraftTests.test_ach003_ach005_terminal_and_submitted_requests_are_not_editable",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.tests.PurchaseDraftTests.test_ach004_draft_cancellation_is_idempotent_and_audited",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.tests.PurchaseDraftTests.test_ach005_only_requester_can_edit",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.tests.PurchaseDraftTests.test_authentication_and_csrf_required",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.tests.PurchaseDraftTests.test_edit_post_cannot_change_owner_or_status",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.tests.PurchaseDraftTests.test_explicit_zero_vat_is_allowed",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.tests.PurchaseDraftTests.test_inactive_requester_is_denied",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.tests.PurchaseDraftTests.test_interface_line_creation_edit_and_cancellation",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.tests.PurchaseDraftTests.test_line_edit_and_delete_are_audited",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.tests.PurchaseDraftTests.test_numbers_are_generated_and_unique",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.tests.PurchaseDraftTests.test_pages_are_private_even_when_ids_are_known",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.tests.PurchaseDraftTests.test_stale_revision_is_rejected_without_side_effects",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.tests.PurchaseDraftTests.test_validation_and_audit_rollback",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "receiving.test_purchase_receipts.PurchaseReceiptTests.test_cannot_receive_more_than_ordered_and_does_not_write_anything",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "receiving.test_purchase_receipts.PurchaseReceiptTests.test_idempotency_and_conflicting_replay",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "receiving.test_purchase_receipts.PurchaseReceiptTests.test_immutable_receipt_and_receipt_line",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "receiving.test_purchase_receipts.PurchaseReceiptTests.test_partial_then_complete_receipt_updates_stock_and_purchase_progress",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "receiving.test_purchase_receipts.PurchaseReceiptTests.test_permission_state_foreign_lines_zero_and_negative_quantities",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "receiving.test_purchase_receipts.PurchaseReceiptTests.test_receipt_is_atomic_if_a_stock_write_fails",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "receiving.test_purchase_receipts.PurchaseReceiptTests.test_requester_sees_received_quantities_and_receipt_history",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "receiving.test_purchase_receipts.PurchaseReceiptTests.test_stock_operations_without_receipt_do_not_change_purchase_fulfilment",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "receiving.test_purchase_receipts.PurchaseReceiptTests.test_stock_user_can_receive_without_financial_permissions",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "receiving.test_stock.StockTests.test_http_movement_form_round_trip",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "receiving.test_stock.StockTests.test_idempotency_and_conflicting_replay",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "receiving.test_stock.StockTests.test_insufficient_transfer_is_atomic",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "receiving.test_stock.StockTests.test_invalid_quantities_or_depot_pairs_leave_no_writes",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "receiving.test_stock.StockTests.test_permissions_and_movement_immutability",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "receiving.test_stock.StockTests.test_receipt_issue_transfer_inventory_and_history",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "receiving.test_stock.StockTests.test_warehouse_only_permissions_expose_stock_section",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "receiving.test_stock.StockTests.test_warehouse_read_only_and_write_permissions",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "receiving.test_stock.StockTests.test_warehouse_tab_creation_and_configuration",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "suppliers.tests.SupplierManagementTests.test_create_edit_search_and_unique_code",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "suppliers.tests.SupplierManagementTests.test_permissions_are_checked_on_each_action",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "workflow.test_activity.IndependentHistoryTests.test_admin_deletes_requester_and_approvers_without_losing_order_or_log",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "workflow.test_activity.IndependentHistoryTests.test_deleted_manager_can_be_replaced_and_notifications_become_obsolete",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "workflow.test_activity.IndependentHistoryTests.test_deleted_named_approver_never_broadens_rule",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "workflow.test_activity.IndependentHistoryTests.test_deleted_publisher_and_pending_candidate_can_be_removed",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "workflow.test_activity.IndependentHistoryTests.test_deleted_requester_does_not_break_pending_workflow",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "workflow.test_activity.IndependentHistoryTests.test_failed_transaction_does_not_leave_phantom_log",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "workflow.test_activity.IndependentHistoryTests.test_journal_is_read_only_and_no_secrets_are_logged",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "workflow.test_activity.IndependentHistoryTests.test_user_deletion_requires_superuser_even_with_standard_permission",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "accounts.test_postgresql.PostgreSQLAuthorizationTests.test_queryset_cannot_rewrite_version",
+      "status": "Ignoré",
+      "reason": "Requires PostgreSQL immutable-history trigger"
+    },
+    {
+      "test": "budgeting.test_postgresql.PostgreSQLManagerTests.test_database_rejects_overlap_even_without_service",
+      "status": "Ignoré",
+      "reason": "Requires PostgreSQL locks and exclusion constraint"
+    },
+    {
+      "test": "budgeting.test_transfers_postgresql.ConcurrentTransferTests.test_concurrent_transfers_cannot_overdraw_source",
+      "status": "Ignoré",
+      "reason": "Nécessite les verrous PostgreSQL"
+    },
+    {
+      "test": "purchasing.test_flow_postgresql.PostgreSQLPurchaseFlowTests.test_activation_and_reservation_share_annual_lock",
+      "status": "Ignoré",
+      "reason": "Requires PostgreSQL transaction locks"
+    },
+    {
+      "test": "purchasing.test_flow_postgresql.PostgreSQLPurchaseFlowTests.test_published_allocation_sql_writes_follow_admin_edit_state",
+      "status": "Ignoré",
+      "reason": "Requires PostgreSQL transaction locks"
+    },
+    {
+      "test": "purchasing.test_flow_postgresql.PostgreSQLPurchaseFlowTests.test_same_request_double_submission_does_not_duplicate_ledger",
+      "status": "Ignoré",
+      "reason": "Requires PostgreSQL transaction locks"
+    },
+    {
+      "test": "purchasing.test_flow_postgresql.PostgreSQLPurchaseFlowTests.test_sql_guards_protect_published_configuration_and_history",
+      "status": "Ignoré",
+      "reason": "Requires PostgreSQL transaction locks"
+    },
+    {
+      "test": "purchasing.test_flow_postgresql.PostgreSQLPurchaseFlowTests.test_t001_t002_concurrent_reservations_do_not_overspend",
+      "status": "Ignoré",
+      "reason": "Requires PostgreSQL transaction locks"
+    },
+    {
+      "test": "purchasing.test_flow_postgresql.PostgreSQLPurchaseFlowTests.test_t005_simultaneous_manager_approval_creates_one_order",
+      "status": "Ignoré",
+      "reason": "Requires PostgreSQL transaction locks"
+    },
+    {
+      "test": "purchasing.test_numeric_units.AmountDisplayUnitTests.test_grouping_and_decimal_separator",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_numeric_units.AmountDisplayUnitTests.test_negative_value_is_formatted",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_numeric_units.AmountDisplayUnitTests.test_rounds_display_without_changing_decimal_value",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_numeric_units.AmountDisplayUnitTests.test_zero_is_not_lost",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_numeric_units.ImportNormalizationUnitTests.test_code_preserves_leading_zeroes_in_text",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_numeric_units.ImportNormalizationUnitTests.test_code_rejects_boolean_as_reference",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_numeric_units.ImportNormalizationUnitTests.test_header_handles_missing_value",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_numeric_units.ImportNormalizationUnitTests.test_header_normalizes_accents_spacing_and_case",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "purchasing.test_numeric_units.ImportNormalizationUnitTests.test_numeric_code_converts_integral_float_without_suffix",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "receiving.test_progress_unit.ReceiptProgressUnitTests.test_exact_receipt_is_complete",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "receiving.test_progress_unit.ReceiptProgressUnitTests.test_no_receipt_is_distinct_from_completion",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "receiving.test_progress_unit.ReceiptProgressUnitTests.test_partial_receipt_is_identified",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "receiving.test_progress_unit.ReceiptProgressUnitTests.test_zero_order_does_not_appear_complete",
+      "status": "OK",
+      "reason": ""
+    },
+    {
+      "test": "receiving.test_stock_postgresql.ConcurrentStockTests.test_concurrent_issues_cannot_overdraw_stock",
+      "status": "Ignoré",
+      "reason": "Nécessite les verrous PostgreSQL"
+    }
+  ]
+}

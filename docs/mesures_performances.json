@@ -1,0 +1,119 @@
+{
+  "measured_at": "2026-11-14T22:21:36.734128+00:00",
+  "python": "3.12.10",
+  "django": "5.2.15",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "database": "SQLite in memory",
+  "protocol": "Django test client, one warmup, tracemalloc and SQL capture enabled; no network or browser",
+  "limitations": "No production throughput, PostgreSQL lock, disk I/O, concurrent user, browser or p95 measurement",
+  "results": [
+    {
+      "scenario": "allocation_version_page",
+      "volume": 10,
+      "repetitions": 3,
+      "median_ms": 196.08,
+      "min_ms": 195.6,
+      "max_ms": 198.95,
+      "sql_min": 23,
+      "sql_max": 23,
+      "response_bytes": 29227,
+      "python_peak_bytes": 2059972
+    },
+    {
+      "scenario": "budget_balances_page",
+      "volume": 10,
+      "repetitions": 3,
+      "median_ms": 186.38,
+      "min_ms": 184.75,
+      "max_ms": 186.64,
+      "sql_min": 111,
+      "sql_max": 111,
+      "response_bytes": 9993,
+      "python_peak_bytes": 615502
+    },
+    {
+      "scenario": "allocation_version_page",
+      "volume": 100,
+      "repetitions": 3,
+      "median_ms": 380.9,
+      "min_ms": 372.1,
+      "max_ms": 407.73,
+      "sql_min": 23,
+      "sql_max": 23,
+      "response_bytes": 49894,
+      "python_peak_bytes": 3901558
+    },
+    {
+      "scenario": "budget_balances_page",
+      "volume": 100,
+      "repetitions": 3,
+      "median_ms": 1489.21,
+      "min_ms": 1482.51,
+      "max_ms": 1495.73,
+      "sql_min": 921,
+      "sql_max": 921,
+      "response_bytes": 24213,
+      "python_peak_bytes": 1521390
+    },
+    {
+      "scenario": "allocation_version_page",
+      "volume": 1000,
+      "repetitions": 3,
+      "median_ms": 412.49,
+      "min_ms": 409.62,
+      "max_ms": 437.21,
+      "sql_min": 23,
+      "sql_max": 23,
+      "response_bytes": 89499,
+      "python_peak_bytes": 4276402
+    },
+    {
+      "scenario": "budget_balances_page",
+      "volume": 1000,
+      "repetitions": 3,
+      "median_ms": 15219.1,
+      "min_ms": 14872.47,
+      "max_ms": 15476.48,
+      "sql_min": 9021,
+      "sql_max": 9021,
+      "response_bytes": 167313,
+      "python_peak_bytes": 11130313
+    },
+    {
+      "scenario": "purchase_detail_page",
+      "volume": 1,
+      "repetitions": 3,
+      "median_ms": 58.44,
+      "min_ms": 57.87,
+      "max_ms": 59.11,
+      "sql_min": 26,
+      "sql_max": 26,
+      "response_bytes": 13110,
+      "python_peak_bytes": 480581
+    },
+    {
+      "scenario": "purchase_detail_page",
+      "volume": 10,
+      "repetitions": 3,
+      "median_ms": 80.04,
+      "min_ms": 79.63,
+      "max_ms": 80.19,
+      "sql_min": 26,
+      "sql_max": 26,
+      "response_bytes": 25568,
+      "python_peak_bytes": 549829
+    },
+    {
+      "scenario": "purchase_detail_page",
+      "volume": 50,
+      "repetitions": 3,
+      "median_ms": 176.39,
+      "min_ms": 175.98,
+      "max_ms": 177.78,
+      "sql_min": 26,
+      "sql_max": 26,
+      "response_bytes": 81049,
+      "python_peak_bytes": 922574
+    }
+  ]
+}

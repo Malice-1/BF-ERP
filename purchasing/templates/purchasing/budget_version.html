@@ -22,6 +22,7 @@
 <div id="allocation-results">{% include 'purchasing/budget_allocations_results.html' %}</div>
 </section>
 <div class="ui-action-bar" role="group" aria-label="Actions de la version budgétaire">
+{% if can_edit_allocations %}<a class="ui-icon" href="{% url 'purchasing:allocation_import' version.pk %}" aria-label="Importer les allocations via Excel" title="Importer les allocations via Excel">{% include 'purchasing/action_icon.html' with icon='import' %}</a>{% endif %}
 <a id="allocation-export" class="ui-icon" href="{% querystring export='xlsx' page=None %}" aria-label="Exporter les allocations en Excel" title="Exporter les allocations en Excel">{% include 'purchasing/action_icon.html' with icon='export' %}</a>
 
 <a class="ui-icon" href="{% url 'purchasing:budget_version_history' version.pk %}" aria-label="Consulter l’historique de cette version" title="Consulter l’historique de cette version">{% include 'purchasing/action_icon.html' with icon='history' %}</a>

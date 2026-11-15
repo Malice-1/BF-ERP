@@ -59,4 +59,4 @@ class Command(BaseCommand):
                     detailed_product=detailed, cost_center=cdf, funding=funding, description=description,
                     quantity=Decimal(quantity), unit_price=Decimal(price), vat_rate=Decimal("21"))
         self.stdout.write(self.style.SUCCESS("Jeu de recette prêt. Comptes : demo.demandeur, demo.cdf, demo.finance, demo.admin, demo.suivi, demo.budget."))
-        self.stdout.write("Les nouveaux comptes utilisent --password (défaut documenté dans docs/RECETTE_ACHATS.md). Les mots de passe existants sont conservés.")
+        self.stdout.write("Les nouveaux comptes utilisent --password (voir --help et docs/PLAN_TESTS.md). Les mots de passe existants sont conservés.")
