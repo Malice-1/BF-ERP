@@ -1,0 +1,7 @@
+{% extends 'purchasing/base.html' %}
+{% load static %}
+{% block extra_styles %}<link rel="stylesheet" href="{% static 'sales/sales.css' %}">{% endblock %}
+{% block content %}
+{% for message in messages %}<p role="status" class="sales-message {{ message.tags }}">{{ message }}</p>{% endfor %}
+{% block sales_content %}{% endblock %}
+{% endblock %}

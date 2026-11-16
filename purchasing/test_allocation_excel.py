@@ -14,7 +14,7 @@ from budgeting.models import BudgetProduct
 from workflow.models import ConfigurationAuditEvent
 from . import test_budget_workspace as fixtures
 from .allocation_excel import HEADERS
-from .flow import activate_envelope, unlock_envelope
+from .flow import activate_envelope, unlock_envelope, lock_envelope
 from .models import Allocation, EnvelopeVersion
 
 
@@ -157,7 +157,7 @@ class AllocationExcelTests(TestCase):
         self.client.force_login(admin)
         self.assertEqual(self.client.post(url, {"file": self.upload([["BI", "CDF", "F", 20]])}).status_code, 302)
         self.assertEqual(version.allocations.get().amount, 20)
-        EnvelopeVersion.objects.filter(pk=version.pk).update(locked_at=timezone.now())
+        lock_envelope(actor=admin, version_id=version.pk)
         self.assertContains(self.client.post(url, {"file": self.upload([["BI", "CDF", "F", 30]])}), "Import impossible")
         outsider = get_user_model().objects.create_user("excel-outsider")
         self.client.force_login(outsider)

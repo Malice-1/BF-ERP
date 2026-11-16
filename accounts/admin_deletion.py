@@ -18,6 +18,8 @@ def deletion_plan(queryset):
         model, keys = queue.popleft()
         if model._meta.label_lower == "workflow.activitylog":
             raise PermissionDenied("Le journal des actions ne peut pas être supprimé.")
+        if model._meta.app_label == "accounting":
+            raise PermissionDenied("Les données comptables doivent être conservées. Utilisez les opérations de désactivation ou de contrepassation.")
         fresh = keys - planned[model]
         if not fresh:
             continue
@@ -30,6 +32,8 @@ def deletion_plan(queryset):
                 **{field.attname + "__in": fresh}).values_list("pk", flat=True))
             if not ids:
                 continue
+            if child._meta.app_label == "accounting" and field.name not in {"actor", "created_by", "posted_by", "approved_by", "reviewed_by"}:
+                raise PermissionDenied("Cette référence est utilisée par la comptabilité et ne peut pas être supprimée ou détachée.")
             if field.null and field.remote_field.on_delete is not models.CASCADE:
                 detached[(child, field.attname)].update(ids)
             else:

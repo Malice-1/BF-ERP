@@ -4,6 +4,7 @@ from .forms import LoginForm
 
 
 class ERPLoginView(LoginView):
+    redirect_authenticated_user = True
     max_error_growth_steps = 10
     template_name = "purchasing/login.html"
     authentication_form = LoginForm

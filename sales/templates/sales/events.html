@@ -1,0 +1,1 @@
+<h2>Historique</h2><ol class="sales-history">{% for event in events %}<li>{{ event.created_at|date:'d/m/Y H:i' }} — {{ event.action }} — {{ event.actor_name }}{% if event.details %}<details><summary>Détails</summary><pre>{{ event.details }}</pre></details>{% endif %}</li>{% empty %}<li>Aucun événement.</li>{% endfor %}</ol>

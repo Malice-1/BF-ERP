@@ -14,13 +14,13 @@ class ConfigurationGroupingTests(TestCase):
         html = response.content.decode()
         group = html.split('class="app-workflow-settings module', 1)[1].split('</table>', 1)[0]
         for name in ("admin:accounts_role_changelist", "admin:budgeting_support_changelist",
-                     "admin:budgeting_costcenter_changelist", "entity_managers"):
+                     "admin:budgeting_costcenter_changelist"):
             self.assertIn(reverse(name), group)
         self.assertNotIn('id="workflow-settings-validationfunction"', html)
         self.assertNotIn(reverse("authorizations"), group)
         response = self.client.get(reverse("admin:accounts_user_changelist"))
         self.assertContains(response, "Responsables et validations")
-        self.assertContains(response, reverse("entity_managers"))
+        self.assertNotContains(response, f'href="{reverse("entity_managers")}"')
 
     def test_django_admin_workflow_group_preserves_permissions(self):
         user = get_user_model().objects.create_user("django_roles_reader", is_staff=True)
@@ -42,7 +42,6 @@ class ConfigurationGroupingTests(TestCase):
             reverse("admin:accounts_role_changelist"),
             reverse("admin:budgeting_costcenter_changelist"),
             reverse("admin:budgeting_support_changelist"),
-            reverse("entity_managers"),
         })
         self.assertContains(response, 'id="workflow-settings"')
 
@@ -52,5 +51,5 @@ class ConfigurationGroupingTests(TestCase):
         self.client.force_login(user)
         response = self.client.get(reverse("purchasing:configuration"))
         links = [link["url"] for group in response.context["configuration_groups"] for link in group["links"]]
-        self.assertEqual(links, [reverse("entity_managers")])
+        self.assertEqual(links, [])
         self.assertNotContains(response, "/admin/accounts/validationfunction/")

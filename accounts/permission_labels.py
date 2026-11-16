@@ -2,6 +2,7 @@ from django.apps import apps
 
 
 APP_LABELS = {
+    "sales": "Ventes",
     "accounts": "Comptes et accès", "budgeting": "Budgets", "purchasing": "Achats",
     "suppliers": "Fournisseurs", "workflow": "Historique et suivi",
     "auth": "Authentification", "admin": "Administration", "sessions": "Sessions",
@@ -9,6 +10,11 @@ APP_LABELS = {
     "contenttypes": "Types de données",
 }
 MODEL_LABELS = {
+    "supplierinvoice": "facture fournisseur XML",
+    "accountingprofile": "cadre comptable", "account": "compte général", "fiscalyear": "exercice comptable",
+    "accountingperiod": "période comptable", "journal": "journal comptable", "journalentry": "écriture comptable",
+    "customer": "client", "trainingservice": "formation", "salesorder": "commande de vente",
+    "salesinvoice": "facture de vente", "issuerconfiguration": "paramètres de l’émetteur",
     "transferconfiguration": "ancienne configuration des transferts",
     "budgettransfer": "transfert budgétaire", "transferstep": "étape de transfert",
     "warehouse": "dépôt", "stockbalance": "stock", "stockmovement": "mouvement de stock",

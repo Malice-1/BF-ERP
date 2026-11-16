@@ -9,4 +9,5 @@ DATABASES = {"default": {
     "PASSWORD": os.getenv("TEST_PG_PASSWORD", ""),
     "HOST": os.getenv("TEST_PG_HOST", "127.0.0.1"),
     "PORT": os.getenv("TEST_PG_PORT", "55432"),
+    "OPTIONS": {"connect_timeout": 5},
 }}

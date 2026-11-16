@@ -1,0 +1,2 @@
+{% extends 'accounting/base.html' %}{% load static %}{% block ledger_content %}<h1>{{ title }}</h1>{% if intro %}<p>{{ intro }}</p>{% endif %}{% if chart_template %}<p><a href="{% static 'accounting/plan_modele.csv' %}" download="plan_public.csv">Télécharger le modèle CSV vierge</a></p>{% endif %}
+<form method="post" enctype="multipart/form-data" class="ledger-form">{% csrf_token %}{{ form.as_p }}<button>Enregistrer</button> <a href="{% url 'accounting:home' %}">Retour</a></form>{% endblock %}

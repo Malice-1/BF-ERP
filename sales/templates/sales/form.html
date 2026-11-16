@@ -1,0 +1,5 @@
+{% extends 'sales/base.html' %}
+{% block sales_content %}
+<h1>{{ title }}</h1>
+<form method="post" class="sales-form">{% csrf_token %}{{ form.as_p }}<button type="submit">Enregistrer</button> <a href="{% url 'sales:home' %}">Retour aux ventes</a></form>
+{% endblock %}

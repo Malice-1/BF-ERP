@@ -1,0 +1,12 @@
+{% extends 'sales/base.html' %}
+{% block sales_content %}<h1>{{ order.number }}</h1><p>{{ order.customer }} — {{ order.order_date|date:'d/m/Y' }} — <strong>{{ order.get_status_display }}</strong></p>
+<p>Référence client : {{ order.customer_reference|default:'—' }}</p>
+{% include 'sales/lines.html' %}<p class="sales-totals">HT : {{ order.subtotal|floatformat:2 }} — TVA : {{ order.tax_total|floatformat:2 }} — <strong>TTC : {{ order.total|floatformat:2 }} {{ order.currency }}</strong></p>
+{% if order.notes %}<h2>Notes internes</h2><p>{{ order.notes|linebreaksbr }}</p>{% endif %}
+<div class="sales-actions">{% if order.status == 'DRAFT' %}
+{% if perms.sales.change_salesorder %}<a class="button" href="{% url 'sales:order_edit' order.pk %}">Modifier le brouillon</a>{% endif %}
+{% if perms.sales.confirm_salesorder %}<form method="post" action="{% url 'sales:order_action' order.pk 'confirm' %}">{% csrf_token %}{{ revision_form }}<button>Confirmer la commande</button></form>{% endif %}{% endif %}
+{% if order.status == 'DRAFT' or order.status == 'CONFIRMED' %}{% if perms.sales.cancel_salesorder %}<form method="post" action="{% url 'sales:order_action' order.pk 'cancel' %}">{% csrf_token %}{{ revision_form }}<button class="button-secondary">Annuler la commande</button></form>{% endif %}{% endif %}
+{% if order.status == 'CONFIRMED' and perms.sales.issue_salesinvoice %}<form method="post" action="{% url 'sales:order_action' order.pk 'invoice' %}">{% csrf_token %}{{ revision_form }}<p>Format client : {{ order.customer.get_invoice_format_display|default:'À configurer' }}. L’émission fige les données de facturation.</p><button>Générer la facture complète</button></form>{% endif %}
+{% if order.invoice and perms.sales.view_salesinvoice %}<a class="button" href="{% url 'sales:invoice_detail' order.invoice.pk %}">Consulter {{ order.invoice.number }}</a>{% endif %}</div>
+{% include 'sales/events.html' with events=order.events.all %}{% endblock %}

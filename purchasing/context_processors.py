@@ -5,7 +5,11 @@ from .navigation_permissions import can_access_purchases, can_access_configurati
 
 def navigation(request):
     name = request.resolver_match.url_name if request.resolver_match else ""
-    if name in {"inbox", "delegations", "my_validations", "my_delegations", "decision"}:
+    if request.resolver_match and request.resolver_match.namespace == "accounting":
+        section = "accounting"
+    elif request.resolver_match and request.resolver_match.namespace == "sales":
+        section = "sales"
+    elif name in {"inbox", "delegations", "my_validations", "my_delegations", "decision"}:
         section = "personal"
     elif name in {"allocation_import", "transfer_correct", "version_transfers", "transfer_timeline", "transfer_monitor", "budget_history", "budget_version_history", "transfer_list", "transfer_detail", "budget_home", "budget_versions", "allocation_versions", "budget_version", "budget_products", "budgets"}:
         section = "budget"
@@ -25,7 +29,10 @@ def navigation(request):
         transfer_count += BudgetTransfer.objects.filter(status="returned", created_by=request.user).count()
     from budgeting.transfer_views import can_view_version_transfers, visible_transfers
     can_access_transfers = request.user.is_authenticated and (can_view_version_transfers(request.user) or request.user.has_perm("budgeting.add_budgettransfer") or request.user.managed_cost_centers.exists() or visible_transfers(request.user).exists())
+    from .navigation_permissions import has_category_permission
     return {"nav_section": section, "can_access_transfers": can_access_transfers,
+            "can_access_sales": has_category_permission(request.user, "sales"),
+            "can_access_accounting": has_category_permission(request.user, "accounting"),
             "can_access_stock": any(request.user.has_perm("receiving." + permission) for permission in (
                 "view_warehouse", "add_warehouse", "change_warehouse", "view_stockbalance", "manage_stock", "view_stockmovement")),
             "can_view_stock_movements": any(request.user.has_perm("receiving." + permission) for permission in (

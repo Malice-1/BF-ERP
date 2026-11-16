@@ -1,0 +1,5 @@
+{% extends 'accounting/base.html' %}{% load static %}{% block ledger_content %}<h1>{% if entry.pk %}Modifier le brouillon {{ entry.pk }}{% else %}Nouvelle écriture{% endif %}</h1>
+<form method="post" id="ledger-entry-form" class="ledger-form">{% csrf_token %}{{ form.as_p }}<p>Montants en EUR à deux décimales. Chaque ligne porte un débit ou un crédit. Le brouillon peut être déséquilibré ; sa validation exigera l’équilibre.</p>
+{{ lines.management_form }}{{ lines.non_form_errors }}<div id="ledger-lines">{% for row in lines %}<fieldset class="ledger-line"><legend>Ligne {{ forloop.counter }}</legend>{{ row.as_p }}</fieldset>{% endfor %}</div>
+<template id="ledger-empty-line"><fieldset class="ledger-line"><legend>Nouvelle ligne</legend>{{ lines.empty_form.as_p }}</fieldset></template>
+<p><button type="button" class="button-secondary" id="ledger-add-line">Ajouter une ligne</button></p><p id="ledger-preview" aria-live="polite"></p><button>Enregistrer le brouillon</button></form><script src="{% static 'accounting/ledger.js' %}" defer></script>{% endblock %}

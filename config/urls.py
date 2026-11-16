@@ -11,6 +11,8 @@ from budgeting import transfer_views
 from receiving.views import stock, stock_movements, stock_balances, warehouses, purchase_receipts, purchase_receive
 
 urlpatterns = [
+    path("comptabilite/", include("accounting.urls")),
+    path("ventes/", include("sales.urls")),
     path("stocks/", stock, name="stock"),
     path("stocks/mouvements/", stock_movements, name="stock_movements"),
     path("stocks/receptions/", purchase_receipts, name="purchase_receipts"),

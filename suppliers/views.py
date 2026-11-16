@@ -16,7 +16,12 @@ def supplier_list(request):
     query = request.GET.get("q", "").strip()
     suppliers = Supplier.objects.all()
     if query:
-        suppliers = suppliers.filter(Q(code__icontains=query) | Q(name__icontains=query) | Q(vat_number__icontains=query))
+        from .identifiers import normalize_enterprise_number
+        filters = Q(code__icontains=query) | Q(name__icontains=query) | Q(vat_number__icontains=query)
+        enterprise = normalize_enterprise_number(query)
+        if enterprise:
+            filters |= Q(enterprise_number__icontains=enterprise)
+        suppliers = suppliers.filter(filters)
     return render(request, "suppliers/list.html", {"suppliers": suppliers, "query": query})
 
 

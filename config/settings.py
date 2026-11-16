@@ -36,6 +36,8 @@ INSTALLED_APPS = [
     'budgeting',
     'receiving',
     'workflow',
+    'sales',
+    'accounting',
 ]
 
 MIDDLEWARE = [
@@ -141,3 +143,9 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "erp@localhost")
 ERP_BASE_URL = os.getenv("ERP_BASE_URL", "http://127.0.0.1:8000")
 PURCHASE_EMAIL_MAX_ATTEMPTS = int(os.getenv("PURCHASE_EMAIL_MAX_ATTEMPTS", "5"))
 PURCHASE_EMAIL_RETRY_SECONDS = int(os.getenv("PURCHASE_EMAIL_RETRY_SECONDS", "60"))
+
+# Invoice archives are intentionally separate from publicly served media/static.
+SALES_DOCUMENT_ROOT = BASE_DIR / "private_documents" / "sales"
+SALES_RULES_ROOT = BASE_DIR / "sales" / "validation_rules"
+SUPPLIER_DOCUMENT_ROOT = BASE_DIR / "private_documents" / "supplier_invoices"
+SUPPLIER_XML_MAX_BYTES = 5 * 1024 * 1024

@@ -1,0 +1,3 @@
+{% extends 'purchasing/base.html' %}{% load static %}
+{% block extra_styles %}<link rel="stylesheet" href="{% static 'accounting/ledger.css' %}">{% endblock %}
+{% block content %}{% for message in messages %}<p role="status" class="ledger-message {{ message.tags }}">{{ message }}</p>{% endfor %}{% block ledger_content %}{% endblock %}{% endblock %}

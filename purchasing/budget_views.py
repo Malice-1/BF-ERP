@@ -86,14 +86,11 @@ def configuration(request):
             return {"url": reverse(f"admin:{app}_{name}_changelist"), "label": label, "description": description}
 
     workflow = [
-        admin_link("accounts.role", "Rôles ERP et permissions", "Définir les droits d’accès des utilisateurs."),
+        admin_link("accounts.role", "Rôles et permissions", "Définir les droits d’accès des utilisateurs."),
     ]
-    if request.user.has_perm("budgeting.manage_cost_center_managers"):
-        workflow.append({"url": reverse("entity_managers"), "label": "Responsables des CDF et des supports",
-                         "description": "Choisir les utilisateurs qui valident en tant que responsables."})
     workflow += [
-        admin_link("budgeting.costcenter", "CDF et responsables", "Gérer les CDF et les responsables qui valident les demandes et les transferts."),
-        admin_link("budgeting.support", "Supports et responsables", "Gérer les supports choisis sur les demandes et leurs responsables."),
+        admin_link("budgeting.costcenter", "CDF", "Gérer les CDF et les responsables qui valident les demandes et les transferts."),
+        admin_link("budgeting.support", "Supports", "Gérer les supports choisis sur les demandes et leurs responsables."),
     ]
     access = [admin_link("accounts.user", "Comptes utilisateurs et droits individuels",
                          "Gérer les comptes, attribuer leurs rôles et leurs supports d’appartenance.")]

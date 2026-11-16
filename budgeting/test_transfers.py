@@ -7,7 +7,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 from purchasing.models import AnnualEnvelope, EnvelopeVersion, Allocation, WorkflowVersion, ApprovalRule
-from purchasing.flow import activate_envelope, available
+from purchasing.flow import activate_envelope, available, lock_envelope
 from .models import CostCenter, Funding, BudgetProduct, BudgetTransfer, TransferConfiguration, BudgetHistoryEvent
 from .transfers import act, refresh
 
@@ -570,7 +570,14 @@ class TransferVisibilityTests(TestCase):
             act(pk=transfer.pk, actor=self.reviewer, revision=1, action="approve_all")
         with self.assertRaises(ValidationError):
             act(pk=transfer.pk, actor=self.admin, revision=0, action="approve_all")
-        EnvelopeVersion.objects.filter(pk=self.budget.pk).update(locked_at=timezone.now())
+        # Published versions remain operational when allocation editing closes.
+        # A draft version can be locked completely through the business service.
+        locked_version = EnvelopeVersion.objects.create(envelope=self.envelope, label="Locked workflow test")
+        Allocation.objects.create(version=locked_version, cost_center=self.source,
+            funding=self.funding, budget_product=self.product, amount=100)
+        transfer = self.create_transfer(version=locked_version)
+        transfer = act(pk=transfer.pk, actor=self.owner, revision=0, action="submit")
+        lock_envelope(actor=self.admin, version_id=locked_version.pk)
         with self.assertRaises(ValidationError):
             act(pk=transfer.pk, actor=self.admin, revision=1, action="approve_all")
         self.assertFalse(transfer.steps.filter(state="approved").exists())

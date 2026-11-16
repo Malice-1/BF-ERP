@@ -1,8 +1,6 @@
 {% extends 'purchasing/base.html' %}{% load static %}
 {% block content %}
-<h1>Configuration</h1><p>Gérez les responsables, les accès et les référentiels. Les validations suivent un parcours fixe, sans règles à configurer.</p>
-<p>Transferts : responsable du CDF source, puis responsable du CDF destination.</p>
-<p>Demandes d’achat : chaque ligne est validée par le responsable du CDF de cette ligne.</p>
+<h1>Configuration</h1>
 {% if user.is_superuser %}<p><a href="{% url 'purchasing:validation_schemes' %}">Schémas de validation des DA et des transferts</a></p>{% endif %}
 <div class="configuration-sections">
 {% for group in configuration_groups %}{% if group.links %}

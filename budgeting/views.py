@@ -9,7 +9,7 @@ from django.views.decorators.http import require_http_methods
 @require_http_methods(["GET", "POST"])
 def retired_manager_editor(request, pk=None):
     if request.method == "POST":
-        return HttpResponse("Les affectations datées ne sont plus utilisées. Gérez les responsables depuis Configuration → Responsables des CDF et des supports.", status=410)
+        return HttpResponse("Les affectations datées ne sont plus utilisées. Gérez les responsables depuis Configuration → CDF ou Supports.", status=410)
     return redirect("entity_managers")
 
 

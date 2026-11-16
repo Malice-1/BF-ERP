@@ -1,0 +1,11 @@
+{% extends 'sales/base.html' %}{% load static %}
+{% block sales_content %}<h1>{% if order.pk %}Modifier {{ order.number }}{% else %}Nouvelle commande{% endif %}</h1>
+<form method="post" class="sales-form" id="sales-order-form">{% csrf_token %}{{ form.as_p }}
+<h2>Formations commandées</h2><p>Choisissez une formation du catalogue ou saisissez une description. La remise est un montant HT appliqué à la ligne.</p>
+{{ formset.management_form }}{{ formset.non_form_errors }}
+<div id="sales-lines">{% for line in formset %}<fieldset class="sales-line"><legend>Ligne {{ forloop.counter }}</legend>{{ line.as_p }}<p class="line-preview" aria-live="polite"></p></fieldset>{% endfor %}</div>
+<template id="sales-empty-line"><fieldset class="sales-line"><legend>Nouvelle ligne</legend>{{ formset.empty_form.as_p }}<p class="line-preview" aria-live="polite"></p></fieldset></template>
+<p><button type="button" class="button-secondary" id="sales-add-line">Ajouter une formation</button></p>
+<p id="sales-total-preview" aria-live="polite"></p><p><small>Les montants définitifs sont calculés et vérifiés à l’enregistrement. TVA arrondie par catégorie et taux.</small></p>
+<button type="submit">Enregistrer le brouillon</button> <a href="{% url 'sales:home' %}">Retour</a>
+</form>{{ training_data|json_script:'sales-training-data' }}<script src="{% static 'sales/orders.js' %}" defer></script>{% endblock %}

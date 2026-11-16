@@ -8,6 +8,11 @@ WORKFLOW_MODELS = (
     ("budgeting", "CostCenter"),
     ("budgeting", "Support"),
 )
+WORKFLOW_LABELS = {
+    ("accounts", "Role"): "Rôles et permissions",
+    ("budgeting", "CostCenter"): "CDF",
+    ("budgeting", "Support"): "Supports",
+}
 
 
 @register.simple_tag(takes_context=True)
@@ -21,19 +26,13 @@ def grouped_admin_apps(context, app_list):
             if key in {("accounts", "Authorization"), ("accounts", "AuthorizationVersion")}:
                 historical.append({**model, "name": str(model["name"]) + " (historique)"})
             elif key in WORKFLOW_MODELS:
-                workflow[key] = model.copy()
+                workflow[key] = {**model, "name": WORKFLOW_LABELS[key]}
             else:
                 models.append(model)
         if models:
             remaining.append({**app, "models": models})
     models = [workflow[key] for key in WORKFLOW_MODELS if key in workflow]
     user = context["request"].user
-    for permission, url_name, label, object_name in (
-        ("budgeting.manage_cost_center_managers", "entity_managers", "Responsables des CDF et des supports", "EntityManagers"),
-    ):
-        if user.has_perm(permission):
-            models.append({"name": label, "object_name": object_name,
-                           "admin_url": reverse(url_name), "view_only": False})
     if models:
         remaining.insert(0, {"app_label": "workflow-settings", "name": "Responsables et validations",
                              "app_url": reverse("purchasing:configuration") + "#workflow-settings",

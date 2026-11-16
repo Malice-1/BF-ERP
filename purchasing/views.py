@@ -33,6 +33,11 @@ def _form_error(form, error):
 @require_http_methods(["GET"])
 def request_list(request):
     if not can_access_purchases(request.user):
+        from .navigation_permissions import has_category_permission
+        if has_category_permission(request.user, "accounting"):
+            return redirect("accounting:home")
+        if has_category_permission(request.user, "sales"):
+            return redirect("sales:home")
         if can_access_budget(request.user):
             return redirect("purchasing:budget_home")
         if can_access_configuration(request.user):

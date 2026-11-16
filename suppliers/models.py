@@ -1,7 +1,12 @@
 from django.db import models
+from .identifiers import normalize_enterprise_number
 
 
 class Supplier(models.Model):
+    enterprise_number = models.CharField(
+        'Numéro d’entreprise', max_length=50, blank=True, default="", db_index=True,
+        help_text='Numéro du registre des entreprises. Pour une BCE belge, les points, espaces et le préfixe BE sont normalisés.',
+    )
     code = models.CharField(
         max_length=50,
         unique=True,
@@ -27,6 +32,14 @@ class Supplier(models.Model):
 
     def __str__(self):
         return f"{self.code} - {self.name}"
+
+    def clean_fields(self, exclude=None):
+        self.enterprise_number = normalize_enterprise_number(self.enterprise_number)
+        return super().clean_fields(exclude=exclude)
+
+    def save(self, *args, **kwargs):
+        self.enterprise_number = normalize_enterprise_number(self.enterprise_number)
+        return super().save(*args, **kwargs)
 
 
 

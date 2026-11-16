@@ -9,12 +9,14 @@ class SupplierAdmin(SystemModelAdmin):
     list_display = (
         "code",
         "name",
+        "enterprise_number",
         "vat_number",
     )
 
     search_fields = (
         "code",
         "name",
+        "enterprise_number",
         "vat_number",
     )
 

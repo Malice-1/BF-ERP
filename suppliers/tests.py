@@ -46,3 +46,27 @@ class SupplierManagementTests(TestCase):
         response = self.client.get(reverse("purchasing:list"))
         self.assertContains(response, 'href="' + listing + '"')
         self.assertEqual(response.context["nav_section"], "purchases")
+
+    def test_enterprise_number_create_edit_normalization_and_search(self):
+        self.grant("view_supplier", "add_supplier", "change_supplier")
+        listing = reverse("purchasing:suppliers")
+        self.assertContains(self.client.get(reverse("purchasing:supplier_create")), 'name="enterprise_number"')
+        response = self.client.post(reverse("purchasing:supplier_create"), {
+            "code": "BCE", "name": "Fournisseur BCE", "enterprise_number": "BE 0123.456.749"})
+        self.assertRedirects(response, listing)
+        supplier = Supplier.objects.get(code="BCE")
+        self.assertEqual(supplier.enterprise_number, "0123456749")
+        self.assertFalse(supplier.vat_number)
+        for query in ("0123456749", "0123.456.749", "BE0123456749"):
+            self.assertContains(self.client.get(listing, {"q": query}), "Fournisseur BCE")
+        edit = reverse("purchasing:supplier_edit", args=[supplier.pk])
+        response = self.client.post(edit, {"code": "BCE", "name": "Fournisseur modifié", "enterprise_number": "0234.567.890"})
+        self.assertRedirects(response, listing)
+        supplier.refresh_from_db()
+        self.assertEqual(supplier.enterprise_number, "0234567890")
+
+    def test_enterprise_number_optional_and_model_save_normalizes(self):
+        supplier = Supplier.objects.create(code="NUM", name="Numéro", enterprise_number="BE0123.456.749")
+        self.assertEqual(Supplier.objects.get(pk=supplier.pk).enterprise_number, "0123456749")
+        legacy = Supplier.objects.create(code="OLD", name="Sans numéro")
+        self.assertEqual(legacy.enterprise_number, "")
