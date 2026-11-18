@@ -202,6 +202,8 @@ def supplier_candidates(invoice):
 
 
 def read_original(invoice):
+    if invoice.origin != "PEPPOL":
+        raise ValidationError("Cette facture saisie manuellement n’a pas de fichier XML original.")
     with store().open(invoice.storage_path, "rb") as stream:
         data = stream.read(settings.SUPPLIER_XML_MAX_BYTES + 1)
     if len(data) > settings.SUPPLIER_XML_MAX_BYTES or hashlib.sha256(data).hexdigest() != invoice.checksum:
@@ -229,6 +231,9 @@ def import_invoice(*, actor, data, filename):
         extracted_data=extracted, created_by=actor, **fields)
     numbers = seller_enterprise_numbers(extracted["seller"])
     matches = supplier_candidates(invoice)
+    if len(matches) == 1 and SupplierInvoice.objects.filter(
+            origin="MANUAL", supplier=matches[0], invoice_number__iexact=invoice.invoice_number).exists():
+        raise ValidationError("Une facture saisie manuellement existe déjà pour ce fournisseur et ce numéro.")
     if len(numbers) == 1 and len(matches) == 1 and matches[0].enterprise_number:
         seller_vat = normalized(extracted["seller"]["vat_number"])
         if not (seller_vat and matches[0].vat_number and normalized(matches[0].vat_number) != seller_vat):
@@ -288,34 +293,17 @@ def review_invoice(*, actor, pk, revision, supplier, note, action):
         raise ValidationError("Choisissez une action et renseignez la justification de revue.")
     snapshot = {}
     if action == "approve":
-        read_original(invoice)
-        latest = invoice.validations.first()
-        if not latest or latest.status != "VALID":
-            raise ValidationError("L’approbation exige une validation XML complète et réussie.")
+        if invoice.origin == "MANUAL":
+            supplier = invoice.supplier
         if supplier is None:
             raise ValidationError("Sélectionnez un fournisseur existant.")
         supplier = Supplier.objects.select_for_update().get(pk=supplier.pk)
-        seller = seller_for_matching(invoice)
-        numbers = seller_enterprise_numbers(seller)
-        if len(numbers) > 1:
-            raise ValidationError("Les numéros d’entreprise déclarés dans le XML sont contradictoires.")
-        if numbers and supplier.enterprise_number and normalize_enterprise_number(supplier.enterprise_number) not in numbers:
-            raise ValidationError("Le numéro d’entreprise du fournisseur sélectionné ne correspond pas au XML.")
-        seller_vat = normalized(seller.get("vat_number", ""))
-        company_match = bool(numbers and supplier.enterprise_number and normalize_enterprise_number(supplier.enterprise_number) in numbers)
-        if seller_vat and ((supplier.vat_number and normalized(supplier.vat_number) != seller_vat)
-                or (not supplier.vat_number and not company_match)):
-            raise ValidationError("Le numéro de TVA du fournisseur sélectionné ne correspond pas au XML.")
-        if not profile.issuer_id:
-            raise ValidationError("Configurez l’entité destinataire avant d’approuver cette facture.")
-        issuer = IssuerConfiguration.objects.select_for_update().get(pk=profile.issuer_id)
-        receiver_check(invoice, issuer)
         snapshot = {"supplier_id": supplier.pk, "supplier_code": supplier.code, "supplier_name": supplier.name,
-            "supplier_enterprise_number": supplier.enterprise_number,
-            "supplier_vat": supplier.vat_number or "", "issuer_id": issuer.pk, "issuer_name": issuer.name,
-            "issuer_legal_id": issuer.legal_id, "validation_id": latest.pk, "rules_version": latest.rules_version,
-            "checksum": invoice.checksum}
-    invoice.supplier = supplier if action == "approve" else None
+            "supplier_enterprise_number": supplier.enterprise_number, "supplier_vat": supplier.vat_number or ""}
+        if invoice.origin == "PEPPOL":
+            snapshot.update(review_imported(invoice, supplier, profile))
+    if action == "approve" or invoice.origin == "PEPPOL":
+        invoice.supplier = supplier if action == "approve" else None
     invoice.status = "REVIEWED" if action == "approve" else "REJECTED"
     invoice.review_note, invoice.review_snapshot = note.strip(), snapshot
     invoice.reviewed_at, invoice.reviewed_by, invoice.reviewed_by_name = timezone.now(), actor, actor.get_username()
@@ -325,3 +313,31 @@ def review_invoice(*, actor, pk, revision, supplier, note, action):
     audit(actor, invoice, "Facture fournisseur approuvée" if action == "approve" else "Facture fournisseur rejetée",
         note=note, review=snapshot)
     return invoice
+
+
+def review_imported(invoice, supplier, profile):
+    read_original(invoice)
+    latest = invoice.validations.first()
+    if not latest or latest.status != "VALID":
+        raise ValidationError("L’approbation exige une validation XML complète et réussie.")
+    seller = seller_for_matching(invoice)
+    numbers = seller_enterprise_numbers(seller)
+    if len(numbers) > 1:
+        raise ValidationError("Les numéros d’entreprise déclarés dans le XML sont contradictoires.")
+    if numbers and supplier.enterprise_number and normalize_enterprise_number(supplier.enterprise_number) not in numbers:
+        raise ValidationError("Le numéro d’entreprise du fournisseur sélectionné ne correspond pas au XML.")
+    seller_vat = normalized(seller.get("vat_number", ""))
+    company_match = bool(numbers and supplier.enterprise_number and normalize_enterprise_number(supplier.enterprise_number) in numbers)
+    if seller_vat and ((supplier.vat_number and normalized(supplier.vat_number) != seller_vat)
+            or (not supplier.vat_number and not company_match)):
+        raise ValidationError("Le numéro de TVA du fournisseur sélectionné ne correspond pas au XML.")
+    if not profile.issuer_id:
+        raise ValidationError("Configurez l’entité destinataire avant d’approuver cette facture.")
+    issuer = IssuerConfiguration.objects.select_for_update().get(pk=profile.issuer_id)
+    receiver_check(invoice, issuer)
+    if SupplierInvoice.objects.filter(origin="MANUAL", supplier=supplier,
+            invoice_number__iexact=invoice.invoice_number).exists():
+        raise ValidationError("Une facture saisie manuellement existe déjà pour ce fournisseur et ce numéro.")
+    return {"issuer_id": issuer.pk, "issuer_name": issuer.name,
+        "issuer_legal_id": issuer.legal_id, "validation_id": latest.pk, "rules_version": latest.rules_version,
+        "checksum": invoice.checksum}

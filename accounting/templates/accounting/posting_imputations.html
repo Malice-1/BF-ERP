@@ -1,0 +1,34 @@
+{% extends 'accounting/base.html' %}
+{% block ledger_content %}
+<h1>{{ title }}</h1>
+<p>{{ intro }}</p>
+
+<h2>Paramètres de génération</h2>
+<p>{{ note }}</p>
+<form method="post" class="ledger-form">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="settings">
+    {{ settings_form.as_p }}
+    <button type="submit">Enregistrer les paramètres</button>
+</form>
+
+<h2>Comptes par produit budgétaire</h2>
+<form method="post" class="ledger-form">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="mapping">
+    {{ mapping_form.as_p }}
+    <button type="submit">Enregistrer l’imputation</button>
+</form>
+<div class="ledger-table">
+    <table>
+        <thead><tr><th scope="col">Produit budgétaire</th><th scope="col">Compte d’imputation</th></tr></thead>
+        <tbody>
+        {% for mapping in mappings %}
+        <tr><td>{{ mapping.product }}</td><td>{{ mapping.account }}{% if not mapping.account.is_active or not mapping.account.postable %} · Imputation indisponible{% endif %}</td></tr>
+        {% empty %}
+        <tr><td colspan="2">Aucune imputation configurée.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,7 +1,8 @@
 from django import forms
 from decimal import Decimal
 from django.template.defaultfilters import floatformat
-from .models import PurchaseRequest, PurchaseRequestLine
+from .framework_contracts import available_contracts
+from .models import FrameworkContract, FrameworkContractPrice, PurchaseRequest, PurchaseRequestLine
 from budgeting.models import BudgetProduct, CostCenter, Funding
 from .models import EnvelopeVersion
 
@@ -38,10 +39,34 @@ class PurchaseRequestForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["support"].queryset = user.supports.all() if user else self.fields["support"].queryset.none()
         self.fields["support"].help_text = "Choisissez votre support d’appartenance, si nécessaire. Chaque ligne est validée par le responsable de son CDF."
+        self.fields["supplier"].required = False
+        self.fields["supplier"].help_text = "Obligatoire pour une demande sans contrat-cadre."
+        contract_field = self.fields["framework_contract"]
+        contracts = available_contracts()
+        if self.instance.framework_contract_id:
+            contracts = contracts | FrameworkContract.objects.filter(pk=self.instance.framework_contract_id)
+        contract_field.queryset = contracts.select_related("supplier")
+        contract_field.label_from_instance = lambda contract: f"{contract} · {contract.supplier}"
+        contract_field.empty_label = "Sans contrat-cadre"
+        contract_field.help_text = "Le contrat sélectionné fournit le fournisseur et les tarifs du catalogue."
+        if self.instance.pk and self.instance.lines.exists():
+            contract_field.disabled = True
+            contract_field.help_text = "Retirez les lignes pour changer le contrat-cadre."
+
+    def clean(self):
+        values = super().clean()
+        contract, supplier = values.get("framework_contract"), values.get("supplier")
+        if not contract and not supplier:
+            self.add_error("supplier", "Sélectionnez un fournisseur pour une demande sans contrat-cadre.")
+        elif contract and supplier and supplier.pk != contract.supplier_id:
+            self.add_error("supplier", "Le fournisseur doit correspondre au contrat-cadre.")
+        elif contract:
+            values["supplier"] = contract.supplier
+        return values
 
     class Meta:
         model = PurchaseRequest
-        fields = ["supplier", "support"]
+        fields = ["framework_contract", "supplier", "support"]
         labels = {"supplier": "Fournisseur"}
 
 
@@ -77,4 +102,33 @@ class PurchaseRequestLineForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["detailed_product"].queryset = self.fields["detailed_product"].queryset.select_related("budget_product")
-        self.fields["vat_rate"].required = True
+        if "vat_rate" in self.fields:
+            self.fields["vat_rate"].required = True
+
+
+class FrameworkPurchaseLineForm(PurchaseRequestLineForm):
+    class Meta(PurchaseRequestLineForm.Meta):
+        fields = ["detailed_product", "description", "quantity", "cost_center", "funding"]
+
+    def __init__(self, *args, contract, **kwargs):
+        super().__init__(*args, **kwargs)
+        prices = {row.product_id: row for row in contract.prices.filter(is_active=True)}
+        product = self.fields["detailed_product"]
+        product.queryset = product.queryset.filter(pk__in=prices)
+        label = product.label_from_instance
+        product.label_from_instance = lambda item: f"{label(item)} · {prices[item.pk].unit_price:.2f} EUR HTVA"
+        product.help_text = "Le prix et le taux de TVA du catalogue sont appliqués à l’enregistrement."
+
+
+class FrameworkContractForm(forms.ModelForm):
+    class Meta:
+        model = FrameworkContract
+        fields = ("reference", "title", "supplier", "start_date", "end_date", "ceiling", "is_active")
+        widgets = {field: forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"})
+                   for field in ("start_date", "end_date")}
+
+
+class FrameworkPriceForm(forms.ModelForm):
+    class Meta:
+        model = FrameworkContractPrice
+        fields = ("product", "unit_price", "vat_rate", "is_active")

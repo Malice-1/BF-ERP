@@ -1,0 +1,34 @@
+{% extends 'purchasing/base.html' %}{% load ui_actions l10n %}
+{% block content %}{% back_action %}
+<h1>{{ contract }}</h1>
+{% for message in messages %}<p role="status">{{ message }}</p>{% endfor %}
+<p>{{ contract.supplier }} · {{ contract.start_date|date:'d/m/Y' }} au {{ contract.end_date|date:'d/m/Y' }} · {% if available %}Disponible pour les DA{% else %}Indisponible pour les nouvelles DA{% endif %}</p>
+<div class="section-actions">
+{% if price_form %}<a class="button" href="{% url 'purchasing:framework_contract_edit' contract.pk %}">Modifier le contrat</a>{% endif %}
+{% if available and perms.purchasing.add_purchaserequest %}<a class="button" href="{% url 'purchasing:create' %}?contract={{ contract.pk|unlocalize }}">Nouvelle demande sur ce contrat</a>{% endif %}
+</div>
+<section class="configuration-section content-zone">
+<h2>Suivi du plafond</h2>
+<dl>
+    <dt>Plafond TVAC</dt><dd>{% if contract.ceiling != None %}{{ contract.ceiling|amount }} EUR{% else %}Sans plafond{% endif %}</dd>
+    <dt>Demandes en validation</dt><dd>{{ totals.reserved|amount }} EUR</dd>
+    <dt>Commandes engagées</dt><dd>{{ totals.committed|amount }} EUR</dd>
+    {% if remaining != None %}<dt>Reste mobilisable</dt><dd>{{ remaining|amount }} EUR</dd>{% endif %}
+</dl>
+</section>
+<section class="configuration-section content-zone">
+<h2>Catalogue et tarifs</h2>
+<div class="table-wrap"><table>
+<thead><tr><th scope="col">Produit</th><th scope="col">Prix unitaire HTVA</th><th scope="col">TVA</th><th scope="col">Disponible</th></tr></thead>
+<tbody>
+{% for price in prices %}
+<tr><td>{{ price.product }}</td><td>{{ price.unit_price|amount }} EUR</td>
+    <td>{{ price.vat_rate|floatformat:-2 }} %</td><td>{{ price.is_active|yesno:"Oui,Non" }}</td></tr>
+{% empty %}<tr><td colspan="4">Aucun produit enregistré.</td></tr>{% endfor %}
+</tbody></table></div>
+{% if price_form %}
+<h3>Ajouter ou modifier un tarif</h3>
+<form method="post">{% csrf_token %}{{ price_form.as_p }}<button>Enregistrer le tarif</button></form>
+{% endif %}
+</section>
+{% endblock %}

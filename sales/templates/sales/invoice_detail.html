@@ -1,6 +1,7 @@
 {% extends 'sales/base.html' %}
 {% block sales_content %}<h1>Facture {{ invoice.number }}</h1>
 <p>{{ invoice.get_document_status_display }} — {{ invoice.get_payment_status_display }} — {{ invoice.get_invoice_format_display }}</p>
+{% if accounting_entry %}<p><a href="{% url 'accounting:entry_detail' accounting_entry.pk %}">Voir l’écriture comptable · {{ accounting_entry.get_status_display }}</a></p>{% endif %}
 <p>Émission : {{ invoice.issue_date|date:'d/m/Y' }} — Échéance : {{ invoice.due_date|date:'d/m/Y' }}</p>
 <p>Commande d’origine : {% if perms.sales.view_salesorder %}<a href="{% url 'sales:order_detail' invoice.order_id %}">{{ invoice.order_snapshot.number }}</a>{% else %}{{ invoice.order_snapshot.number }}{% endif %} — Référence client : {{ invoice.order_snapshot.customer_reference|default:'—' }}</p>
 <div class="sales-parties"><section><h2>Émetteur</h2><p>{{ invoice.issuer_snapshot.name }}<br>{{ invoice.issuer_snapshot.street }}<br>{{ invoice.issuer_snapshot.zip_code }} {{ invoice.issuer_snapshot.city }} — {{ invoice.issuer_snapshot.country }}<br>TVA : {{ invoice.issuer_snapshot.vat_number|default:'—' }}<br>BCE / identifiant légal : {{ invoice.issuer_snapshot.legal_id }}</p></section><section><h2>Client</h2><p>{{ invoice.customer_snapshot.name }}<br>{{ invoice.customer_snapshot.street }}<br>{{ invoice.customer_snapshot.zip_code }} {{ invoice.customer_snapshot.city }} — {{ invoice.customer_snapshot.country }}<br>TVA : {{ invoice.customer_snapshot.vat_number|default:'—' }}</p></section></div>

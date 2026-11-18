@@ -32,7 +32,47 @@ def request_number():
         return f"DA-{counter.year}-{counter.last_number:04d}"
 
 
+class FrameworkContract(models.Model):
+    reference = models.CharField("Référence du contrat", max_length=80, unique=True)
+    title = models.CharField("Intitulé", max_length=255)
+    supplier = models.ForeignKey(Supplier, on_delete=models.PROTECT, verbose_name="Fournisseur")
+    start_date = models.DateField("Début de validité")
+    end_date = models.DateField("Fin de validité")
+    ceiling = models.DecimalField("Plafond TVAC en EUR", max_digits=28, decimal_places=10, blank=True, null=True,
+                                  validators=[MinValueValidator(Decimal("0.01"))])
+    is_active = models.BooleanField("Actif", default=True)
+
+    class Meta:
+        ordering = ["reference"]
+        verbose_name = "contrat-cadre"
+        verbose_name_plural = "contrats-cadres"
+        default_permissions = ("view", "add", "change")
+        constraints = [
+            models.CheckConstraint(condition=models.Q(start_date__lte=models.F("end_date")), name="framework_valid_dates"),
+            models.CheckConstraint(condition=models.Q(ceiling__isnull=True) | models.Q(ceiling__gt=0), name="framework_positive_ceiling"),
+        ]
+
+    def __str__(self):
+        return f"{self.reference} · {self.title}"
+
+
+class FrameworkContractPrice(models.Model):
+    contract = models.ForeignKey(FrameworkContract, on_delete=models.PROTECT, related_name="prices")
+    product = models.ForeignKey(BudgetDetailedProduct, on_delete=models.PROTECT, verbose_name="Produit détaillé")
+    unit_price = models.DecimalField("Prix unitaire HTVA", max_digits=12, decimal_places=2,
+                                    validators=[MinValueValidator(Decimal("0"))])
+    vat_rate = models.DecimalField("TVA (%)", max_digits=7, decimal_places=4,
+        validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))])
+    is_active = models.BooleanField("Disponible", default=True)
+
+    class Meta:
+        default_permissions = ()
+        constraints = [models.UniqueConstraint(fields=["contract", "product"], name="framework_unique_product_price")]
+
+
 class PurchaseRequest(models.Model):
+    framework_contract = models.ForeignKey(FrameworkContract, on_delete=models.PROTECT, blank=True, null=True,
+        related_name="purchase_requests", verbose_name="Contrat-cadre")
     support = models.ForeignKey("budgeting.Support", null=True, blank=True,
         on_delete=models.PROTECT, verbose_name="Support demandeur")
 

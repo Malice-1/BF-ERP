@@ -1,7 +1,7 @@
 from accounts.admin_deletion import SystemModelAdmin
 from django.contrib import admin
 
-from .models import CostCenter, Funding, Support, BudgetProduct, Budget, BudgetLine
+from .models import CostCenter, Funding, Support, Subproject, Section, BudgetProduct, Budget, BudgetLine
 from purchasing.models import DetailedProduct
 from accounts.admin import ReadOnlyAdmin
 from .forms import CostCenterAdminForm, SupportAdminForm, CostCenterManagersField
@@ -76,8 +76,8 @@ class FundingAdmin(SystemModelAdmin):
     )
 
 
-@admin.register(BudgetProduct)
-class BudgetProductAdmin(SystemModelAdmin):
+@admin.register(BudgetProduct, Subproject, Section)
+class BudgetReferenceAdmin(SystemModelAdmin):
     list_display = (
         "code",
         "label",

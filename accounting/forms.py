@@ -2,7 +2,80 @@ from uuid import uuid4
 
 from django import forms
 from django.forms import inlineformset_factory
-from .models import AccountingProfile, Account, FiscalYear, AccountingPeriod, Journal, JournalEntry, JournalEntryLine
+from budgeting.models import BudgetProduct
+from .models import (AccountingProfile, Account, FiscalYear, AccountingPeriod, Journal, JournalEntry,
+    JournalEntryLine, PurchasePostingConfiguration, SalesPostingConfiguration)
+
+
+class PurchasePostingForm(forms.ModelForm):
+    journal = forms.ModelChoiceField(label="Journal des engagements", queryset=Journal.objects.filter(is_active=True))
+    offset_account = forms.ModelChoiceField(label="Compte de contrepartie",
+        queryset=Account.objects.filter(is_active=True, postable=True).exclude(party_requirement="CUSTOMER"))
+
+    class Meta:
+        model = PurchasePostingConfiguration
+        fields = ("journal", "offset_account", "enabled")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            for field in ("journal", "offset_account"):
+                choices = self.fields[field].queryset
+                self.fields[field].queryset = choices | choices.model.objects.filter(
+                    pk=getattr(self.instance, field + "_id"))
+
+    def clean(self):
+        values = super().clean()
+        if values.get("enabled"):
+            journal, account = values.get("journal"), values.get("offset_account")
+            if journal and not journal.is_active:
+                self.add_error("journal", "Le journal doit être actif.")
+            if account and (not account.is_active or not account.postable or account.party_requirement == "CUSTOMER"):
+                self.add_error("offset_account", "Choisissez un compte d’imputation actif compatible avec les achats.")
+        return values
+
+
+class BudgetProductAccountForm(forms.Form):
+    product = forms.ModelChoiceField(label="Produit budgétaire", queryset=BudgetProduct.objects.all())
+    account = forms.ModelChoiceField(label="Compte d’imputation",
+        queryset=Account.objects.filter(is_active=True, postable=True).exclude(party_requirement="CUSTOMER"))
+
+
+class SalesPostingForm(forms.ModelForm):
+    class Meta:
+        model = SalesPostingConfiguration
+        fields = ("journal", "receivable_account", "tax_account", "enabled")
+        help_texts = {"tax_account": "Obligatoire pour les factures avec TVA."}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        accounts = Account.objects.filter(is_active=True, postable=True)
+        for field, choices in {
+            "journal": Journal.objects.filter(is_active=True, kind="SALE"),
+            "receivable_account": accounts.exclude(party_requirement="SUPPLIER"),
+            "tax_account": accounts.filter(party_requirement="NONE"),
+        }.items():
+            current = getattr(self.instance, field + "_id")
+            self.fields[field].queryset = choices | choices.model.objects.filter(pk=current) if current else choices
+
+    def clean(self):
+        values = super().clean()
+        if values.get("enabled"):
+            journal, receivable, tax = (values.get(field) for field in ("journal", "receivable_account", "tax_account"))
+            if journal and (not journal.is_active or journal.kind != "SALE"):
+                self.add_error("journal", "Choisissez un journal de ventes actif.")
+            if receivable and (not receivable.is_active or not receivable.postable or receivable.party_requirement == "SUPPLIER"):
+                self.add_error("receivable_account", "Choisissez un compte d’imputation actif compatible avec un client.")
+            if tax and (not tax.is_active or not tax.postable or tax.party_requirement != "NONE"):
+                self.add_error("tax_account", "Choisissez un compte d’imputation actif sans tiers obligatoire.")
+            if tax and tax == receivable:
+                self.add_error("tax_account", "Choisissez un compte distinct du compte clients.")
+        return values
+
+
+class SalesBudgetProductAccountForm(BudgetProductAccountForm):
+    account = forms.ModelChoiceField(label="Compte de produit",
+        queryset=Account.objects.filter(is_active=True, postable=True, party_requirement="NONE"))
 
 
 class ProfileForm(forms.ModelForm):
@@ -10,7 +83,8 @@ class ProfileForm(forms.ModelForm):
 
     class Meta:
         model = AccountingProfile
-        fields = ("issuer", "framework", "chart_reference", "approval_note")
+        fields = ("issuer", "framework", "chart_reference")
+        labels = {"chart_reference": "Référence du plan actuel (facultative)"}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -22,11 +96,6 @@ class AccountForm(forms.ModelForm):
     class Meta:
         model = Account
         fields = ("code", "label", "postable", "is_active", "party_requirement", "source_reference")
-
-
-class ChartImportForm(forms.Form):
-    source_reference = forms.CharField(label="Référence du plan public applicable", max_length=500)
-    file = forms.FileField(label="CSV UTF-8 du plan", widget=forms.ClearableFileInput(attrs={"accept": ".csv"}))
 
 
 class JournalForm(forms.ModelForm):

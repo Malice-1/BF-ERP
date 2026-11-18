@@ -320,6 +320,10 @@ def submit_purchase(*, request_id, actor, expected_revision):
         if not envelope or not envelope.active_version_id:
             raise PurchaseRequestError("Aucune version budgétaire active pour l'année courante.")
         version = envelope.active_version
+        contract_snapshot = None
+        if purchase.framework_contract_id:
+            from .framework_contracts import reserve_for_submission
+            contract_snapshot = reserve_for_submission(purchase, lines)
         totals = defaultdict(Decimal)
         for line in lines:
             totals[(line.cost_center_id, line.funding_id, line.detailed_product.budget_product_id)] += line.total_tvac
@@ -334,6 +338,8 @@ def submit_purchase(*, request_id, actor, expected_revision):
             data = {key: str(getattr(line, key)) for key in ("description", "quantity", "unit_price", "vat_rate", "total_htva", "total_vat", "total_tvac")}
             data.update(product=str(line.detailed_product), cost_center=str(line.cost_center), funding=str(line.funding),
                         support=str(purchase.support) if purchase.support_id else None)
+            if contract_snapshot:
+                data["framework_contract"] = contract_snapshot
             snapshot = LineSnapshot.objects.create(submission=submission, line=line, original_line_id=line.pk, data=data,
                 amount=line.total_tvac, cost_center=line.cost_center, funding=line.funding, support=purchase.support,
                 budget_product=line.detailed_product.budget_product)
@@ -346,19 +352,21 @@ def submit_purchase(*, request_id, actor, expected_revision):
         purchase.status = "SUBMITTED"
         _audit(purchase, actor, "request.submitted", {"submission": submission.pk})
         _advance(submission)
-        _finish(purchase, submission)
+        _finish(purchase, submission, actor)
         if purchase.status == "ORDERED":
             _audit(purchase, None, "request.ordered", {"origin": "system", "submission": submission.pk})
         return purchase
 
 
-def _finish(purchase, submission):
+def _finish(purchase, submission, actor):
     if not submission.lines.exists() or submission.lines.filter(steps__isnull=True).exists():
         return
     if submission.lines.filter(steps__state__in=["future", "pending", "blocked", "unassigned"]).exists():
         return
-    PurchaseOrder.objects.get_or_create(purchase_request=purchase, defaults=dict(submission=submission,
+    order, _ = PurchaseOrder.objects.get_or_create(purchase_request=purchase, defaults=dict(submission=submission,
         supplier_data=submission.supplier_data))
+    from accounting.purchase_posting import create_engagement_draft
+    create_engagement_draft(order, actor)
     BudgetEntry.objects.filter(snapshot__submission=submission, state="reserved").update(state="committed")
     from budgeting.history import capture
     capture(submission.budget_version.envelope_id, "Réservations converties en engagements")
@@ -405,7 +413,7 @@ def decide(*, request_id, actor, expected_revision, step_id, decision, reason=""
         step.save()
         PurchaseNotice.objects.filter(step=step, active=True).update(active=False)
         _advance(submission)
-        _finish(purchase, submission)
+        _finish(purchase, submission, actor)
     else:
         _stop(submission)
         purchase.status = "CORRECTION" if decision == "correct" else "REJECTED"
@@ -469,7 +477,7 @@ def refresh_submission(submission_id):
     if submission.active:
         AnnualEnvelope.objects.select_for_update().get(pk=submission.budget_version.envelope_id)
         _advance(submission)
-        _finish(purchase, submission)
+        _finish(purchase, submission, None)
         if purchase.status == "ORDERED":
             _audit(purchase, purchase.created_by, "request.ordered", {"origin": "system"})
 

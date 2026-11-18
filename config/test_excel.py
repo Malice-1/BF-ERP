@@ -40,6 +40,18 @@ class ExcelExportTests(TestCase):
         self.assertEqual(rows[1][5], 250)
         workbook.close()
 
+        Allocation.objects.create(version=version, cost_center=self.target, funding=self.funding,
+                                  budget_product=self.product, amount=125)
+        workbook = self.workbook("purchasing:budgets", {"version": version.pk, "cdf": self.target.pk})
+        rows = list(workbook.active.values)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[1][5], 125)
+        workbook.close()
+
+        workbook = self.workbook("purchasing:budgets", {"version": version.pk, "cdf": [self.source.pk, self.target.pk]})
+        self.assertCountEqual([row[5] for row in list(workbook.active.values)[1:]], [250, 125])
+        workbook.close()
+
     def workbook(self, name, params=None, args=None):
         response = self.client.get(reverse(name, args=args), dict(params or {}, export="xlsx"))
         self.assertEqual(response.status_code, 200)

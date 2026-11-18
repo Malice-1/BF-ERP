@@ -61,6 +61,32 @@ class Funding(models.Model):
         return self.code
 
 
+class Subproject(models.Model):
+    code = models.CharField("Code", max_length=50, unique=True)
+    label = models.CharField("Libellé", max_length=150)
+
+    class Meta:
+        ordering = ["code"]
+        verbose_name = "sous-projet"
+        verbose_name_plural = "sous-projets"
+
+    def __str__(self):
+        return f"{self.code} - {self.label}"
+
+
+class Section(models.Model):
+    code = models.CharField("Code", max_length=50, unique=True)
+    label = models.CharField("Libellé", max_length=150)
+
+    class Meta:
+        ordering = ["code"]
+        verbose_name = "section"
+        verbose_name_plural = "sections"
+
+    def __str__(self):
+        return f"{self.code} - {self.label}"
+
+
 class BudgetProduct(models.Model):
     code = models.CharField(
         max_length=50,

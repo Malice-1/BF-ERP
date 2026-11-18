@@ -1,17 +1,49 @@
-{% extends 'purchasing/base.html' %}{% load ui_actions %}{% block content %}{% back_action %}
+{% extends 'purchasing/base.html' %}
+{% load static ui_actions l10n %}
+{% block extra_styles %}<link rel="stylesheet" href="{% static 'purchasing/budget_analysis.css' %}">{% endblock %}
+{% block content %}{% back_action %}
 <h1>Budgets et disponibilités</h1>
 {% if form.fields.version.queryset.exists %}
 <form method="get" action="{% url 'purchasing:budgets' %}" id="budget-version-selection">
 {{ form.as_p }}
+<noscript><button type="submit">Afficher la version</button></noscript>
 </form>
 <script>
 document.getElementById('budget-version-selection').querySelector('select').addEventListener('change', function () { this.form.requestSubmit(); });
 </script>
 {% else %}<p>Aucune version budgétaire disponible.</p>{% endif %}
 {% if selected_version %}
-<p>Disponible = allocation de la version sélectionnée − réservations ouvertes − engagements de la même année + solde des transferts de cette version (sorties en attente incluses).</p>
-<section class="configuration-section content-zone"><div class="section-toolbar"><h2>Disponibilités de la version</h2>{% include "purchasing/excel_export.html" with compact=True export_label="Exporter les disponibilités de cette version en Excel" %}</div>
-<div class="table-wrap"><table><tr><th scope="col">CDF</th><th scope="col">Financement</th><th scope="col">Produit</th><th>Allocation TVAC</th><th>Réservé</th><th>Engagé</th><th>Solde transferts</th><th>Disponible</th></tr>{% for row in rows %}<tr><td>{{ row.cdf }}</td><td>{{ row.funding.code }}</td><td>{{ row.product }}</td><td>{{ row.allocated|amount }}</td><td>{{ row.reserved|amount }}</td><td>{{ row.committed|amount }}</td><td>{{ row.transfers|amount }}</td><td>{% if row.available < 0 %}<strong class="budget-deficit">Déficit : {{ row.available|amount }}</strong>{% else %}{{ row.available|amount }}{% endif %}</td></tr>{% empty %}<tr><td colspan="8">Aucune allocation ni mouvement budgétaire pour cette version.</td></tr>{% endfor %}</table></div>
+<form method="get" class="budget-analysis-filters" aria-labelledby="budget-analysis-filters-title">
+<h2 id="budget-analysis-filters-title">Filtres d’analyse</h2>
+<p class="budget-analysis-note">Cochez les valeurs à inclure. Si aucune case n’est cochée, toutes les valeurs de ce filtre sont incluses.</p>
+<input type="hidden" name="version" value="{{ selected_version.pk|unlocalize }}">
+<div class="budget-analysis-fields">
+{% for field in analysis_form %}
+<div>
+{% if field.name == 'group_by' %}
+{{ field.label_tag }}{{ field }}
+{% else %}
+<details class="budget-analysis-options"{% if field.errors %} open{% endif %}>
+<summary id="{{ field.auto_id }}-label">{{ field.label }}</summary>
+<div class="budget-analysis-options-list" role="group" aria-labelledby="{{ field.auto_id }}-label">
+{% for option in field %}{{ option }}{% empty %}<span>Aucune valeur disponible.</span>{% endfor %}
+</div>
+</details>
+{% endif %}
+{{ field.errors }}
+</div>
+{% endfor %}
+</div>
+<div class="budget-analysis-actions">
+<button type="submit">Appliquer les filtres</button>
+<a href="{% url 'purchasing:budgets' %}?version={{ selected_version.pk|unlocalize }}">Réinitialiser les filtres</a>
+</div>
+</form>
+{% if analysis %}
+{% if rows %}{% include 'purchasing/budget_analysis.html' %}{% endif %}
+<section class="configuration-section content-zone"><div class="section-toolbar"><h2>Détail des lignes budgétaires</h2>{% include "purchasing/excel_export.html" with compact=True export_version=selected_version.pk export_label="Exporter les disponibilités filtrées en Excel" %}</div>
+<div class="table-wrap"><table><tr><th scope="col">CDF</th><th scope="col">Financement</th><th scope="col">Produit</th><th>Allocation TVAC</th><th>Réservé</th><th>Engagé</th><th>Solde transferts</th><th>Disponible</th></tr>{% for row in rows %}<tr><td>{{ row.cdf }}</td><td>{{ row.funding.code }}</td><td>{{ row.product }}</td><td>{{ row.allocated|amount }}</td><td>{{ row.reserved|amount }}</td><td>{{ row.committed|amount }}</td><td>{{ row.transfers|amount }}</td><td>{% if row.available < 0 %}<strong class="budget-deficit">Déficit : {{ row.available|amount }}</strong>{% else %}{{ row.available|amount }}{% endif %}</td></tr>{% empty %}<tr><td colspan="8">Aucune ligne budgétaire pour cette version et ces filtres.</td></tr>{% endfor %}</table></div>
 </section>
+{% endif %}
 {% endif %}
 {% endblock %}

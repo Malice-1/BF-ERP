@@ -3,6 +3,7 @@
 <h2 id="purchase-actions-title">Gérer les achats</h2>
 <ul class="configuration-links">
 {% if perms.purchasing.add_purchaserequest %}<li><a href="{% url 'purchasing:create' %}">Créer une demande</a><small>Préparer un nouvel achat et ses lignes budgétaires.</small></li>{% endif %}
+{% if perms.purchasing.view_frameworkcontract %}<li><a href="{% url 'purchasing:framework_contracts' %}">Contrats-cadres</a><small>Consulter les catalogues, les tarifs et le reste mobilisable.</small></li>{% endif %}
 {% if perms.purchasing.view_all_purchase_requests %}<li><a href="{% url 'purchasing:all_requests' %}">Toutes les demandes</a><small>Consulter les demandes de l’ensemble des utilisateurs.</small></li>{% endif %}
 {% if perms.suppliers.view_supplier or perms.suppliers.add_supplier or perms.suppliers.change_supplier %}<li><a href="{% url 'purchasing:suppliers' %}">Fournisseurs</a><small>Consulter, créer et modifier les fournisseurs.</small></li>{% endif %}
 {% if perms.purchasing.add_detailedproduct %}<li><a href="{% url 'purchasing:detailed_products' %}">Produits détaillés</a><small>Gérer les produits et leur rattachement aux produits budgétaires.</small></li>{% endif %}

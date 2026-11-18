@@ -37,8 +37,7 @@ class LedgerFixture:
             start_date=self.year.start_date, end_date=self.year.end_date)
         current = AccountingProfile.objects.get(pk=1)
         self.profile = services.configure_profile(actor=self.actor, issuer=self.issuer, framework="PUBLIC",
-            chart_reference="Plan QA — aucune valeur réglementaire", approval_note="Revue de test uniquement", revision=current.revision)
-        self.profile = services.approve_profile(actor=self.actor, revision=self.profile.revision)
+            chart_reference="Plan QA — aucune valeur réglementaire", revision=current.revision)
         self.client.force_login(self.actor)
 
     def values(self, **changes):
@@ -92,12 +91,11 @@ class LedgerTests(LedgerFixture, TestCase):
         with self.assertRaises(ValidationError):
             services.save_draft(**{**args, "pk": entry.pk, "revision": entry.revision})
 
-    def test_profile_approval_required_and_account_change_revokes_it(self):
+    def test_account_change_does_not_prevent_posting(self):
         entry = self.draft()
         services.save_account(actor=self.actor, pk=self.debit.pk, values={"label": "Libellé révisé"})
-        self.assertIsNone(AccountingProfile.objects.get(pk=1).approved_at)
-        with self.assertRaises(ValidationError):
-            services.post_entry(actor=self.actor, pk=entry.pk, revision=entry.revision)
+        posted = services.post_entry(actor=self.actor, pk=entry.pk, revision=entry.revision)
+        self.assertEqual(posted.lines.first().account_snapshot["label"], "Libellé révisé")
 
     def test_entry_requires_reference_and_valid_period(self):
         entry = self.draft(document_reference="")
@@ -198,16 +196,19 @@ class LedgerTests(LedgerFixture, TestCase):
         with self.assertRaises(ValidationError):
             services.save_account(actor=self.actor, pk=self.debit.pk, values={"code": "600002"})
 
-    def test_chart_import_atomic_idempotent_with_provenance(self):
-        data = "code;label;postable;party_requirement\n550001;Banque QA;1;NONE\n55;Regroupement QA;0;NONE\n".encode()
-        self.assertEqual(services.import_chart(actor=self.actor, data=data, source_reference="Référence QA"), 2)
-        self.assertEqual(services.import_chart(actor=self.actor, data=data, source_reference="Référence QA"), 0)
-        self.assertTrue(Account.objects.filter(code="55", postable=False).exists())
-        self.assertEqual(len(AccountingProfile.objects.get(pk=1).chart_manifest), 1)
-        invalid = b"code;label;postable;party_requirement\n999001;Valide;1;NONE\n999002;Invalide;8;NONE\n"
-        with self.assertRaises(ValidationError):
-            services.import_chart(actor=self.actor, data=invalid, source_reference="Autre QA")
-        self.assertFalse(Account.objects.filter(code="999001").exists())
+    def test_post_using_existing_chart_without_an_import_or_reference(self):
+        current_accounts = list(Account.objects.values_list("pk", "code"))
+        profile = services.configure_profile(actor=self.actor, issuer=self.issuer, framework="PUBLIC",
+            chart_reference="", revision=self.profile.revision)
+        self.assertEqual(profile.chart_reference, "Plan de comptes actuel")
+        self.assertEqual(profile.chart_manifest, [])
+        self.assertCountEqual(Account.objects.values_list("pk", "code"), current_accounts)
+        self.assertEqual(self.posted().issuer_snapshot["chart_reference"], "Plan de comptes actuel")
+        former_url = reverse("accounting:accounts") + "importer/"
+        self.assertEqual(self.client.get(former_url).status_code, 404)
+        self.assertEqual(self.client.post(former_url).status_code, 404)
+        self.assertNotContains(self.client.get(reverse("accounting:home")), "approbation")
+        self.assertEqual(self.client.post(reverse("accounting:profile") + "approuver/").status_code, 404)
 
     def test_permissions_services_http_and_csrf(self):
         user = get_user_model().objects.create_user("no-ledger", password="password")
@@ -226,7 +227,7 @@ class LedgerTests(LedgerFixture, TestCase):
 
     def test_screens_and_accounting_only_landing(self):
         entry = self.draft()
-        for name, args in (("home", []), ("profile", []), ("accounts", []), ("chart_import", []),
+        for name, args in (("home", []), ("profile", []), ("accounts", []),
             ("account_new", []), ("account_edit", [self.debit.pk]), ("journals", []), ("journal_new", []),
             ("years", []), ("year_new", []), ("period_new", []), ("entries", []), ("entry_new", []),
             ("entry_detail", [entry.pk]), ("entry_edit", [entry.pk])):
@@ -268,20 +269,17 @@ class LedgerTests(LedgerFixture, TestCase):
         self.assertEqual(entry.status, "POSTED")
         self.assertContains(self.client.get(reverse("accounting:entry_detail", args=[entry.pk])), entry.number)
 
-    def test_entity_identity_change_requires_reapproval(self):
+    def test_new_entity_name_is_used_and_legal_identity_is_preserved(self):
         entry = self.draft()
         self.issuer.name = "Entité QA renommée"
         self.issuer.save()
-        with self.assertRaises(ValidationError):
-            services.post_entry(actor=self.actor, pk=entry.pk, revision=entry.revision)
-        current = AccountingProfile.objects.get(pk=1)
-        services.approve_profile(actor=self.actor, revision=current.revision)
-        services.post_entry(actor=self.actor, pk=entry.pk, revision=entry.revision)
+        posted = services.post_entry(actor=self.actor, pk=entry.pk, revision=entry.revision)
+        self.assertEqual(posted.issuer_snapshot["name"], self.issuer.name)
         self.issuer.legal_id = "AUTRE-ENTITE"
         self.issuer.save()
-        current = AccountingProfile.objects.get(pk=1)
+        next_entry = self.draft()
         with self.assertRaises(ValidationError):
-            services.approve_profile(actor=self.actor, revision=current.revision)
+            services.post_entry(actor=self.actor, pk=next_entry.pk, revision=next_entry.revision)
 
     def test_deleted_actor_name_remains_in_history(self):
         entry = self.posted()
@@ -306,8 +304,6 @@ class LedgerTests(LedgerFixture, TestCase):
         services.save_account(actor=self.actor, values={"code": "550001", "label": "Autre compte QA",
             "postable": True, "is_active": True, "party_requirement": "NONE"})
         services.save_account(actor=self.actor, pk=self.debit.pk, values={"is_active": False})
-        current = AccountingProfile.objects.get(pk=1)
-        services.approve_profile(actor=self.actor, revision=current.revision)
         result = services.reverse_entry(actor=self.actor, pk=entry.pk, period=self.period,
             accounting_date=date(2026, 11, 17), reason="Correction compte inactif", token=uuid4())
         self.assertEqual(result.status, "POSTED")

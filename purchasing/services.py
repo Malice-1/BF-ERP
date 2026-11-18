@@ -2,8 +2,9 @@
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from workflow.models import AuditEvent
+from . import framework_contracts
 from .exceptions import PurchaseRequestConflict, PurchaseRequestError
-from .models import PurchaseRequest, PurchaseRequestLine
+from .models import FrameworkContract, PurchaseRequest, PurchaseRequestLine
 
 
 def _locked(request_id, actor, expected_revision):
@@ -28,14 +29,39 @@ def _audit(request, actor, action, payload=None):
 
 
 @transaction.atomic
-def create_purchase_request(*, actor, supplier, support=None):
+def create_purchase_request(*, actor, supplier=None, support=None, framework_contract=None):
     if not actor.is_authenticated or not actor.is_active:
         raise PermissionDenied("Un demandeur actif est requis.")
     if support is not None and not actor.supports.filter(pk=support.pk).exists():
         raise ValidationError("Le support doit faire partie de vos supports d’appartenance.")
-    request = PurchaseRequest.objects.create(created_by=actor, supplier=supplier, support=support)
-    _audit(request, actor, "request.created")
+    if framework_contract:
+        framework_contract = FrameworkContract.objects.select_for_update().get(pk=framework_contract.pk)
+        framework_contracts.require_available(framework_contract)
+    supplier = _supplier_for_request(supplier, framework_contract)
+    request = PurchaseRequest.objects.create(created_by=actor, supplier=supplier, support=support,
+                                             framework_contract=framework_contract)
+    _audit(request, actor, "request.created", {"framework_contract": request.framework_contract_id}
+           if framework_contract else None)
     return request
+
+
+def _supplier_for_request(supplier, contract):
+    if contract:
+        if supplier and supplier.pk != contract.supplier_id:
+            raise ValidationError("Le fournisseur doit correspondre au contrat-cadre.")
+        return contract.supplier
+    if supplier is None:
+        raise ValidationError("Sélectionnez un fournisseur.")
+    return supplier
+
+
+def _apply_framework_price(request, line):
+    if request.framework_contract_id:
+        contract = FrameworkContract.objects.select_for_update().get(pk=request.framework_contract_id)
+        price = framework_contracts.price_for(contract, line.detailed_product_id)
+        line.unit_price, line.vat_rate = price.unit_price, price.vat_rate
+    if line.vat_rate is None:
+        raise ValidationError("Le taux de TVA est obligatoire, y compris un taux nul.")
 
 
 @transaction.atomic
@@ -45,9 +71,8 @@ def add_purchase_request_line(*, request_id, actor, expected_revision, **values)
     allowed = {"detailed_product", "cost_center", "funding", "description", "quantity", "unit_price", "vat_rate"}
     if set(values) - allowed:
         raise ValidationError("Champ de ligne non autorisé.")
-    if values.get("vat_rate") is None:
-        raise ValidationError("Le taux de TVA est obligatoire, y compris un taux nul.")
     line = PurchaseRequestLine(purchase_request=request, **values)
+    _apply_framework_price(request, line)
     line.full_clean()
     line.save()
     _audit(request, actor, "line.created", {"line_id": line.pk})
@@ -70,22 +95,33 @@ def cancel_purchase_request(*, request_id, actor, expected_revision):
 
 
 @transaction.atomic
-def update_purchase_request(*, request_id, actor, expected_revision, supplier, **values):
+def update_purchase_request(*, request_id, actor, expected_revision, supplier=None, **values):
     request = _locked(request_id, actor, expected_revision)
     _editable(request)
     before = request.supplier_id
     support_before = request.support_id
-    if set(values) - {"support"}:
+    if set(values) - {"support", "framework_contract"}:
         raise ValidationError("Champ de demande non autorisé.")
     if "support" in values:
         support = values["support"]
         if support is not None and not actor.supports.filter(pk=support.pk).exists():
             raise ValidationError("Le support doit faire partie de vos supports d’appartenance.")
         request.support = support
-    request.supplier = supplier
-    request.save(update_fields=["supplier", "support"])
-    _audit(request, actor, "request.updated", {"supplier_before": before, "supplier_after": supplier.pk,
-        "support_before": support_before, "support_after": request.support_id})
+    prior_contract = request.framework_contract_id
+    if "framework_contract" in values:
+        new_contract = values["framework_contract"]
+        if getattr(new_contract, "pk", None) != prior_contract:
+            if request.lines.exists():
+                raise ValidationError("Retirez les lignes avant de changer le contrat-cadre de la demande.")
+            if new_contract:
+                new_contract = FrameworkContract.objects.select_for_update().get(pk=new_contract.pk)
+                framework_contracts.require_available(new_contract)
+            request.framework_contract = new_contract
+    request.supplier = _supplier_for_request(supplier, request.framework_contract)
+    request.save(update_fields=["supplier", "support", "framework_contract"])
+    _audit(request, actor, "request.updated", {"supplier_before": before, "supplier_after": request.supplier_id,
+        "support_before": support_before, "support_after": request.support_id,
+        "framework_before": prior_contract, "framework_after": request.framework_contract_id})
     return request
 
 
@@ -100,8 +136,7 @@ def update_purchase_request_line(*, request_id, line_id, actor, expected_revisio
     before = {key: str(getattr(line, key)) for key in allowed}
     for key, value in values.items():
         setattr(line, key, value)
-    if line.vat_rate is None:
-        raise ValidationError("Le taux de TVA est obligatoire.")
+    _apply_framework_price(request, line)
     line.full_clean()
     line.save()
     _audit(request, actor, "line.updated", {"line_id": line.pk, "before": before,

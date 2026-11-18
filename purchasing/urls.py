@@ -2,12 +2,17 @@ from django.urls import path
 from . import views
 from . import flow_views
 from . import budget_views
+from . import framework_views
 from . import rule_views
 
 from suppliers import views as supplier_views
 
 app_name = "purchasing"
 urlpatterns = [
+    path("contrats-cadres/", framework_views.contract_list, name="framework_contracts"),
+    path("contrats-cadres/nouveau/", framework_views.contract_edit, name="framework_contract_new"),
+    path("contrats-cadres/<int:pk>/", framework_views.contract_detail, name="framework_contract_detail"),
+    path("contrats-cadres/<int:pk>/modifier/", framework_views.contract_edit, name="framework_contract_edit"),
     path("fournisseurs/", supplier_views.supplier_list, name="suppliers"),
     path("fournisseurs/nouveau/", supplier_views.supplier_edit, name="supplier_create"),
     path("fournisseurs/<int:pk>/modifier/", supplier_views.supplier_edit, name="supplier_edit"),

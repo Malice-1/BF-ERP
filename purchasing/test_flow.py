@@ -23,6 +23,124 @@ from .exceptions import PurchaseRequestError, PurchaseRequestConflict
 
 
 class PurchaseFlowTests(TestCase):
+    def test_framework_contract_catalogue_ceiling_and_order_snapshot(self):
+        from .framework_contracts import usage
+        from .models import FrameworkContract, PurchaseRequest
+
+        today = timezone.localdate()
+        self.client.force_login(self.admin)
+        new_contract_url = reverse("purchasing:framework_contract_new")
+        contract_data = {"reference": "CC-001", "title": "Catalogue original", "supplier": self.supplier.pk,
+                         "start_date": today.isoformat(), "end_date": today.isoformat(), "ceiling": "200", "is_active": "on"}
+        response = self.client.post(new_contract_url, contract_data)
+        contract = FrameworkContract.objects.get(reference="CC-001")
+        contract_url = reverse("purchasing:framework_contract_detail", args=[contract.pk])
+        self.assertRedirects(response, contract_url)
+        price_data = {"product": self.detail.pk, "unit_price": "100", "vat_rate": "21", "is_active": "on"}
+        self.assertRedirects(self.client.post(contract_url, price_data), contract_url)
+
+        self.client.force_login(self.owner)
+        self.assertEqual(self.client.get(contract_url).status_code, 403)
+        create_url = reverse("purchasing:create")
+
+        def create_request():
+            response = self.client.post(create_url, {"framework_contract": contract.pk, "support": self.support.pk})
+            purchase = PurchaseRequest.objects.filter(framework_contract=contract).latest("pk")
+            self.assertRedirects(response, reverse("purchasing:detail", args=[purchase.pk]))
+            self.assertEqual(purchase.supplier, self.supplier)
+            add_url = reverse("purchasing:line_add", args=[purchase.pk])
+            response = self.client.post(add_url, {"expected_revision": purchase.revision,
+                "detailed_product": self.detail.pk, "quantity": "1", "description": "Article du catalogue",
+                "cost_center": self.cdf.pk, "funding": self.funding.pk, "unit_price": "1", "vat_rate": "0"})
+            self.assertRedirects(response, reverse("purchasing:detail", args=[purchase.pk]))
+            line = purchase.lines.get()
+            self.assertEqual((line.unit_price, line.vat_rate), (Decimal("100"), Decimal("21")))
+            return purchase
+
+        first, second = create_request(), create_request()
+        self.submit(first)
+        self.assertEqual(usage(contract)["reserved"], Decimal("121"))
+        with self.assertRaisesMessage(ValidationError, "Plafond du contrat-cadre dépassé"):
+            self.submit(second)
+        self.assertEqual(self.balance(), Decimal("879"))
+        first.refresh_from_db()
+        cancel_purchase_request(actor=self.owner, request_id=first.pk, expected_revision=first.revision)
+        self.assertEqual(usage(contract)["reserved"], Decimal(0))
+        self.submit(second)
+        self.act(self.first, purchase=second)
+        self.assertEqual(usage(contract), {"reserved": Decimal(0), "committed": Decimal("121")})
+
+        self.client.force_login(self.admin)
+        edit = reverse("purchasing:framework_contract_edit", args=[contract.pk])
+        self.assertContains(self.client.post(edit, {**contract_data, "ceiling": "100"}), "inférieur aux montants")
+        self.assertRedirects(self.client.post(edit, {**contract_data, "title": "Catalogue modifié"}), contract_url)
+        order = self.client.get(reverse("purchasing:order", args=[second.pk]))
+        self.assertContains(order, "CC-001")
+        self.assertContains(order, "Catalogue original")
+        self.assertNotContains(order, "Catalogue modifié")
+
+    def test_purchase_approval_creates_one_balanced_draft_with_budget_product_accounts(self):
+        from accounting.models import Account, AccountingPeriod, FiscalYear, Journal, JournalEntry
+        from accounting.purchase_posting import SOURCE_KIND, create_engagement_draft
+
+        journal = Journal.objects.create(code="ENG", label="Engagements", kind="GENERAL")
+        offset = Account.objects.create(code="090", label="Contrepartie")
+        first_account = Account.objects.create(code="091", label="Premier BI")
+        second_account = Account.objects.create(code="092", label="Second BI")
+        today = timezone.localdate()
+        year = FiscalYear.objects.create(code="ENG", start_date=today, end_date=today)
+        AccountingPeriod.objects.create(fiscal_year=year, label="Ouverte", start_date=today, end_date=today)
+        another_product = BudgetProduct.objects.create(code="B2", label="Autre BI")
+        another_detail = DetailedProduct.objects.create(code="D2", label="Autre détail", budget_product=another_product)
+        version = EnvelopeVersion.objects.create(envelope=self.envelope, label="Deux BI")
+        for product in (self.product, another_product):
+            Allocation.objects.create(version=version, cost_center=self.cdf, funding=self.funding,
+                                      budget_product=product, amount=1000)
+        flow.activate_envelope(actor=self.admin, version_id=version.pk)
+        add_purchase_request_line(request_id=self.purchase.pk, actor=self.owner,
+            expected_revision=self.purchase.revision, detailed_product=another_detail, cost_center=self.cdf,
+            funding=self.funding, description="Autre achat", quantity=Decimal("1"),
+            unit_price=Decimal("50"), vat_rate=Decimal("0"))
+
+        url = reverse("accounting:purchase_imputations")
+        self.client.force_login(self.owner)
+        self.assertEqual(self.client.get(url).status_code, 403)
+        self.client.force_login(self.admin)
+        self.assertRedirects(self.client.post(url, {"action": "settings", "enabled": "on",
+            "journal": journal.pk, "offset_account": offset.pk}), url)
+        self.assertRedirects(self.client.post(url, {"action": "mapping", "product": self.product.pk,
+            "account": first_account.pk}), url)
+
+        self.submit()
+        self.act(self.first)
+        self.assertFalse(JournalEntry.objects.exists())
+        with self.assertRaisesMessage(ValidationError, "Compte d’imputation manquant"):
+            self.act(self.first)
+        self.assertFalse(PurchaseOrder.objects.exists())
+        self.assertFalse(JournalEntry.objects.exists())
+        self.assertEqual(BudgetEntry.objects.filter(state="reserved").count(), 2)
+
+        self.assertRedirects(self.client.post(url, {"action": "mapping", "product": another_product.pk,
+            "account": second_account.pk}), url)
+        self.act(self.first)
+        order = PurchaseOrder.objects.get(purchase_request=self.purchase)
+        entry = JournalEntry.objects.get(source_kind=SOURCE_KIND, source_identifier=str(self.purchase.pk))
+        self.assertEqual((entry.status, entry.journal, entry.document_reference), ("DRAFT", journal, order.number))
+        self.assertEqual(entry.debit_total, Decimal("171"))
+        self.assertEqual(entry.credit_total, entry.debit_total)
+        self.assertCountEqual(entry.lines.values_list("account_id", "debit", "credit"), [
+            (first_account.pk, Decimal("121"), Decimal(0)),
+            (second_account.pk, Decimal("50"), Decimal(0)),
+            (offset.pk, Decimal(0), Decimal("171")),
+        ])
+        self.assertEqual(create_engagement_draft(order, self.first).pk, entry.pk)
+        self.assertEqual(JournalEntry.objects.count(), 1)
+        entry_url = reverse("accounting:entry_detail", args=[entry.pk])
+        purchase_url = reverse("purchasing:detail", args=[self.purchase.pk])
+        self.assertContains(self.client.get(purchase_url), entry_url)
+        self.client.force_login(self.owner)
+        self.assertNotContains(self.client.get(purchase_url), entry_url)
+
     def test_admin_budget_edit_preserves_reservations_and_live_order_flow(self):
         self.submit()
         self.version.refresh_from_db()
@@ -297,6 +415,41 @@ class PurchaseFlowTests(TestCase):
             self.assertEqual(response.context["rows"][0]["available"], Decimal(amount))
             self.assertNotContains(response, "<th>Année / version</th>")
             self.assertContains(response, 'name="version"')
+
+    def test_budget_analysis_keeps_deficits_visible_and_filters_drilldowns(self):
+        self.submit()
+        draft = EnvelopeVersion.objects.create(envelope=self.envelope, label="Analyse")
+        other = CostCenter.objects.create(code="AUTRE", label="Autre centre")
+        Allocation.objects.create(version=draft, cost_center=self.cdf, funding=self.funding,
+                                  budget_product=self.product, amount=100)
+        Allocation.objects.create(version=draft, cost_center=other, funding=self.funding,
+                                  budget_product=self.product, amount=300)
+        self.client.force_login(self.admin)
+        url = reverse("purchasing:budgets")
+        page = self.client.get(url, {"version": draft.pk, "group_by": "funding"})
+        analysis = page.context["analysis"]
+        self.assertEqual(analysis["totals"]["available"], Decimal("279"))
+        self.assertEqual(analysis["charts"][0]["total"], Decimal("300"))
+        self.assertEqual(analysis["charts"][1]["total"], Decimal("21"))
+        self.assertContains(page, "Analyse du budget restant")
+        self.assertContains(page, "transparent 100%", count=2)
+
+        excluded = CostCenter.objects.create(code="EXCLU", label="Centre exclu")
+        Allocation.objects.create(version=draft, cost_center=excluded, funding=self.funding,
+                                  budget_product=self.product, amount=500)
+        page = self.client.get(url, {
+            "version": draft.pk, "group_by": "cdf", "cdf": [self.cdf.pk, other.pk],
+            "status": ["positive", "deficit"], "funding": self.funding.pk, "product": "",
+        })
+        analysis = page.context["analysis"]
+        self.assertEqual(analysis["totals"]["available"], Decimal("279"))
+        self.assertEqual(len(page.context["rows"]), 2)
+        self.assertContains(page, 'name="cdf"')
+        self.assertContains(page, 'type="checkbox"')
+        drilldown = self.client.get(url + analysis["groups"][0]["url"])
+        self.assertEqual(drilldown.context["analysis_form"].cleaned_data["cdf"], [other.pk])
+        self.assertEqual(drilldown.context["analysis_form"].cleaned_data["status"], ["positive", "deficit"])
+        self.assertEqual(drilldown.context["analysis_form"].cleaned_data["funding"], [self.funding.pk])
 
     def test_budget_table_refuses_deleted_or_invalid_selection(self):
         deleted = EnvelopeVersion.objects.create(envelope=self.envelope, label="Deleted selection")

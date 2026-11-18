@@ -1,0 +1,21 @@
+{% extends 'hr/base.html' %}
+{% block hr_content %}
+<p><a href="{% url 'hr:employees' %}">Retour aux employés</a></p>
+<h1>{{ employee }}</h1>
+<p>Matricule {{ employee.number }} · {{ employee.is_active|yesno:'Actif,Inactif' }}</p>
+<div class="ledger-actions">
+{% if perms.hr.change_employee %}<a class="button" href="{% url 'hr:employee_edit' employee.pk %}">Modifier la fiche</a>{% endif %}
+{% if perms.hr.view_payrolldetails %}<a class="button button-secondary" href="{% url 'hr:payroll' employee.pk %}">Données de paie</a>{% endif %}
+</div>
+<section class="configuration-section content-zone">
+<h2>Informations professionnelles</h2>
+<dl>
+<dt>Fonction</dt><dd>{{ employee.job_title|default:'—' }}</dd>
+<dt>Service</dt><dd>{{ employee.department|default:'—' }}</dd>
+<dt>E-mail professionnel</dt><dd>{{ employee.work_email|default:'—' }}</dd>
+<dt>Téléphone professionnel</dt><dd>{{ employee.work_phone|default:'—' }}</dd>
+<dt>Date d’entrée</dt><dd>{{ employee.start_date|date:'d/m/Y'|default:'—' }}</dd>
+<dt>Date de sortie</dt><dd>{{ employee.end_date|date:'d/m/Y'|default:'—' }}</dd>
+</dl>
+</section>
+{% endblock %}

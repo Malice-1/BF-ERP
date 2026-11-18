@@ -81,9 +81,15 @@ def configuration(request):
         raise PermissionDenied
     def admin_link(model, label, description):
         app, name = model.split(".")
-        if request.user.is_staff and any(request.user.has_perm(f"{app}.{action}_{name}")
-                                         for action in ("view", "add", "change")):
-            return {"url": reverse(f"admin:{app}_{name}_changelist"), "label": label, "description": description}
+        if not request.user.is_staff:
+            return None
+        if any(request.user.has_perm(f"{app}.{action}_{name}") for action in ("view", "change")):
+            target = "changelist"
+        elif request.user.has_perm(f"{app}.add_{name}"):
+            target = "add"
+        else:
+            return None
+        return {"url": reverse(f"admin:{app}_{name}_{target}"), "label": label, "description": description}
 
     workflow = [
         admin_link("accounts.role", "Rôles et permissions", "Définir les droits d’accès des utilisateurs."),
@@ -94,10 +100,16 @@ def configuration(request):
     ]
     access = [admin_link("accounts.user", "Comptes utilisateurs et droits individuels",
                          "Gérer les comptes, attribuer leurs rôles et leurs supports d’appartenance.")]
-    technical = []
+    technical = [
+        link for link in (
+            admin_link("budgeting.funding", "Financements", "Gérer les codes et libellés des financements."),
+            admin_link("budgeting.subproject", "Sous-projets", "Gérer les codes et libellés des sous-projets."),
+            admin_link("budgeting.section", "Sections", "Gérer les codes et libellés des sections."),
+        ) if link
+    ]
     if request.user.is_staff:
         technical.append({"url": reverse("admin:index"), "label": "Administration et référentiels techniques",
-                          "description": "Retrouver notamment les fournisseurs, financements et produits."})
+                          "description": "Retrouver notamment les fournisseurs et les produits."})
     if request.user.is_superuser:
         access.append({"url": reverse("session_settings"), "label": "Déconnexion automatique",
                        "description": "Définir la durée d’inactivité autorisée."})

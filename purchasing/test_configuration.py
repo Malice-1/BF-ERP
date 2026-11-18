@@ -5,6 +5,30 @@ from django.urls import reverse
 
 
 class ConfigurationGroupingTests(TestCase):
+    def test_subprojects_and_sections_can_be_configured_with_reference_permissions(self):
+        from budgeting.models import Section, Subproject
+
+        user = get_user_model().objects.create_user("reference_editor", is_staff=True)
+        user.user_permissions.add(*Permission.objects.filter(content_type__app_label="budgeting",
+            codename__in=("view_subproject", "add_subproject", "change_subproject", "add_section")))
+        self.client.force_login(user)
+
+        configuration = self.client.get(reverse("purchasing:configuration"))
+        self.assertContains(configuration, reverse("admin:budgeting_subproject_changelist"))
+        self.assertContains(configuration, reverse("admin:budgeting_section_add"))
+        self.assertNotContains(configuration, reverse("admin:budgeting_funding_changelist"))
+
+        payload = {"code": "001", "label": "Activité pilote"}
+        self.assertEqual(self.client.post(reverse("admin:budgeting_subproject_add"), payload).status_code, 302)
+        self.assertEqual(self.client.post(reverse("admin:budgeting_section_add"), payload).status_code, 302)
+        self.assertEqual(Section.objects.get().code, "001")
+        project = Subproject.objects.get(code="001")
+        change = reverse("admin:budgeting_subproject_change", args=[project.pk])
+        self.assertEqual(self.client.post(change, {**payload, "label": "Activité actualisée"}).status_code, 302)
+        project.refresh_from_db()
+        self.assertEqual(project.label, "Activité actualisée")
+        self.assertEqual(self.client.get(reverse("admin:budgeting_section_changelist")).status_code, 403)
+
     def test_django_admin_groups_workflow_models_and_application_links(self):
         user = get_user_model().objects.create_superuser("django_config_admin", password="test")
         self.client.force_login(user)

@@ -1,7 +1,4 @@
 """Audited accounting commands. Lock order: profile -> period -> entry -> sequence."""
-import csv
-import hashlib
-import io
 from decimal import Decimal
 from uuid import uuid4
 
@@ -16,6 +13,9 @@ from .models import (AccountingProfile, Account, FiscalYear, AccountingPeriod, J
     EntrySequence, JournalEntry, JournalEntryLine, AccountingEvent)
 
 
+CURRENT_CHART_REFERENCE = "Plan de comptes actuel"
+
+
 def require(actor, permission):
     if not actor.is_authenticated or not actor.is_active or not actor.has_perm("accounting." + permission):
         raise PermissionDenied("Droit comptable insuffisant.")
@@ -27,23 +27,14 @@ def profile_lock():
 
 
 def audit(actor, obj, action, entry=None, **details):
-    record = AccountingEvent.objects.create(actor=actor, actor_name=actor.get_username(), action=action,
+    record = AccountingEvent.objects.create(actor=actor, actor_name=actor.get_username() if actor else "Système", action=action,
         object_type=obj._meta.label_lower, object_identifier=str(obj.pk), entry=entry, details=details)
     write_log(record, "created", {"action": action, "object": record.object_type,
         "id": record.object_identifier, **details}, "default", actor=actor)
 
 
-def invalidate_chart(profile):
-    profile.approved_at = None
-    profile.approved_by = None
-    profile.approved_by_name = ""
-    profile.approved_issuer_snapshot = {}
-    profile.revision += 1
-    profile.save()
-
-
 @transaction.atomic
-def configure_profile(*, actor, issuer, framework, chart_reference, approval_note, revision):
+def configure_profile(*, actor, issuer, framework, chart_reference, revision):
     require(actor, "change_accountingprofile")
     profile = profile_lock()
     if revision != profile.revision:
@@ -51,42 +42,18 @@ def configure_profile(*, actor, issuer, framework, chart_reference, approval_not
     if JournalEntry.objects.filter(status="POSTED").exists() and (issuer.pk != profile.issuer_id or framework != profile.framework):
         raise ValidationError("L’entité et le cadre ne peuvent plus changer après une première validation.")
     profile.issuer, profile.framework = issuer, framework
-    profile.chart_reference, profile.approval_note = chart_reference.strip(), approval_note.strip()
+    profile.chart_reference = chart_reference.strip() or CURRENT_CHART_REFERENCE
     profile.full_clean()
-    invalidate_chart(profile)
-    audit(actor, profile, "Cadre comptable configuré", framework=framework, reference=chart_reference)
-    return profile
-
-
-@transaction.atomic
-def approve_profile(*, actor, revision):
-    require(actor, "approve_accountingprofile")
-    profile = profile_lock()
-    if profile.revision != revision:
-        raise ValidationError("Le plan ou le cadre a changé. Relisez-le avant approbation.")
-    if not profile.issuer_id or not profile.chart_reference.strip() or not profile.approval_note.strip():
-        raise ValidationError("Renseignez l’entité, la référence du plan et la justification de sa revue.")
-    profile.issuer = IssuerConfiguration.objects.select_for_update().get(pk=profile.issuer_id)
-    if not profile.issuer.name or not profile.issuer.legal_id:
-        raise ValidationError("L’identité légale de l’entité est incomplète.")
-    first_posted = JournalEntry.objects.filter(status="POSTED").order_by("pk").first()
-    if first_posted and first_posted.issuer_snapshot["legal_id"] != profile.issuer.legal_id:
-        raise ValidationError("Une autre identité légale exige une comptabilité distincte ; ne réaffectez pas ce grand livre.")
-    if Account.objects.filter(is_active=True, postable=True).count() < 2:
-        raise ValidationError("Le plan doit contenir au moins deux comptes d’imputation actifs.")
-    profile.approved_at = timezone.now()
-    profile.approved_by, profile.approved_by_name = actor, actor.get_username()
-    profile.approved_issuer_snapshot = {key: getattr(profile.issuer, key) for key in ("name", "legal_id", "country")}
     profile.revision += 1
     profile.save()
-    audit(actor, profile, "Cadre et plan approuvés", reference=profile.chart_reference, note=profile.approval_note)
+    audit(actor, profile, "Cadre comptable configuré", framework=framework, reference=chart_reference)
     return profile
 
 
 @transaction.atomic
 def save_account(*, actor, values, pk=None):
     require(actor, "change_account" if pk else "add_account")
-    profile = profile_lock()
+    profile_lock()
     allowed = {"code", "label", "postable", "is_active", "party_requirement", "source_reference"}
     if set(values) - allowed:
         raise ValidationError("Champ de compte non autorisé.")
@@ -98,54 +65,8 @@ def save_account(*, actor, values, pk=None):
         setattr(account, name, value)
     account.full_clean()
     account.save()
-    invalidate_chart(profile)
     audit(actor, account, "Compte enregistré", values=values)
     return account
-
-
-@transaction.atomic
-def import_chart(*, actor, data, source_reference):
-    require(actor, "import_account")
-    profile = profile_lock()
-    if not source_reference.strip():
-        raise ValidationError("La référence du plan applicable est obligatoire.")
-    if len(data) > 2_000_000:
-        raise ValidationError("Le fichier dépasse 2 Mo.")
-    checksum = hashlib.sha256(data).hexdigest()
-    if any(item["sha256"] == checksum and item["source"] == source_reference for item in profile.chart_manifest):
-        return 0
-    try:
-        reader = csv.DictReader(io.StringIO(data.decode("utf-8-sig")), delimiter=";")
-        if reader.fieldnames != ["code", "label", "postable", "party_requirement"]:
-            raise ValidationError("En-têtes attendus : code;label;postable;party_requirement")
-        rows = list(reader)
-    except UnicodeError as cause:
-        raise ValidationError("Utilisez un CSV UTF-8 séparé par des points-virgules.") from cause
-    if not rows or len(rows) > 10000:
-        raise ValidationError("Le fichier doit contenir de 1 à 10 000 comptes.")
-    codes = set()
-    for index, row in enumerate(rows, 2):
-        if None in row or any(v is None for v in row.values()):
-            raise ValidationError(f"Ligne {index} : nombre de colonnes invalide.")
-        values = {k: v.strip() for k, v in row.items()}
-        if values["postable"] not in ("0", "1") or values["code"] in codes:
-            raise ValidationError(f"Ligne {index} : compte doublonné ou indicateur postable invalide.")
-        codes.add(values["code"])
-        existing = Account.objects.filter(code=values["code"]).first()
-        candidate = Account(code=values["code"], label=values["label"], postable=values["postable"] == "1",
-            party_requirement=values["party_requirement"], source_reference=source_reference)
-        if existing:
-            comparable = ("label", "postable", "party_requirement")
-            if any(getattr(existing, f) != getattr(candidate, f) for f in comparable):
-                raise ValidationError(f"Ligne {index} : le compte {existing.code} existe avec des paramètres différents. Modifiez-le explicitement.")
-        else:
-            candidate.full_clean()
-            candidate.save()
-    profile.chart_manifest = [*profile.chart_manifest, {"sha256": checksum, "source": source_reference,
-        "date": timezone.now().isoformat(), "rows": len(rows)}]
-    invalidate_chart(profile)
-    audit(actor, profile, "Plan de comptes importé", sha256=checksum, source=source_reference, rows=len(rows))
-    return len(rows)
 
 
 @transaction.atomic
@@ -247,12 +168,17 @@ def validate_lines(lines, reversal=False):
 def save_draft(*, actor, values, lines, token, pk=None, revision=0):
     require(actor, "change_journalentry" if pk else "add_journalentry")
     profile_lock()
+    return _save_draft(actor=actor, values=values, lines=lines, token=token, pk=pk, revision=revision)
+
+
+def _save_draft(*, actor, values, lines, token, pk=None, revision=0, source_kind="MANUAL", source_identifier="",
+                source_invoice=None):
     if set(values) - ENTRY_FIELDS or any(set(line) - LINE_FIELDS for line in lines):
         raise ValidationError("Champ d’écriture non autorisé.")
     if not pk:
         existing = JournalEntry.objects.filter(idempotency_key=token).first()
         if existing:
-            if existing.created_by_id != actor.pk:
+            if existing.created_by_id != getattr(actor, "pk", None):
                 raise ValidationError("Cette clé de saisie est déjà utilisée.")
             def normal(row):
                 return {"account": row["account"].pk, "description": row.get("description", ""),
@@ -264,7 +190,9 @@ def save_draft(*, actor, values, lines, token, pk=None, revision=0):
             if any(getattr(existing, key) != value for key, value in values.items()) or requested != saved:
                 raise ValidationError("Cette clé correspond à une autre saisie ; rechargez le formulaire.")
             return existing
-    entry = JournalEntry.objects.select_for_update().get(pk=pk) if pk else JournalEntry(created_by=actor, idempotency_key=token)
+    entry = JournalEntry.objects.select_for_update().get(pk=pk) if pk else JournalEntry(
+        created_by=actor, idempotency_key=token, source_kind=source_kind,
+        source_identifier=source_identifier, source_invoice=source_invoice)
     if entry.status != "DRAFT" or entry.reversal_of_id:
         raise ValidationError("Cette écriture ne peut pas être modifiée.")
     if pk and (entry.revision != revision or entry.idempotency_key != token):
@@ -291,7 +219,9 @@ def save_draft(*, actor, values, lines, token, pk=None, revision=0):
     entry.full_clean()
     entry.save()
     audit(actor, entry, "Brouillon enregistré", entry=entry, revision=entry.revision,
-        debit=str(entry.debit_total), credit=str(entry.credit_total))
+        debit=str(entry.debit_total), credit=str(entry.credit_total),
+        **({"source_kind": entry.source_kind, "source_identifier": entry.source_identifier}
+           if entry.source_identifier else {}))
     return entry
 
 
@@ -299,11 +229,14 @@ def _post(profile, entry, actor):
     period = AccountingPeriod.objects.select_for_update().get(pk=entry.period_id)
     year = FiscalYear.objects.select_for_update().get(pk=period.fiscal_year_id)
     journal = Journal.objects.select_for_update().get(pk=entry.journal_id)
-    if not profile.approved_at or not profile.issuer_id:
-        raise ValidationError("Le cadre et le plan doivent être approuvés avant toute validation d’écriture.")
+    if not profile.issuer_id:
+        raise ValidationError("Configurez l’entité comptable avant de valider une écriture.")
     profile.issuer = IssuerConfiguration.objects.select_for_update().get(pk=profile.issuer_id)
-    if profile.approved_issuer_snapshot != {key: getattr(profile.issuer, key) for key in ("name", "legal_id", "country")}:
-        raise ValidationError("L’identité de l’entité a changé. Une nouvelle revue du cadre est nécessaire.")
+    if not profile.issuer.name.strip() or not profile.issuer.legal_id.strip():
+        raise ValidationError("L’identité légale de l’entité comptable est incomplète.")
+    origin = JournalEntry.objects.filter(status="POSTED").order_by("pk").first()
+    if origin and origin.issuer_snapshot["legal_id"] != profile.issuer.legal_id:
+        raise ValidationError("Une autre identité légale exige une comptabilité distincte.")
     if not period.is_open or not year.is_open or not period.start_date <= entry.accounting_date <= period.end_date:
         raise ValidationError("La période ou l’exercice est fermé, ou la date est hors période.")
     if not journal.is_active or not entry.document_reference.strip():
@@ -337,8 +270,8 @@ def _post(profile, entry, actor):
     sequence.save()
     entry.number = f"{journal.code}-{year.code}-{sequence.last_number:06d}"
     entry.issuer_snapshot = {"name": profile.issuer.name, "legal_id": profile.issuer.legal_id,
-        "framework": profile.framework, "chart_reference": profile.chart_reference,
-        "profile_revision": profile.revision, "approved_by": profile.approved_by_name}
+        "framework": profile.framework, "chart_reference": profile.chart_reference or CURRENT_CHART_REFERENCE,
+        "profile_revision": profile.revision}
     entry.journal_snapshot = {"code": journal.code, "label": journal.label, "kind": journal.kind}
     entry.fiscal_snapshot = {"year": year.code, "period": period.label}
     entry.debit_total, entry.credit_total = debit, credit

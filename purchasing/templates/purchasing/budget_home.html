@@ -27,7 +27,7 @@
 <section class="configuration-section" aria-labelledby="budget-balances-title">
 <h2 id="budget-balances-title">Consulter les disponibilités</h2>
 <ul class="configuration-links">
-{% if perms.budgeting.view_budget_balances %}<li><a href="{% url 'purchasing:budgets' %}">Budgets et disponibilités</a><small>Consulter les allocations, réservations, engagements et soldes.</small></li>{% endif %}
+{% if perms.budgeting.view_budget_balances %}<li><a href="{% url 'purchasing:budgets' %}">Budgets et disponibilités</a><small>Analyser le budget restant, les engagements et les déficits par CDF, financement ou produit.</small></li>{% endif %}
 <li><button type="button" class="module-action-button" data-budget-check-open>Vérifier un budget</button><small>Vérifier le solde d’une combinaison dans une version budgétaire.</small></li>
 </ul>
 </section>

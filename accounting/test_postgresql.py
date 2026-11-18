@@ -10,7 +10,7 @@ from django.db import connection, connections, DatabaseError, transaction
 from django.test import TransactionTestCase
 
 from .tests import LedgerFixture
-from .models import JournalEntry, EntrySequence, FiscalYear, AccountingPeriod, AccountingProfile
+from .models import JournalEntry, EntrySequence, FiscalYear, AccountingPeriod
 from . import services
 
 
@@ -83,7 +83,9 @@ class LedgerPostgreSQLTests(LedgerFixture, TransactionTestCase):
             with connection.cursor() as cursor:
                 cursor.execute("""UPDATE accounting_journalentry SET status='POSTED', number='FAKE',
                     posted_at=CURRENT_TIMESTAMP, debit_total=100, credit_total=100,
-                    posted_by_id=%s, posted_by_name='SQL' WHERE id=%s""", [self.actor.pk, entry.pk])
+                    issuer_snapshot=jsonb_build_object('legal_id', %s::text),
+                    posted_by_id=%s, posted_by_name='SQL' WHERE id=%s""",
+                    [self.issuer.legal_id, self.actor.pk, entry.pk])
 
     def test_raw_overlapping_year_and_period_rejected(self):
         for sql, values in (
@@ -103,7 +105,7 @@ class LedgerPostgreSQLTests(LedgerFixture, TransactionTestCase):
                 with connection.cursor() as cursor:
                     cursor.execute(sql)
 
-    def test_raw_account_change_revokes_plan_approval(self):
+    def test_raw_account_change_does_not_prevent_posting(self):
         with connection.cursor() as cursor:
             cursor.execute("UPDATE accounting_account SET label='QA revision' WHERE id=%s", [self.debit.pk])
-        self.assertIsNone(AccountingProfile.objects.get(pk=1).approved_at)
+        self.assertEqual(self.posted().lines.first().account_snapshot["label"], "QA revision")

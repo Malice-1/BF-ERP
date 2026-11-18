@@ -1,16 +1,16 @@
 {% extends 'accounting/base.html' %}{% block ledger_content %}
-<h1>Comptabilité</h1><p>Plan de comptes, journaux et écritures en partie double.</p>
-{% if profile.approved_at %}<p class="ledger-message">Cadre approuvé : {{ profile.get_framework_display }} — {{ profile.chart_reference }}. Revue du {{ profile.approved_at|date:'d/m/Y H:i' }} par {{ profile.approved_by_name }}.</p>{% else %}<p role="status" class="ledger-message">Cadre d’organisme public : plan applicable à confirmer. Les brouillons peuvent être préparés ; leur validation exige l’approbation du cadre et du plan.</p>{% endif %}
+<h1>Comptabilité</h1>
 <div class="ledger-cards">
-{% if perms.accounting.view_supplierinvoice %}<a href="{% url 'accounting:supplier_invoices' %}">Factures fournisseurs XML</a>{% endif %}
-{% if perms.accounting.import_supplierinvoice %}<a href="{% url 'accounting:supplier_invoice_upload' %}">Importer un XML fournisseur</a>{% endif %}
-{% if perms.accounting.view_accountingprofile %}<a href="{% url 'accounting:profile' %}">Cadre et approbation</a>{% endif %}
+{% if perms.accounting.change_purchasepostingconfiguration %}<a href="{% url 'accounting:purchase_imputations' %}">Imputations des demandes d’achat</a>{% endif %}
+{% if perms.accounting.change_salespostingconfiguration %}<a href="{% url 'accounting:sales_imputations' %}">Imputations des ventes</a>{% endif %}
+{% if perms.accounting.view_supplierinvoice %}<a href="{% url 'accounting:supplier_invoices' %}">Factures fournisseurs</a>{% else %}
+{% if perms.accounting.add_supplierinvoice %}<a href="{% url 'accounting:supplier_invoice_new' %}">Encoder une facture fournisseur</a>{% endif %}
+{% if perms.accounting.import_supplierinvoice %}<a href="{% url 'accounting:supplier_invoice_upload' %}">Importer une facture Peppol</a>{% endif %}
+{% endif %}
 {% if perms.accounting.view_account %}<a href="{% url 'accounting:accounts' %}">Plan de comptes</a>{% endif %}
-{% if perms.accounting.import_account %}<a href="{% url 'accounting:chart_import' %}">Importer le plan applicable</a>{% endif %}
 {% if perms.accounting.view_journal %}<a href="{% url 'accounting:journals' %}">Journaux</a>{% endif %}
 {% if perms.accounting.view_fiscalyear %}<a href="{% url 'accounting:years' %}">Exercices et périodes</a>{% endif %}
 {% if perms.accounting.view_journalentry %}<a href="{% url 'accounting:entries' %}">Écritures</a>{% endif %}
-{% if perms.accounting.add_journalentry %}<a href="{% url 'accounting:entry_new' %}">Nouvelle écriture</a>{% endif %}
 {% if perms.accounting.add_account %}<a href="{% url 'accounting:account_new' %}">Nouveau compte</a>{% endif %}
 {% if perms.accounting.add_journal %}<a href="{% url 'accounting:journal_new' %}">Nouveau journal</a>{% endif %}
 {% if perms.accounting.add_fiscalyear %}<a href="{% url 'accounting:year_new' %}">Nouvel exercice</a>{% endif %}

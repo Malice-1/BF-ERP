@@ -7,6 +7,7 @@ from django.views.decorators.http import require_http_methods
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.cache import never_cache
 from . import flow
+from .budget_analysis import BudgetAnalysisForm, summarize
 from .models import (PurchaseRequest, ApprovalStep, Submission, PurchaseOrder,
     AnnualEnvelope, PurchaseNotice, Delegation)
 from .forms import RevisionForm, BudgetCheckForm, BudgetVersionSelectionForm
@@ -149,6 +150,7 @@ def order_document(request, pk):
         raise Http404
     lines = list(order.submission.lines.all())
     return render(request, "purchasing/order.html", {"order": order, "lines": lines,
+        "framework_contract": lines[0].data.get("framework_contract") if lines else None,
         "total": sum((line.amount for line in lines), Decimal(0))})
 
 
@@ -194,10 +196,25 @@ def budgets(request):
                 committed=sum((e.amount for e in entries if e.state == "committed"), Decimal(0)),
                 transfers=transfer_balance(version.pk, cdf, funding, product),
                 available=flow.available(version, cdf, funding, product)))
-    if excel.requested(request) and not form.errors:
+    if selected_version:
+        data.setdefault("group_by", "cdf")
+    analysis_form = BudgetAnalysisForm(data, rows) if selected_version else None
+    analysis = None
+    if analysis_form is not None:
+        if analysis_form.is_valid():
+            rows = analysis_form.filter_rows(rows)
+            query = analysis_form.data.copy()
+            query.pop("export", None)
+            analysis = summarize(rows, analysis_form.cleaned_data["group_by"] or "cdf", query)
+        else:
+            rows = []
+    if excel.requested(request) and not form.errors and (analysis_form is None or not analysis_form.errors):
         return excel.response("budgets-disponibilites", [("Budgets et disponibilités", ["Année", "Version", "CDF", "Financement", "BI", "Allocation TVAC", "Réservé", "Engagé", "Solde transferts", "Disponible"],
             ((r["year"], r["version"], r["cdf"], r["funding"], r["product"], r["allocated"], r["reserved"], r["committed"], r["transfers"], r["available"]) for r in rows))])
-    return render(request, "purchasing/budgets.html", {"rows": rows, "form": form, "selected_version": selected_version})
+    return render(request, "purchasing/budgets.html", {
+        "rows": rows, "form": form, "selected_version": selected_version,
+        "analysis_form": analysis_form, "analysis": analysis,
+    })
 
 
 @login_required

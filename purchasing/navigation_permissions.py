@@ -21,4 +21,8 @@ def can_access_configuration(user):
         return True
     if not user.is_authenticated or not user.is_active:
         return False
-    return user.has_perm("budgeting.manage_cost_center_managers")
+    return user.has_perm("budgeting.manage_cost_center_managers") or (
+        user.is_staff and any(user.has_perm(f"budgeting.{action}_{reference}")
+                              for reference in ("funding", "subproject", "section")
+                              for action in ("view", "add", "change"))
+    )

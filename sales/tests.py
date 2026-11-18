@@ -59,6 +59,65 @@ class SalesFixture:
 
 
 class SalesTests(SalesFixture, TestCase):
+    def test_sales_invoice_generates_draft_with_customer_revenue_and_tax_accounts(self):
+        from accounting.models import Account, AccountingPeriod, FiscalYear, Journal, JournalEntry
+        from accounting.sales_posting import SOURCE_KIND
+        from budgeting.models import BudgetProduct
+
+        products = [BudgetProduct.objects.create(code=f"VENTE-{i}", label=f"Formation {i}") for i in (1, 2)]
+        revenue = [Account.objects.create(code=f"70{i}", label=f"Produit {i}") for i in (1, 2)]
+        receivable = Account.objects.create(code="400", label="Clients", party_requirement="CUSTOMER")
+        tax = Account.objects.create(code="451", label="TVA collectée")
+        journal = Journal.objects.create(code="VTE", label="Ventes", kind="SALE")
+        today = date(2026, 11, 16)
+        year = FiscalYear.objects.create(code="2026", start_date=today, end_date=today)
+        AccountingPeriod.objects.create(fiscal_year=year, label="Ouverte", start_date=today, end_date=today)
+
+        config_url = reverse("accounting:sales_imputations")
+        config = {"action": "settings", "journal": journal.pk, "receivable_account": receivable.pk, "enabled": "on"}
+        self.assertRedirects(self.client.post(config_url, config), config_url)
+        order = self.confirm(services.save_order(actor=self.actor, values=self.values(), lines=[
+            self.line(budget_product=products[0]),
+            self.line(budget_product=products[1], unit_price=Decimal("50"), tax_code="Z", tax_rate=Decimal("0")),
+        ]))
+        issue = {"actor": self.actor, "pk": order.pk, "revision": order.revision}
+
+        with self.assertRaisesMessage(ValidationError, "Compte de produit manquant"):
+            services.issue_invoice(**issue)
+        for product, account in zip(products, revenue):
+            self.assertRedirects(self.client.post(config_url, {
+                "action": "mapping", "product": product.pk, "account": account.pk,
+            }), config_url)
+        with self.assertRaisesMessage(ValidationError, "Configurez le compte de TVA collectée"):
+            services.issue_invoice(**issue)
+        self.assertFalse(SalesInvoice.objects.exists())
+        self.assertFalse(JournalEntry.objects.exists())
+        order.refresh_from_db()
+        self.assertEqual(order.status, "CONFIRMED")
+
+        self.assertRedirects(self.client.post(config_url, {**config, "tax_account": tax.pk}), config_url)
+        invoice = services.issue_invoice(**issue)
+        entry = JournalEntry.objects.get(source_invoice=invoice, source_kind=SOURCE_KIND)
+        self.assertEqual((entry.status, entry.journal, entry.document_reference), ("DRAFT", journal, invoice.number))
+        self.assertEqual(entry.debit_total, invoice.total)
+        self.assertEqual(entry.credit_total, invoice.total)
+        self.assertCountEqual(entry.lines.values_list("account_id", "debit", "credit", "customer_id"), [
+            (receivable.pk, Decimal("319.90"), Decimal(0), self.customer.pk),
+            (revenue[0].pk, Decimal(0), Decimal("190"), None),
+            (revenue[1].pk, Decimal(0), Decimal("90"), None),
+            (tax.pk, Decimal(0), Decimal("39.90"), None),
+        ])
+        with self.assertRaises(ValidationError):
+            services.issue_invoice(**issue)
+        self.assertEqual(JournalEntry.objects.count(), 1)
+        self.assertContains(self.client.get(reverse("sales:invoice_detail", args=[invoice.pk])),
+                            reverse("accounting:entry_detail", args=[entry.pk]))
+
+        self.assertRedirects(self.client.post(config_url, config), config_url)
+        exempt = self.confirm(self.order(budget_product=products[0], tax_code="Z", tax_rate=Decimal("0")))
+        invoice = services.issue_invoice(actor=self.actor, pk=exempt.pk, revision=exempt.revision)
+        self.assertEqual(JournalEntry.objects.get(source_invoice=invoice).lines.count(), 2)
+
     def test_two_lines_totals_number_and_confirmation(self):
         order = self.order()
         self.assertEqual(order.number, "CV-2026-0001")

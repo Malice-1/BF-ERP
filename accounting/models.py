@@ -52,7 +52,6 @@ class AccountingProfile(GuardedModel):
         default_permissions = ("view", "change")
         verbose_name = "cadre comptable"
         verbose_name_plural = "cadre comptable"
-        permissions = [("approve_accountingprofile", "Approuver le cadre et le plan comptables")]
         constraints = [models.CheckConstraint(condition=models.Q(id=1), name="acct_single_profile")]
 
 
@@ -71,7 +70,6 @@ class Account(GuardedModel):
         verbose_name = "compte général"
         verbose_name_plural = "plan de comptes"
         default_permissions = ("view", "add", "change")
-        permissions = [("import_account", "Importer le plan de comptes")]
 
     def __str__(self):
         return f"{self.code} — {self.label}"
@@ -143,6 +141,47 @@ class EntrySequence(GuardedModel):
     class Meta:
         default_permissions = ()
         constraints = [models.UniqueConstraint(fields=["journal", "fiscal_year"], name="acct_sequence_unique")]
+
+
+class PurchasePostingConfiguration(GuardedModel):
+    enabled = models.BooleanField("Générer les écritures à la validation des DA", default=False)
+    journal = models.ForeignKey(Journal, on_delete=models.PROTECT, verbose_name="Journal des engagements")
+    offset_account = models.ForeignKey(Account, on_delete=models.PROTECT, verbose_name="Compte de contrepartie")
+
+    class Meta:
+        default_permissions = ("change",)
+        verbose_name = "paramétrage des imputations des demandes d’achat"
+        constraints = [models.CheckConstraint(condition=models.Q(id=1), name="acct_single_purchase_posting")]
+
+
+class BudgetProductAccount(GuardedModel):
+    product = models.OneToOneField("budgeting.BudgetProduct", on_delete=models.PROTECT, verbose_name="Produit budgétaire")
+    account = models.ForeignKey(Account, on_delete=models.PROTECT, verbose_name="Compte d’imputation")
+
+    class Meta:
+        default_permissions = ()
+
+
+class SalesPostingConfiguration(GuardedModel):
+    enabled = models.BooleanField("Générer les écritures à l’émission des factures", default=False)
+    journal = models.ForeignKey(Journal, on_delete=models.PROTECT, verbose_name="Journal des ventes")
+    receivable_account = models.ForeignKey(Account, on_delete=models.PROTECT,
+        related_name="+", verbose_name="Compte clients")
+    tax_account = models.ForeignKey(Account, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="+", verbose_name="Compte de TVA collectée")
+
+    class Meta:
+        default_permissions = ("change",)
+        verbose_name = "paramétrage des imputations des ventes"
+        constraints = [models.CheckConstraint(condition=models.Q(id=1), name="acct_single_sales_posting")]
+
+
+class SalesBudgetProductAccount(GuardedModel):
+    product = models.OneToOneField("budgeting.BudgetProduct", on_delete=models.PROTECT, verbose_name="Produit budgétaire")
+    account = models.ForeignKey(Account, on_delete=models.PROTECT, verbose_name="Compte de produit")
+
+    class Meta:
+        default_permissions = ()
 
 
 class JournalEntry(GuardedModel):
@@ -257,10 +296,12 @@ class AccountingEvent(GuardedModel):
 
 
 class SupplierInvoice(GuardedModel):
-    checksum = models.CharField(max_length=64, unique=True)
+    origin = models.CharField("Origine", max_length=8, default="PEPPOL",
+        choices=[("PEPPOL", "Import Peppol"), ("MANUAL", "Saisie manuelle")])
+    checksum = models.CharField(max_length=64, unique=True, null=True, blank=True)
     business_key = models.CharField(max_length=64, null=True, unique=True, blank=True)
-    original_filename = models.CharField(max_length=255)
-    storage_path = models.CharField(max_length=500)
+    original_filename = models.CharField(max_length=255, blank=True)
+    storage_path = models.CharField(max_length=500, blank=True)
     invoice_number = models.CharField("Numéro fournisseur", max_length=255, blank=True)
     issue_date = models.DateField("Date de facture", null=True, blank=True)
     due_date = models.DateField("Échéance", null=True, blank=True)
@@ -285,28 +326,30 @@ class SupplierInvoice(GuardedModel):
 
     class Meta:
         ordering = ["-created_at", "-pk"]
-        verbose_name = "facture fournisseur XML"
-        verbose_name_plural = "factures fournisseurs XML"
-        default_permissions = ("view",)
+        verbose_name = "facture fournisseur"
+        verbose_name_plural = "factures fournisseurs"
+        default_permissions = ("view", "add", "change")
         permissions = [("import_supplierinvoice", "Importer les factures fournisseurs XML"),
             ("review_supplierinvoice", "Approuver ou rejeter les factures fournisseurs"),
             ("download_supplierinvoice", "Télécharger les XML fournisseurs"),
             ("revalidate_supplierinvoice", "Revalider les XML fournisseurs")]
 
-    ORIGINAL_FIELDS = ("checksum", "business_key", "original_filename", "storage_path", "invoice_number", "issue_date",
-        "due_date", "currency", "subtotal", "tax_total", "total", "payable", "extracted_data", "created_at")
+    PROVENANCE_FIELDS = ("origin", "checksum", "business_key", "original_filename", "storage_path", "created_at")
+    INVOICE_FIELDS = ("invoice_number", "issue_date", "due_date", "currency", "subtotal", "tax_total",
+                      "total", "payable", "extracted_data")
 
     def save(self, *args, **kwargs):
         if self.pk:
             old = type(self).objects.get(pk=self.pk)
-            if any(getattr(old, key) != getattr(self, key) for key in self.ORIGINAL_FIELDS):
-                raise ValidationError("Le XML importé et ses données extraites sont immuables.")
+            immutable = self.PROVENANCE_FIELDS + (self.INVOICE_FIELDS if old.origin == "PEPPOL" else ())
+            if any(getattr(old, key) != getattr(self, key) for key in immutable):
+                raise ValidationError("L’origine de la facture et les données importées sont immuables.")
             if old.status != "RECEIVED":
                 raise ValidationError("La revue de cette facture est déjà terminée.")
         return super().save(*args, **kwargs)
 
     def __str__(self):
-        return self.invoice_number or f"Import {self.pk}"
+        return self.invoice_number or f"Facture fournisseur {self.pk}"
 
 
 class SupplierInvoiceValidation(GuardedModel):

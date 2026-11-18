@@ -9,6 +9,8 @@ def navigation(request):
         section = "accounting"
     elif request.resolver_match and request.resolver_match.namespace == "sales":
         section = "sales"
+    elif request.resolver_match and request.resolver_match.namespace == "hr":
+        section = "hr"
     elif name in {"inbox", "delegations", "my_validations", "my_delegations", "decision"}:
         section = "personal"
     elif name in {"allocation_import", "transfer_correct", "version_transfers", "transfer_timeline", "transfer_monitor", "budget_history", "budget_version_history", "transfer_list", "transfer_detail", "budget_home", "budget_versions", "allocation_versions", "budget_version", "budget_products", "budgets"}:

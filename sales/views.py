@@ -241,7 +241,14 @@ def invoices(request):
 @require_GET
 def invoice_detail(request, pk):
     invoice = get_object_or_404(SalesInvoice.objects.select_related("order"), pk=pk)
+    accounting_entry = None
+    if request.user.has_perm("accounting.view_journalentry"):
+        from accounting.models import JournalEntry
+        from accounting.sales_posting import SOURCE_KIND
+        accounting_entry = JournalEntry.objects.filter(
+            source_invoice=invoice, source_kind=SOURCE_KIND, source_identifier=str(invoice.pk)).first()
     return render(request, "sales/invoice_detail.html", {"invoice": invoice, "lines": invoice.lines.all(),
+        "accounting_entry": accounting_entry,
         "documents": invoice.documents.prefetch_related("validations"),
         "payment_form": PaymentForm(), "payments": invoice.payments.select_related("reversal"),
         "paid": services.paid_amount(invoice), "balance": invoice.total - services.paid_amount(invoice)})

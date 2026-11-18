@@ -1,0 +1,21 @@
+{% extends 'hr/base.html' %}
+{% block hr_content %}
+<p><a href="{% url 'hr:employee_detail' employee.pk %}">Retour à la fiche employé</a></p>
+<h1>Données de paie</h1>
+<p>{{ employee }} · Matricule {{ employee.number }}</p>
+{% if form %}
+<form method="post" class="ledger-form" autocomplete="off">
+{% csrf_token %}
+{{ form.as_p }}
+<button type="submit">Enregistrer les données de paie</button>
+</form>
+{% elif payroll %}
+<dl>
+<dt>Rémunération brute de base</dt><dd>{% if payroll.gross_amount != None %}{{ payroll.gross_amount|floatformat:2 }} EUR{% else %}—{% endif %}</dd>
+<dt>Base de rémunération</dt><dd>{{ payroll.get_frequency_display }}</dd>
+<dt>Temps de travail</dt><dd>{% if payroll.work_percentage != None %}{{ payroll.work_percentage|floatformat:-2 }} %{% else %}—{% endif %}</dd>
+<dt>Date d’effet</dt><dd>{{ payroll.effective_date|date:'d/m/Y'|default:'—' }}</dd>
+<dt>IBAN de versement</dt><dd>{{ payroll.iban|default:'—' }}</dd>
+</dl>
+{% else %}<p>Aucune donnée de paie enregistrée.</p>{% endif %}
+{% endblock %}

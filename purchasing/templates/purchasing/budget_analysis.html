@@ -1,0 +1,53 @@
+{% load l10n ui_actions %}
+<section class="configuration-section content-zone budget-analysis" aria-labelledby="budget-analysis-title">
+<h2 id="budget-analysis-title">Analyse du budget restant</h2>
+{% with totals=analysis.totals %}
+<dl class="budget-analysis-indicators">
+    <div><dt>Disponible net</dt><dd{% if totals.available < 0 %} class="budget-deficit"{% endif %}>{{ totals.available|amount }}</dd></div>
+    <div><dt>Allocation TVAC</dt><dd>{{ totals.allocated|amount }}</dd></div>
+    <div><dt>Réservé</dt><dd>{{ totals.reserved|amount }}</dd></div>
+    <div><dt>Engagé</dt><dd>{{ totals.committed|amount }}</dd></div>
+    <div><dt>Solde des transferts</dt><dd>{{ totals.transfers|amount }}</dd></div>
+</dl>
+{% endwith %}
+<p class="budget-analysis-note">Le disponible net correspond à l’allocation moins les réservations et engagements de l’année, plus le solde des transferts de la version, sorties en attente incluses.</p>
+<div class="budget-analysis-charts">
+{% for chart in analysis.charts %}
+<div class="budget-analysis-chart">
+    <h3>{{ chart.title }} · {{ analysis.dimension }}</h3>
+    {% if chart.segments %}
+    <div class="budget-analysis-donut" style="--segments: {% for segment in chart.segments %}{{ segment.color }} {{ segment.start|unlocalize }}% {{ segment.end|unlocalize }}%, {% endfor %}transparent 100%">
+        <strong>{{ chart.total|amount }}</strong>
+    </div>
+    <ul class="budget-analysis-legend">
+    {% for segment in chart.segments %}
+        <li>
+            <span class="budget-analysis-swatch" style="--swatch: {{ segment.color }}" aria-hidden="true"></span>
+            <span>{% if segment.url %}<a href="{{ segment.url }}">{{ segment.label }}</a>{% else %}{{ segment.label }}{% endif %}</span>
+            <span class="budget-analysis-value">{{ segment.amount|amount }} <small>({{ segment.share|floatformat:1 }} %)</small></span>
+        </li>
+    {% endfor %}
+    </ul>
+    {% else %}
+    <p class="budget-analysis-note">Aucun montant dans cette répartition.</p>
+    {% endif %}
+</div>
+{% endfor %}
+</div>
+<h3>Synthèse par {{ analysis.dimension|lower }}</h3>
+<div class="table-wrap">
+<table>
+    <thead><tr><th scope="col">{{ analysis.dimension }}</th><th scope="col">Allocation TVAC</th><th scope="col">Réservé</th><th scope="col">Engagé</th><th scope="col">Solde des transferts</th><th scope="col">Déficit à couvrir</th><th scope="col">Disponible net</th></tr></thead>
+    <tbody>
+    {% for group in analysis.groups %}
+        <tr>
+            <th scope="row"><a href="{{ group.url }}">{{ group.label }}</a></th>
+            <td>{{ group.allocated|amount }}</td><td>{{ group.reserved|amount }}</td><td>{{ group.committed|amount }}</td><td>{{ group.transfers|amount }}</td>
+            <td{% if group.deficit %} class="budget-deficit"{% endif %}>{{ group.deficit|amount }}</td>
+            <td{% if group.available < 0 %} class="budget-deficit"{% endif %}>{{ group.available|amount }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>
+</section>

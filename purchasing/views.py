@@ -4,9 +4,9 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods
 from decimal import Decimal
 from .exceptions import PurchaseRequestError
-from .forms import EditPurchaseRequestForm, PurchaseRequestForm, PurchaseRequestLineForm, RevisionForm
+from .forms import EditPurchaseRequestForm, FrameworkPurchaseLineForm, PurchaseRequestForm, PurchaseRequestLineForm, RevisionForm
 from .models import PurchaseRequest
-from . import services
+from . import framework_contracts, services
 from .navigation_permissions import can_access_purchases, can_access_budget, can_access_configuration
 from config import excel
 from receiving.purchases import purchase_progress, line_progress
@@ -38,6 +38,8 @@ def request_list(request):
             return redirect("accounting:home")
         if has_category_permission(request.user, "sales"):
             return redirect("sales:home")
+        if request.user.has_perm("hr.view_employee"):
+            return redirect("hr:employees")
         if can_access_budget(request.user):
             return redirect("purchasing:budget_home")
         if can_access_configuration(request.user):
@@ -69,10 +71,15 @@ def all_requests(request):
 def request_create(request):
     if not request.user.has_perm("purchasing.add_purchaserequest"):
         raise PermissionDenied
-    form = PurchaseRequestForm(request.POST if request.method == "POST" else None, user=request.user)
+    form = PurchaseRequestForm(request.POST if request.method == "POST" else None, user=request.user,
+        initial={"framework_contract": request.GET.get("contract")})
     if request.method == "POST" and form.is_valid():
-        result = services.create_purchase_request(actor=request.user, **form.cleaned_data)
-        return redirect("purchasing:detail", pk=result.pk)
+        try:
+            result = services.create_purchase_request(actor=request.user, **form.cleaned_data)
+        except ValidationError as error:
+            _form_error(form, error)
+        else:
+            return redirect("purchasing:detail", pk=result.pk)
     return render(request, "purchasing/form.html", {"form": form, "title": "Nouvelle demande"})
 
 
@@ -126,8 +133,17 @@ def request_detail(request, pk):
     for event in events:
         event.actor_display = identities.get(f"workflow.auditevent:{event.pk}", str(event.actor) if event.actor else "Système")
     vat_known = all(line.vat_rate is not None for line in lines)
+    engagement = None
+    if purchase.status == "ORDERED" and request.user.has_perm("accounting.view_journalentry"):
+        from accounting.models import JournalEntry
+        from accounting.purchase_posting import SOURCE_KIND
+        engagement = JournalEntry.objects.filter(source_kind=SOURCE_KIND, source_identifier=str(purchase.pk)).first()
+    contract_remaining = None
+    if purchase.framework_contract_id and purchase.framework_contract.ceiling is not None:
+        contract_remaining = purchase.framework_contract.ceiling - sum(
+            framework_contracts.usage(purchase.framework_contract).values())
     return render(request, "purchasing/detail.html", {
-        "purchase": purchase, "lines": lines,
+        "purchase": purchase, "lines": lines, "engagement": engagement, "contract_remaining": contract_remaining,
         "receipts": purchase.order.receipts.select_related("warehouse", "actor") if hasattr(purchase, "order") else [],
         "total_htva": sum((line.total_htva for line in lines), Decimal(0)),
         "total_vat": sum((line.total_vat for line in lines), Decimal(0)) if vat_known else None,
@@ -145,7 +161,7 @@ def request_edit(request, pk):
     purchase = _owned(request, pk)
     form = EditPurchaseRequestForm(request.POST if request.method == "POST" else None,
         instance=purchase, initial={"expected_revision": purchase.revision}, user=request.user)
-    return _command_form(request, purchase, form, services.update_purchase_request, "Modifier le fournisseur et le support")
+    return _command_form(request, purchase, form, services.update_purchase_request, "Modifier la demande")
 
 
 @login_required
@@ -153,8 +169,10 @@ def request_edit(request, pk):
 def line_edit(request, pk, line_id=None):
     purchase = _owned(request, pk)
     line = get_object_or_404(purchase.lines, pk=line_id) if line_id else None
-    form = PurchaseRequestLineForm(request.POST if request.method == "POST" else None,
-        instance=line, initial={"expected_revision": purchase.revision})
+    form_class = FrameworkPurchaseLineForm if purchase.framework_contract_id else PurchaseRequestLineForm
+    options = {"contract": purchase.framework_contract} if purchase.framework_contract_id else {}
+    form = form_class(request.POST if request.method == "POST" else None,
+        instance=line, initial={"expected_revision": purchase.revision}, **options)
     command = services.update_purchase_request_line if line else services.add_purchase_request_line
     return _command_form(request, purchase, form, command, "Modifier la ligne" if line else "Ajouter une ligne",
                          {"line_id": line_id} if line else {})

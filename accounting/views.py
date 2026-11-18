@@ -8,10 +8,12 @@ from django.db.models import Q, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
-from . import services
-from .models import AccountingProfile, Account, FiscalYear, AccountingPeriod, Journal, JournalEntry
-from .forms import (ProfileForm, AccountForm, ChartImportForm, JournalForm, YearForm, PeriodForm,
-    EntryForm, EntryLineFormSet, RevisionForm, PeriodStateForm, ReversalForm)
+from . import purchase_posting, sales_posting, services
+from .models import (AccountingProfile, Account, FiscalYear, AccountingPeriod, Journal, JournalEntry,
+    BudgetProductAccount, PurchasePostingConfiguration, SalesBudgetProductAccount, SalesPostingConfiguration)
+from .forms import (ProfileForm, AccountForm, JournalForm, YearForm, PeriodForm,
+    EntryForm, EntryLineFormSet, RevisionForm, PeriodStateForm, ReversalForm, PurchasePostingForm,
+    BudgetProductAccountForm, SalesPostingForm, SalesBudgetProductAccountForm)
 
 
 def error_messages(error):
@@ -23,7 +25,54 @@ def error_messages(error):
 def home(request):
     if not any(p.startswith("accounting.") for p in request.user.get_all_permissions()):
         raise PermissionDenied
-    return render(request, "accounting/home.html", {"profile": AccountingProfile.objects.filter(pk=1).first()})
+    return render(request, "accounting/home.html")
+
+
+@login_required
+@permission_required("accounting.change_purchasepostingconfiguration", raise_exception=True)
+@require_http_methods(["GET", "POST"])
+def purchase_imputations(request):
+    return _posting_imputations(request, route="purchase_imputations", config_model=PurchasePostingConfiguration,
+        mapping_model=BudgetProductAccount, config_form=PurchasePostingForm, account_form=BudgetProductAccountForm,
+        configure=purchase_posting.configure, title="Imputations des demandes d’achat",
+        intro="À la validation finale d’une DA, son bon de commande déclenche un brouillon d’engagement en EUR. "
+              "Les montants TVAC sont imputés par produit budgétaire.",
+        note="Lorsque la génération est active, chaque produit imputé doit avoir un compte et une période comptable doit "
+             "être ouverte à la date du bon de commande. La validation de la DA peut être reprise après correction du paramétrage.")
+
+
+@login_required
+@permission_required("accounting.change_salespostingconfiguration", raise_exception=True)
+@require_http_methods(["GET", "POST"])
+def sales_imputations(request):
+    return _posting_imputations(request, route="sales_imputations", config_model=SalesPostingConfiguration,
+        mapping_model=SalesBudgetProductAccount, config_form=SalesPostingForm, account_form=SalesBudgetProductAccountForm,
+        configure=sales_posting.configure, title="Imputations des ventes",
+        intro="À l’émission d’une facture, le brouillon débite le compte clients du total TTC et crédite "
+              "les comptes de produit des montants HT, ainsi que le compte de TVA collectée si nécessaire.",
+        note="Lorsque la génération est active, chaque ligne facturée doit être rattachée à un produit budgétaire imputé "
+             "et une période doit être ouverte à la date de la facture. L’émission peut être reprise après correction.")
+
+
+def _posting_imputations(request, *, route, config_model, mapping_model, config_form, account_form, configure,
+                        title, intro, note):
+    action = request.POST.get("action")
+    config = config_model.objects.filter(pk=1).first()
+    settings_form = config_form(request.POST if action == "settings" else None, instance=config)
+    mapping_form = account_form(request.POST if action == "mapping" else None)
+    if action == "settings" and settings_form.is_valid():
+        configure(actor=request.user, settings=settings_form.cleaned_data)
+        messages.success(request, "Paramétrage des imputations enregistré.")
+        return redirect("accounting:" + route)
+    if action == "mapping" and mapping_form.is_valid():
+        configure(actor=request.user, mapping=mapping_form.cleaned_data)
+        messages.success(request, "Imputation du produit budgétaire enregistrée.")
+        return redirect("accounting:" + route)
+    return render(request, "accounting/posting_imputations.html", {
+        "title": title, "intro": intro, "note": note,
+        "settings_form": settings_form, "mapping_form": mapping_form,
+        "mappings": mapping_model.objects.select_related("product", "account").order_by("product__code"),
+    })
 
 
 @login_required
@@ -40,26 +89,9 @@ def profile(request):
             except ValidationError as error:
                 form.add_error(None, error_messages(error))
             else:
-                messages.success(request, "Cadre enregistré ; une approbation est nécessaire pour valider des écritures.")
+                messages.success(request, "Cadre comptable enregistré.")
                 return redirect("accounting:profile")
-    return render(request, "accounting/profile.html", {"form": form, "profile": instance,
-        "approval_form": RevisionForm(initial={"revision": instance.revision})})
-
-
-@login_required
-@permission_required("accounting.approve_accountingprofile", raise_exception=True)
-@require_POST
-def approve(request):
-    form = RevisionForm(request.POST)
-    if form.is_valid():
-        try:
-            services.approve_profile(actor=request.user, **form.cleaned_data)
-            messages.success(request, "Cadre et plan approuvés. Cette approbation interne doit s’appuyer sur une revue réglementaire réelle.")
-        except ValidationError as error:
-            messages.error(request, error_messages(error))
-    else:
-        messages.error(request, "Révision invalide.")
-    return redirect("accounting:profile" if request.user.has_perm("accounting.view_accountingprofile") else "accounting:home")
+    return render(request, "accounting/profile.html", {"form": form, "profile": instance})
 
 
 @login_required
@@ -74,27 +106,6 @@ def accounts(request):
 
 
 @login_required
-@permission_required("accounting.import_account", raise_exception=True)
-@require_http_methods(["GET", "POST"])
-def chart_import(request):
-    form = ChartImportForm(request.POST or None, request.FILES or None)
-    if request.method == "POST" and form.is_valid():
-        try:
-            uploaded = form.cleaned_data["file"]
-            if uploaded.size > 2_000_000:
-                raise ValidationError("Le fichier dépasse 2 Mo.")
-            count = services.import_chart(actor=request.user, data=uploaded.read(), source_reference=form.cleaned_data["source_reference"])
-        except ValidationError as error:
-            form.add_error(None, error_messages(error))
-        else:
-            messages.success(request, f"Import terminé : {count} lignes. Un import identique n’est pas répété.")
-            return redirect("accounting:accounts" if request.user.has_perm("accounting.view_account") else "accounting:home")
-    return render(request, "accounting/form.html", {"form": form, "title": "Importer le plan applicable",
-        "chart_template": True,
-        "intro": "CSV UTF-8, séparateur point-virgule. En-têtes : code;label;postable;party_requirement. postable : 0 ou 1 ; party_requirement : NONE, CUSTOMER ou SUPPLIER. Aucun plan d’entreprise n’est imposé à l’organisme public."})
-
-
-@login_required
 @require_http_methods(["GET", "POST"])
 def account_edit(request, pk=None):
     services.require(request.user, "change_account" if pk else "add_account")
@@ -106,7 +117,7 @@ def account_edit(request, pk=None):
         except ValidationError as error:
             form.add_error(None, error_messages(error))
         else:
-            messages.success(request, "Compte enregistré. Relisez et approuvez le plan avant de nouvelles validations.")
+            messages.success(request, "Compte enregistré.")
             return redirect("accounting:accounts" if request.user.has_perm("accounting.view_account") else "accounting:home")
     return render(request, "accounting/form.html", {"form": form, "title": "Compte général"})
 

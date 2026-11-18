@@ -60,6 +60,56 @@ class SupplierXmlFixture(LedgerFixture):
 
 
 class SupplierXmlTests(SupplierXmlFixture, TestCase):
+    def test_manual_and_peppol_invoices_share_list_and_review(self):
+        imported = self.imported()
+        create = reverse("accounting:supplier_invoice_new")
+        fields = {"supplier": self.supplier.pk, "invoice_number": "MAN-001", "issue_date": "2026-11-16",
+                  "currency": "eur", "subtotal": "100.00", "tax_total": "21.00", "description": "Fourniture"}
+        self.assertContains(self.client.get(create), "Encoder une facture fournisseur")
+        response = self.client.post(create, fields)
+        manual = SupplierInvoice.objects.get(origin="MANUAL")
+        detail = reverse("accounting:supplier_invoice_detail", args=[manual.pk])
+        self.assertRedirects(response, detail)
+        self.assertEqual((manual.currency, manual.total, manual.payable), ("EUR", Decimal("121.00"), Decimal("121.00")))
+        self.assertFalse(manual.validations.exists())
+        self.assertNotContains(self.client.get(detail), "Revalider le XML")
+
+        listing = reverse("accounting:supplier_invoices")
+        self.assertContains(self.client.get(listing), imported.invoice_number)
+        self.assertContains(self.client.get(listing), manual.invoice_number)
+        self.assertNotContains(self.client.get(listing, {"origin": "MANUAL"}), imported.invoice_number)
+        self.assertNotContains(self.client.get(listing, {"origin": "PEPPOL"}), manual.invoice_number)
+        self.assertContains(self.client.post(create, fields), "existe déjà")
+        self.assertContains(self.client.post(create, {**fields, "invoice_number": imported.invoice_number}), "existe déjà")
+        with self.assertRaisesMessage(ValidationError, "saisie manuellement existe déjà"):
+            self.imported(self.data.replace(b"SUP-2026-001", b"MAN-001"))
+
+        edit = reverse("accounting:supplier_invoice_edit", args=[manual.pk])
+        self.assertContains(self.client.get(edit), "Modifier la facture fournisseur")
+        changes = {**fields, "subtotal": "200.00", "tax_total": "42.00", "revision": manual.revision}
+        self.assertRedirects(self.client.post(edit, changes), detail)
+        self.assertContains(self.client.post(edit, changes), "a changé")
+        manual.refresh_from_db()
+        self.assertEqual(manual.total, Decimal("242.00"))
+        review = reverse("accounting:supplier_invoice_review", args=[manual.pk])
+        self.assertRedirects(self.client.post(review, {
+            "action": "approve", "note": "Pièce vérifiée", "revision": manual.revision,
+        }), detail)
+        manual.refresh_from_db()
+        self.assertEqual(manual.status, "REVIEWED")
+        self.assertEqual(manual.review_snapshot["supplier_id"], self.supplier.pk)
+        self.assertEqual(self.client.get(edit).status_code, 404)
+        self.assertEqual(self.client.get(reverse("accounting:supplier_invoice_download", args=[manual.pk])).status_code, 404)
+        self.assertEqual(self.client.post(reverse("accounting:supplier_invoice_revalidate", args=[manual.pk])).status_code, 404)
+        with self.assertRaises(DatabaseError), transaction.atomic():
+            SupplierInvoice._base_manager.filter(pk=manual.pk).update(total=0)
+
+        reader = get_user_model().objects.create_user("supplier-reader")
+        reader.user_permissions.add(Permission.objects.get(content_type__app_label="accounting", codename="view_supplierinvoice"))
+        self.client.force_login(reader)
+        self.assertContains(self.client.get(listing), manual.invoice_number)
+        self.assertEqual(self.client.post(create, fields).status_code, 403)
+
     def test_import_extract_validate_archive_and_download(self):
         before = JournalEntry.objects.count()
         with patch("urllib.request.urlopen", side_effect=AssertionError("No network access")):

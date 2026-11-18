@@ -190,6 +190,8 @@ def _issue(*, actor, pk, revision):
     order = locked_order(pk, revision)
     if order.status != SalesOrder.Status.CONFIRMED or SalesInvoice.objects.filter(order=order).exists():
         raise ValidationError("La commande doit être confirmée et ne pas avoir de facture.")
+    from accounting import sales_posting
+    posting_config = sales_posting.locked_configuration()
     customer = Customer.objects.select_for_update().get(pk=order.customer_id)
     issuer = IssuerConfiguration.objects.select_for_update().filter(pk=1).first()
     if issuer is None:
@@ -244,6 +246,8 @@ def _issue(*, actor, pk, revision):
     SalesInvoiceLine.objects.bulk_create(copies)
     invoice.sealed = True
     invoice.save(update_fields=["sealed"])
+    sales_posting.create_invoice_draft(
+        actor=actor, config=posting_config, invoice=invoice, invoice_lines=copies, customer=customer)
     order.status = SalesOrder.Status.INVOICED
     order.revision += 1
     order.save()

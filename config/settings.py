@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'workflow',
     'sales',
     'accounting',
+    'hr.apps.HRConfig',
 ]
 
 MIDDLEWARE = [

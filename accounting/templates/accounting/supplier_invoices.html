@@ -1,4 +1,48 @@
-{% extends 'accounting/base.html' %}{% block ledger_content %}<h1>Factures fournisseurs XML</h1>
-{% if perms.accounting.import_supplierinvoice %}<p><a class="button" href="{% url 'accounting:supplier_invoice_upload' %}">Importer un XML Peppol</a></p>{% endif %}
-<form method="get" class="ledger-filters"><label>Recherche <input name="q" value="{{ request.GET.q }}" placeholder="Numéro ou fournisseur"></label><label>Revue <select name="status"><option value="">Tous</option><option value="RECEIVED" {% if request.GET.status == 'RECEIVED' %}selected{% endif %}>À vérifier</option><option value="REVIEWED" {% if request.GET.status == 'REVIEWED' %}selected{% endif %}>Approuvée</option><option value="REJECTED" {% if request.GET.status == 'REJECTED' %}selected{% endif %}>Rejetée</option></select></label><button>Filtrer</button></form>
-<div class="ledger-table"><table><thead><tr><th>Facture</th><th>Émetteur du XML</th><th>Date</th><th>TTC</th><th>À payer</th><th>Validation XML</th><th>Revue</th></tr></thead><tbody>{% for row in page %}<tr><td><a href="{% url 'accounting:supplier_invoice_detail' row.pk %}">{{ row.invoice_number }}</a></td><td>{{ row.extracted_data.seller.name }}</td><td>{{ row.issue_date|date:'d/m/Y' }}</td><td>{{ row.total|floatformat:2 }} {{ row.currency }}</td><td>{{ row.payable|floatformat:2 }} {{ row.currency }}</td><td>{{ row.validations.first.get_status_display }}</td><td>{{ row.get_status_display }}</td></tr>{% empty %}<tr><td colspan="7">Aucune facture fournisseur importée.</td></tr>{% endfor %}</tbody></table></div>{% include 'accounting/pagination.html' %}{% endblock %}
+{% extends 'accounting/base.html' %}
+{% block ledger_content %}
+<h1>Factures fournisseurs</h1>
+<div class="ledger-actions">
+    {% if perms.accounting.add_supplierinvoice %}<a class="button" href="{% url 'accounting:supplier_invoice_new' %}">Encoder une facture</a>{% endif %}
+    {% if perms.accounting.import_supplierinvoice %}<a class="button button-secondary" href="{% url 'accounting:supplier_invoice_upload' %}">Importer une facture Peppol</a>{% endif %}
+</div>
+<form method="get" class="ledger-filters">
+    <label>Recherche <input name="q" value="{{ request.GET.q }}" placeholder="Numéro ou fournisseur"></label>
+    <label>Origine
+        <select name="origin">
+            <option value="">Toutes</option>
+            <option value="MANUAL"{% if request.GET.origin == 'MANUAL' %} selected{% endif %}>Saisie manuelle</option>
+            <option value="PEPPOL"{% if request.GET.origin == 'PEPPOL' %} selected{% endif %}>Import Peppol</option>
+        </select>
+    </label>
+    <label>Revue
+        <select name="status">
+            <option value="">Toutes</option>
+            <option value="RECEIVED"{% if request.GET.status == 'RECEIVED' %} selected{% endif %}>À vérifier</option>
+            <option value="REVIEWED"{% if request.GET.status == 'REVIEWED' %} selected{% endif %}>Approuvée</option>
+            <option value="REJECTED"{% if request.GET.status == 'REJECTED' %} selected{% endif %}>Rejetée</option>
+        </select>
+    </label>
+    <button>Filtrer</button>
+</form>
+<div class="ledger-table">
+    <table>
+        <thead><tr><th>Facture</th><th>Fournisseur</th><th>Origine</th><th>Date</th><th>TTC</th><th>À payer</th><th>Revue</th></tr></thead>
+        <tbody>
+        {% for row in page %}
+            <tr>
+                <td><a href="{% url 'accounting:supplier_invoice_detail' row.pk %}">{{ row }}</a></td>
+                <td>{% if row.supplier %}{{ row.supplier.name }}{% else %}{{ row.extracted_data.seller.name }}{% endif %}</td>
+                <td>{{ row.get_origin_display }}{% if row.validations.first %}<br><small>{{ row.validations.first.get_status_display }}</small>{% endif %}</td>
+                <td>{{ row.issue_date|date:'d/m/Y' }}</td>
+                <td>{{ row.total|floatformat:2 }} {{ row.currency }}</td>
+                <td>{{ row.payable|floatformat:2 }} {{ row.currency }}</td>
+                <td>{{ row.get_status_display }}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="7">Aucune facture fournisseur à afficher.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% include 'accounting/pagination.html' %}
+{% endblock %}

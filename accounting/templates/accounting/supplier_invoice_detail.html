@@ -1,5 +1,15 @@
 {% extends 'accounting/base.html' %}{% block ledger_content %}<h1>Facture fournisseur {{ invoice.invoice_number }}</h1>
-<p><strong>XML : {{ latest.get_status_display }}</strong> — Revue : {{ invoice.get_status_display }}.</p><p>Date : {{ invoice.issue_date|date:'d/m/Y' }} — Échéance : {{ invoice.due_date|date:'d/m/Y'|default:'Voir conditions de paiement' }} — Devise : {{ invoice.currency }}.</p>
+<p><strong>{{ invoice.get_origin_display }}</strong>{% if latest %} · {{ latest.get_status_display }}{% endif %} · {{ invoice.get_status_display }}</p>
+<p>Date : {{ invoice.issue_date|date:'d/m/Y' }} — Échéance : {{ invoice.due_date|date:'d/m/Y'|default:'Voir conditions de paiement' }} — Devise : {{ invoice.currency }}.</p>
+{% if invoice.origin == 'MANUAL' %}
+<p><strong>Fournisseur</strong> · {{ invoice.supplier }}</p>
+{% if invoice.extracted_data.order_reference %}<p><strong>Référence de commande</strong> · {{ invoice.extracted_data.order_reference }}</p>{% endif %}
+{% if invoice.extracted_data.description %}<p>{{ invoice.extracted_data.description|linebreaksbr }}</p>{% endif %}
+<h2>Montants</h2>
+<p>HT {{ invoice.subtotal|floatformat:2 }} · TVA {{ invoice.tax_total|floatformat:2 }} · TTC {{ invoice.total|floatformat:2 }} {{ invoice.currency }}.</p>
+<p><strong>À payer {{ invoice.payable|floatformat:2 }} {{ invoice.currency }}</strong></p>
+{% if invoice.status == 'RECEIVED' and perms.accounting.change_supplierinvoice %}<p><a class="button" href="{% url 'accounting:supplier_invoice_edit' invoice.pk %}">Modifier la facture</a></p>{% endif %}
+{% else %}
 <div class="ledger-cards"><section><h2>Fournisseur du XML</h2><p>{{ invoice.extracted_data.seller.name }}<br>{{ invoice.extracted_data.seller.street }}<br>{{ invoice.extracted_data.seller.zip_code }} {{ invoice.extracted_data.seller.city }} — {{ invoice.extracted_data.seller.country }}<br>TVA : {{ invoice.extracted_data.seller.vat_number|default:'Non renseignée' }}<br>Identifiant légal : {{ invoice.extracted_data.seller.legal_id|default:'Non renseigné' }}<br>Peppol : {{ invoice.extracted_data.seller.endpoint_scheme }}:{{ invoice.extracted_data.seller.endpoint_id }}</p></section><section><h2>Destinataire du XML</h2><p>{{ invoice.extracted_data.buyer.name }}<br>{{ invoice.extracted_data.buyer.street }}<br>{{ invoice.extracted_data.buyer.zip_code }} {{ invoice.extracted_data.buyer.city }} — {{ invoice.extracted_data.buyer.country }}<br>TVA : {{ invoice.extracted_data.buyer.vat_number|default:'Non renseignée' }}<br>Identifiant légal : {{ invoice.extracted_data.buyer.legal_id|default:'Non renseigné' }}<br>Peppol : {{ invoice.extracted_data.buyer.endpoint_scheme }}:{{ invoice.extracted_data.buyer.endpoint_id }}</p></section></div>
 <p>Référence acheteur : {{ invoice.extracted_data.buyer_reference|default:'—' }} — Commande : {{ invoice.extracted_data.order_reference|default:'—' }}.</p>
 {% for note in invoice.extracted_data.notes %}<p>{{ note }}</p>{% endfor %}
@@ -14,9 +24,11 @@
 {% if perms.accounting.revalidate_supplierinvoice %}<form method="post" action="{% url 'accounting:supplier_invoice_revalidate' invoice.pk %}">{% csrf_token %}<button class="button-secondary">Revalider le XML</button></form>{% endif %}
 {% for run in runs %}<details {% if forloop.first and run.status != 'VALID' %}open{% endif %}><summary>{{ run.get_status_display }} — {{ run.created_at|date:'d/m/Y H:i' }} — {{ run.rules_version|default:'Règles indisponibles' }}</summary>{% for item in run.details %}<p>{{ item.stage }} {{ item.id }} {{ item.flag }} — {{ item.message }}</p>{% empty %}<p>Aucune erreur signalée par les validations exécutées.</p>{% endfor %}</details>{% endfor %}
 {% if invoice.extracted_data.attachments %}<p>Des références ou pièces jointes sont présentes dans le XML. Elles ne sont ni ouvertes, ni téléchargées, ni extraites automatiquement.</p>{% endif %}
+{% endif %}
 <h2>Revue métier</h2>{% if invoice.status == 'RECEIVED' %}
+{% if invoice.origin == 'PEPPOL' %}
 {% if candidates|length == 1 %}<p>Un fournisseur existant correspond au numéro d’entreprise ou à la TVA ; vérifiez la proposition.</p>{% elif candidates %}<p>Plusieurs fournisseurs correspondent aux identifiants du XML. Sélectionnez le bon enregistrement.</p>{% else %}<p>Aucun fournisseur n’a été identifié sans ambiguïté par numéro d’entreprise ou TVA. Créez ou vérifiez sa fiche dans la rubrique Fournisseurs, puis revenez ici. Aucune fiche n’est créée automatiquement.</p>{% endif %}
+{% endif %}
 {% if perms.accounting.review_supplierinvoice %}<form method="post" action="{% url 'accounting:supplier_invoice_review' invoice.pk %}" class="ledger-form">{% csrf_token %}{{ review_form.as_p }}<button>Enregistrer la décision</button></form>{% endif %}
 {% else %}<p>{{ invoice.get_status_display }} le {{ invoice.reviewed_at|date:'d/m/Y H:i' }} par {{ invoice.reviewed_by_name }}.</p><p>{{ invoice.review_note|linebreaksbr }}</p>{% if invoice.review_snapshot %}<p>Fournisseur figé : {{ invoice.review_snapshot.supplier_code }} — {{ invoice.review_snapshot.supplier_name }} — Entreprise : {{ invoice.review_snapshot.supplier_enterprise_number|default:'—' }} — TVA : {{ invoice.review_snapshot.supplier_vat }}.</p>{% endif %}{% endif %}
-<p>Aucune écriture comptable n’est créée par cet import ou cette revue. Les imputations et règles fiscales doivent être validées séparément.</p>
 <h2>Historique</h2><ol>{% for item in events %}<li>{{ item.created_at|date:'d/m/Y H:i' }} — {{ item.action }} — {{ item.actor_name }}<details><summary>Détails</summary><pre>{{ item.details }}</pre></details></li>{% endfor %}</ol>{% endblock %}

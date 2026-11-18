@@ -12,6 +12,7 @@ from receiving.views import stock, stock_movements, stock_balances, warehouses, 
 
 urlpatterns = [
     path("comptabilite/", include("accounting.urls")),
+    path("rh/", include("hr.urls")),
     path("ventes/", include("sales.urls")),
     path("stocks/", stock, name="stock"),
     path("stocks/mouvements/", stock_movements, name="stock_movements"),
