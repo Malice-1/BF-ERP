@@ -68,6 +68,14 @@ class User(AbstractUser):
         verbose_name_plural = 'utilisateurs'
 
 
+class ActiveLogin(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True)
+    token = models.CharField(max_length=32, editable=False)
+
+    class Meta:
+        default_permissions = ()
+
+
 class ValidationFunction(models.Model):
     code = models.CharField(max_length=50, unique=True, verbose_name='Code')
     label = models.CharField(max_length=100, verbose_name='Libellé')

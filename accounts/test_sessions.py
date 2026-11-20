@@ -1,7 +1,7 @@
 from datetime import timedelta
 from django.contrib.auth import get_user_model
 from django.contrib.sessions.models import Session
-from django.test import TestCase
+from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
@@ -49,6 +49,23 @@ class IdleSessionTests(TestCase):
         self.client.logout()
         self.client.post(reverse("login"), {"username": "idle", "password": "test"})
         self.assertIn("last_activity_at", self.client.session)
+
+    def test_second_login_replaces_first_session_only(self):
+        other_browser = Client()
+        login = reverse("login")
+        status = reverse("session_status")
+        self.assertTrue(self.client.get(status).json()["authenticated"])
+
+        other_browser.post(login, {"username": "idle", "password": "wrong"})
+        self.assertTrue(self.client.get(status).json()["authenticated"])
+
+        response = other_browser.post(login, {"username": "idle", "password": "test"})
+        self.assertEqual(response.status_code, 302)
+        response = self.client.post(reverse("purchasing:create"), {})
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(login, response.url)
+        self.assertFalse(self.client.get(status).json()["authenticated"])
+        self.assertTrue(other_browser.get(status).json()["authenticated"])
 
     def test_policy_superuser_only_validated_and_audited(self):
         url = reverse("session_settings")

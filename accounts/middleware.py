@@ -3,7 +3,8 @@ from django.contrib.auth import logout
 from django.contrib.sessions.models import Session
 from django.utils import timezone
 
-from .models import SessionPolicy
+from .models import ActiveLogin, SessionPolicy
+from .sessions import ACTIVE_LOGIN_TOKEN
 
 
 class IdleSessionMiddleware:
@@ -13,6 +14,11 @@ class IdleSessionMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        if request.user.is_authenticated:
+            token = request.session.get(ACTIVE_LOGIN_TOKEN)
+            if not token or not ActiveLogin.objects.filter(user=request.user, token=token).exists():
+                logout(request)
+
         now = timezone.now().timestamp()
         timeout = SessionPolicy.timeout_seconds() if request.user.is_authenticated else None
         # Status polling must never extend a session.
