@@ -4,11 +4,12 @@
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>BF ERP</title>
 <script src="{% static 'purchasing/theme.js' %}"></script>
 <link rel="stylesheet" href="{% static 'purchasing/erp.css' %}">
-<link rel="stylesheet" href="{% static 'purchasing/configuration.css' %}?v=20261113-allocation-search">
+<link rel="stylesheet" href="{% static 'purchasing/configuration.css' %}?v=20261125-purchase-filter">
 <link rel="stylesheet" href="{% static 'purchasing/actions.css' %}?v=20261114-validation-dot">
+<link rel="stylesheet" href="{% static 'purchasing/wordmark.css' %}">
 {% block extra_styles %}{% endblock %}
 </head>
-<body class="{% if not user.is_authenticated %}login-page{% endif %}"><a class="skip-link" href="#main-content">Aller au contenu</a><header class="app-header"><a class="app-title" href="{% if user.is_authenticated %}{% url 'my_validations' %}{% else %}{% url 'login' %}{% endif %}">BF <span>ERP</span></a><span class="header-context">Gestion & ressources</span><button type="button" class="theme-toggle" data-theme-toggle aria-label="Activer le mode sombre" aria-pressed="false"><span data-theme-icon aria-hidden="true">☾</span> <span data-theme-label>Mode sombre</span></button>{% if user.is_authenticated %}
+<body class="{% if not user.is_authenticated %}login-page{% endif %}"><a class="skip-link" href="#main-content">Aller au contenu</a><header class="app-header"><a class="app-title" href="{% if user.is_authenticated %}{% url 'my_validations' %}{% else %}{% url 'login' %}{% endif %}">{% include 'purchasing/wordmark.html' %}</a><span class="header-context">Gestion & ressources</span><button type="button" class="theme-toggle" data-theme-toggle aria-label="Activer le mode sombre" aria-pressed="false"><span data-theme-icon aria-hidden="true">☾</span> <span data-theme-label>Mode sombre</span></button>{% if user.is_authenticated %}
 <div class="header-tools">
 <nav class="personal-tools" aria-label="Espace personnel">
 <a class="icon-link" id="my-validations" href="{% url 'my_validations' %}" title="Mes validations{% if pending_validation_count %} : {{ pending_validation_count }} à traiter{% endif %}" aria-label="Mes validations{% if pending_validation_count %}, {{ pending_validation_count }} à traiter{% else %}, aucune validation à traiter{% endif %}"{% if request.resolver_match.url_name == 'my_validations' or request.resolver_match.url_name == 'inbox' %} aria-current="page"{% endif %}>

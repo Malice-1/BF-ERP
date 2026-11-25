@@ -8,6 +8,46 @@ AMOUNTS = ("allocated", "reserved", "committed", "transfers", "available")
 CHART_COLORS = ("#2475ac", "#198674", "#ad6a12", "#8055ac", "#bc4f74", "#44784c", "#8b6044", "#697e91")
 
 
+def balance_rows(version):
+    from budgeting.models import BudgetProduct, CostCenter, Funding
+    from budgeting.transfers import transfer_balances
+    from .models import BudgetEntry
+
+    allocations = {
+        (item.cost_center_id, item.funding_id, item.budget_product_id): item.amount
+        for item in version.allocations.all()
+    }
+    transfers = transfer_balances(version.pk)
+    entries = {}
+    # Sum the original decimals in Python, including on SQLite.
+    for cdf, funding, product, state, amount in BudgetEntry.objects.filter(
+        snapshot__submission__budget_version__envelope_id=version.envelope_id,
+        state__in=("reserved", "committed"),
+    ).values_list(
+        "snapshot__cost_center_id", "snapshot__funding_id", "snapshot__budget_product_id", "state", "amount",
+    ).iterator():
+        amounts = entries.setdefault((cdf, funding, product), {})
+        amounts[state] = amounts.get(state, Decimal(0)) + amount
+    combinations = sorted(allocations.keys() | entries.keys() | transfers.keys())
+    cdfs = CostCenter.objects.in_bulk(key[0] for key in combinations)
+    fundings = Funding.objects.in_bulk(key[1] for key in combinations)
+    products = BudgetProduct.objects.in_bulk(key[2] for key in combinations)
+    rows = []
+    for key in combinations:
+        cdf, funding, product = key
+        allocated = allocations.get(key, Decimal(0))
+        reserved = entries.get(key, {}).get("reserved", Decimal(0))
+        committed = entries.get(key, {}).get("committed", Decimal(0))
+        moved = transfers.get(key, Decimal(0))
+        rows.append(dict(
+            year=version.envelope.year, version=version.label, cdf=cdfs[cdf],
+            funding=fundings[funding], product=products[product], allocated=allocated,
+            reserved=reserved, committed=committed, transfers=moved,
+            available=allocated + moved - reserved - committed,
+        ))
+    return rows
+
+
 class BudgetAnalysisForm(forms.Form):
     status = forms.MultipleChoiceField(
         label="Solde", required=False, widget=forms.CheckboxSelectMultiple,
@@ -40,7 +80,7 @@ class BudgetAnalysisForm(forms.Form):
         return rows
 
 
-def _totals(rows):
+def budget_totals(rows):
     totals = {key: sum((row[key] for row in rows), Decimal(0)) for key in AMOUNTS}
     totals["positive"] = sum((row["available"] for row in rows if row["available"] > 0), Decimal(0))
     totals["deficit"] = -sum((row["available"] for row in rows if row["available"] < 0), Decimal(0))
@@ -76,10 +116,10 @@ def summarize(rows, group_by, query):
     for item, group_rows in grouped.items():
         params = query.copy()
         params[group_by] = item.pk
-        groups.append({"label": str(item), "url": "?" + params.urlencode(), **_totals(group_rows)})
+        groups.append({"label": str(item), "url": "?" + params.urlencode(), **budget_totals(group_rows)})
     groups.sort(key=lambda group: (-group["available"], group["label"].casefold()))
 
-    totals = _totals(rows)
+    totals = budget_totals(rows)
     return {
         "totals": totals, "groups": groups, "dimension": DIMENSIONS[group_by],
         "charts": [

@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.validators import RegexValidator
+from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models
 from django.utils import timezone
 
@@ -350,6 +350,66 @@ class SupplierInvoice(GuardedModel):
 
     def __str__(self):
         return self.invoice_number or f"Facture fournisseur {self.pk}"
+
+
+class FixedAsset(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = "DRAFT", "Brouillon"
+        ACTIVE = "ACTIVE", "En service"
+        DISPOSED = "DISPOSED", "Sortie"
+
+    code = models.CharField("N° d’inventaire", max_length=50, unique=True)
+    label = models.CharField("Désignation", max_length=200)
+    category = models.CharField("Catégorie", max_length=100)
+    location = models.CharField("Localisation", max_length=150, blank=True)
+    cost_center = models.ForeignKey("budgeting.CostCenter", on_delete=models.PROTECT,
+        verbose_name="CDF", null=True, blank=True)
+    supplier_invoice = models.ForeignKey(SupplierInvoice, on_delete=models.PROTECT,
+        verbose_name="Facture fournisseur (facultative)", null=True, blank=True)
+    acquired_on = models.DateField("Date d’acquisition")
+    in_service_on = models.DateField("Date de mise en service")
+    cost = models.DecimalField("Valeur d’acquisition (€)", max_digits=18, decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.01"))])
+    residual_value = models.DecimalField("Valeur résiduelle (€)", max_digits=18, decimal_places=2,
+        default=0, validators=[MinValueValidator(0)])
+    useful_life_months = models.PositiveSmallIntegerField("Durée d’utilisation (mois)",
+        validators=[MinValueValidator(1), MaxValueValidator(1200)])
+    status = models.CharField("État", max_length=8, choices=Status.choices, default=Status.DRAFT)
+    revision = models.PositiveIntegerField(default=0)
+    disposed_on = models.DateField("Date de sortie", null=True, blank=True)
+    disposal_reason = models.CharField("Motif de sortie", max_length=250, blank=True)
+    proceeds = models.DecimalField("Prix de sortie (€)", max_digits=18, decimal_places=2, default=0,
+        validators=[MinValueValidator(0)])
+
+    class Meta:
+        verbose_name = "immobilisation"
+        verbose_name_plural = "immobilisations"
+        ordering = ("code",)
+        default_permissions = ("add", "change", "view")
+        constraints = [
+            models.CheckConstraint(condition=models.Q(cost__gt=0, residual_value__gte=0,
+                residual_value__lte=models.F("cost"), in_service_on__gte=models.F("acquired_on"),
+                useful_life_months__range=(1, 1200), proceeds__gte=0), name="valid_fixed_asset_values"),
+            models.CheckConstraint(condition=(
+                models.Q(status="DISPOSED", disposed_on__isnull=False, disposed_on__gte=models.F("in_service_on"))
+                & ~models.Q(disposal_reason="")
+            ) | models.Q(status__in=("DRAFT", "ACTIVE"), disposed_on__isnull=True,
+                disposal_reason="", proceeds=0), name="valid_fixed_asset_disposal"),
+        ]
+
+    def clean(self):
+        if self.in_service_on and self.in_service_on.year > 9898:
+            raise ValidationError({"in_service_on": "La date de mise en service est trop éloignée."})
+        errors = {}
+        if self.acquired_on and self.in_service_on and self.in_service_on < self.acquired_on:
+            errors["in_service_on"] = "La mise en service doit être postérieure ou égale à l’acquisition."
+        if self.cost is not None and self.residual_value is not None and self.residual_value > self.cost:
+            errors["residual_value"] = "La valeur résiduelle ne peut pas dépasser la valeur d’acquisition."
+        if errors:
+            raise ValidationError(errors)
+
+    def __str__(self):
+        return f"{self.code} · {self.label}"
 
 
 class SupplierInvoiceValidation(GuardedModel):

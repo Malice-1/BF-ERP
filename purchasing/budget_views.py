@@ -56,7 +56,8 @@ def budget_home(request):
     if not can_access_budget(request.user):
         raise PermissionDenied
     return render(request, "purchasing/budget_home.html", {
-        "can_manage": request.user.has_perms(MANAGER_PERMISSIONS)})
+        "can_manage": request.user.has_perms(MANAGER_PERMISSIONS),
+        "can_view_budget_history": can_view_budget_history(request.user)})
 
 
 @login_required
@@ -163,16 +164,23 @@ class VersionForm(forms.Form):
         return data
 
 
-class BudgetHistoryForm(forms.Form):
+class BudgetVersionSelectionForm(forms.Form):
     version = forms.ModelChoiceField(queryset=EnvelopeVersion.objects.select_related("envelope").order_by("-envelope__year", "-pk"), label="Version budgétaire")
+
+
+class BudgetHistoryForm(BudgetVersionSelectionForm):
     at = forms.DateTimeField(required=False, label="État à la date et à l’heure", widget=forms.DateTimeInput(attrs={"type": "datetime-local", "step": "1"}))
+
+
+def can_view_budget_history(user):
+    return (user.has_perm("budgeting.view_budget_balances") or user.has_perm("budgeting.view_envelopeversion")
+            or user.has_perms(MANAGER_PERMISSIONS))
 
 
 @login_required
 @require_http_methods(["GET"])
 def budget_history(request, version_id=None):
-    if not (request.user.has_perm("budgeting.view_budget_balances") or request.user.has_perm("budgeting.view_envelopeversion")
-            or request.user.has_perms(MANAGER_PERMISSIONS)):
+    if not can_view_budget_history(request.user):
         raise PermissionDenied
     from budgeting.models import BudgetHistoryEvent
     from budgeting.history import describe_timeline
@@ -223,6 +231,47 @@ def budget_history(request, version_id=None):
     return render(request, "purchasing/budget_history.html", {"form": form, "state": state,
         "selected": selected, "first": first, "timeline": timeline, "version": version,
         "scoped_version": scoped_version})
+
+
+class BudgetMovementsForm(BudgetVersionSelectionForm):
+    product = forms.CharField(label="Produit budgétaire (BI)", required=False, max_length=200)
+    cdf = forms.CharField(label="CDF", required=False, max_length=200)
+    funding = forms.CharField(label="Financement", required=False, max_length=200)
+
+
+@login_required
+@require_http_methods(["GET"])
+def budget_transactions(request):
+    if not can_view_budget_history(request.user):
+        raise PermissionDenied
+    from budgeting.history import budget_movements, describe_timeline
+    from budgeting.models import BudgetHistoryEvent
+
+    data = request.GET.copy()
+    if "version" not in data:
+        latest = EnvelopeVersion.objects.filter(deleted_at__isnull=True).order_by("-envelope__year", "-pk").first()
+        if latest:
+            data["version"] = str(latest.pk)
+    form = BudgetMovementsForm(data if data else None)
+    context = {"form": form}
+    if form.is_valid():
+        version = form.cleaned_data["version"]
+        events = [
+            event for event in BudgetHistoryEvent.objects.filter(envelope_id=version.envelope_id).order_by("created_at", "pk").iterator()
+            if str(version.pk) in event.state.get("versions", {})
+        ]
+        describe_timeline(events, version.pk)
+        filters = {field: form.cleaned_data[field].casefold() for field in ("product", "cdf", "funding")}
+        rows = [
+            row for row in budget_movements(events, version.pk)
+            if all(value in row[field].casefold() for field, value in filters.items())
+        ]
+        context.update(
+            version=version, first=events[0] if events else None,
+            page=Paginator(list(reversed(rows)), 50).get_page(request.GET.get("page")),
+            debit=sum(row["debit"] for row in rows), credit=sum(row["credit"] for row in rows),
+        )
+    return render(request, "purchasing/budget_transactions.html", context)
 
 
 AllocationFormSet = inlineformset_factory(EnvelopeVersion, Allocation,

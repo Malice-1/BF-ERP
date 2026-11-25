@@ -9,12 +9,13 @@ from django.db import connection, transaction, DatabaseError
 from django.test import TestCase, Client
 from django.urls import reverse
 
+from budgeting.models import BudgetProduct
 from sales.models import IssuerConfiguration, Customer, SalesInvoice
 from suppliers.models import Supplier
 from receiving.models import StockMovement
 from purchasing.models import BudgetEntry
 from .models import (AccountingProfile, Account, FiscalYear, AccountingPeriod, Journal,
-    JournalEntry, JournalEntryLine, EntrySequence, AccountingEvent)
+    JournalEntry, JournalEntryLine, EntrySequence, AccountingEvent, BudgetProductAccount, SalesBudgetProductAccount)
 from . import services
 
 
@@ -57,6 +58,28 @@ class LedgerFixture:
 
 
 class LedgerTests(LedgerFixture, TestCase):
+    def test_account_groups_share_navigation_and_preserve_mapping_permissions(self):
+        url = reverse("accounting:account_groups")
+        purchases = reverse("accounting:account_groups", query={"section": "achats"})
+        sales = reverse("accounting:account_groups", query={"section": "ventes"})
+        product = BudgetProduct.objects.create(code="BI-QA", label="Produit QA")
+        self.assertContains(self.client.get(url), 'aria-label="Groupes de comptes par opération"')
+        self.assertRedirects(self.client.post(purchases, {
+            "action": "mapping", "product": product.pk, "account": self.debit.pk,
+        }), purchases)
+        self.assertRedirects(self.client.post(sales, {
+            "action": "mapping", "product": product.pk, "account": self.debit.pk,
+        }), sales)
+        self.assertEqual(BudgetProductAccount.objects.get(product=product).account, self.debit)
+        self.assertEqual(SalesBudgetProductAccount.objects.get(product=product).account, self.debit)
+
+        user = get_user_model().objects.create_user("sales-config")
+        user.user_permissions.add(Permission.objects.get(codename="change_salespostingconfiguration"))
+        self.client.force_login(user)
+        self.assertContains(self.client.get(url), "Imputations des ventes")
+        self.assertEqual(self.client.get(purchases).status_code, 403)
+        self.assertEqual(self.client.post(purchases, {"action": "mapping"}).status_code, 403)
+
     def test_balanced_post_number_snapshots_and_idempotence(self):
         entry = self.draft()
         self.assertIsNone(entry.number)

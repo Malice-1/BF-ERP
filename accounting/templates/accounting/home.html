@@ -1,8 +1,8 @@
 {% extends 'accounting/base.html' %}{% block ledger_content %}
 <h1>Comptabilité</h1>
 <div class="ledger-cards">
-{% if perms.accounting.change_purchasepostingconfiguration %}<a href="{% url 'accounting:purchase_imputations' %}">Imputations des demandes d’achat</a>{% endif %}
-{% if perms.accounting.change_salespostingconfiguration %}<a href="{% url 'accounting:sales_imputations' %}">Imputations des ventes</a>{% endif %}
+{% if perms.accounting.view_fixedasset %}<a href="{% url 'accounting:assets' %}">Immobilisations</a>{% endif %}
+{% if perms.accounting.change_purchasepostingconfiguration or perms.accounting.change_salespostingconfiguration %}<a href="{% url 'accounting:account_groups' %}">Groupes comptes</a>{% endif %}
 {% if perms.accounting.view_supplierinvoice %}<a href="{% url 'accounting:supplier_invoices' %}">Factures fournisseurs</a>{% else %}
 {% if perms.accounting.add_supplierinvoice %}<a href="{% url 'accounting:supplier_invoice_new' %}">Encoder une facture fournisseur</a>{% endif %}
 {% if perms.accounting.import_supplierinvoice %}<a href="{% url 'accounting:supplier_invoice_upload' %}">Importer une facture Peppol</a>{% endif %}
@@ -11,7 +11,6 @@
 {% if perms.accounting.view_journal %}<a href="{% url 'accounting:journals' %}">Journaux</a>{% endif %}
 {% if perms.accounting.view_fiscalyear %}<a href="{% url 'accounting:years' %}">Exercices et périodes</a>{% endif %}
 {% if perms.accounting.view_journalentry %}<a href="{% url 'accounting:entries' %}">Écritures</a>{% endif %}
-{% if perms.accounting.add_account %}<a href="{% url 'accounting:account_new' %}">Nouveau compte</a>{% endif %}
 {% if perms.accounting.add_journal %}<a href="{% url 'accounting:journal_new' %}">Nouveau journal</a>{% endif %}
 {% if perms.accounting.add_fiscalyear %}<a href="{% url 'accounting:year_new' %}">Nouvel exercice</a>{% endif %}
 {% if perms.accounting.add_accountingperiod %}<a href="{% url 'accounting:period_new' %}">Nouvelle période</a>{% endif %}

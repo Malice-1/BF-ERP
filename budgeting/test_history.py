@@ -104,6 +104,32 @@ class BudgetHistoryTests(TestCase):
         with self.assertRaises(PermissionDenied):
             act(pk=transfer.pk, actor=self.admin, revision=4, action="cancel", reason="Deuxième essai")
 
+    def test_transactions_show_both_transfer_legs_and_filter_combined_dimensions(self):
+        transfer = self.approve()
+        act(pk=transfer.pk, actor=self.admin, revision=3, action="cancel", reason="Correction")
+        url = reverse("purchasing:budget_transactions")
+        self.client.force_login(self.admin)
+        response = self.client.get(url, {"version": self.budget.pk})
+        movements = [row for row in response.context["page"] if row["transfers"]]
+        self.assertEqual(
+            [(row["cdf"], row["debit"], row["credit"]) for row in movements if row["cdf"] == str(self.source)],
+            [(str(self.source), 0, 60), (str(self.source), 60, 0)],
+        )
+        self.assertEqual(
+            [(row["debit"], row["credit"]) for row in movements if row["cdf"] == str(self.target)],
+            [(60, 0), (0, 60)],
+        )
+        filters = {"version": self.budget.pk, "cdf": self.target.code.lower(),
+                   "product": self.product.code.lower(), "funding": self.funding.code.lower()}
+        response = self.client.get(url, filters)
+        self.assertEqual(response.context["debit"], 60)
+        self.assertEqual(response.context["credit"], 60)
+        self.assertTrue(all(row["cdf"] == str(self.target) for row in response.context["page"]))
+        response = self.client.get(url, {**filters, "funding": "unknown-funding"})
+        self.assertEqual(response.context["page"].paginator.count, 0)
+        self.client.force_login(self.owner)
+        self.assertEqual(self.client.get(url).status_code, 403)
+
     def test_cancel_approved_refused_if_destination_is_reserved(self):
         transfer = self.approve()
         outgoing = self.create_transfer("30")

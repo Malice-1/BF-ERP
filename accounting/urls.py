@@ -1,9 +1,18 @@
 from django.urls import path
 from . import views
 from . import supplier_views
+from . import fixed_asset_views
 
 app_name = "accounting"
 urlpatterns = [
+    path("immobilisations/", fixed_asset_views.asset_list, name="assets"),
+    path("immobilisations/nouvelle/", fixed_asset_views.asset_edit, name="asset_new"),
+    path("immobilisations/<int:pk>/", fixed_asset_views.asset_detail, name="asset_detail"),
+    path("immobilisations/<int:pk>/modifier/", fixed_asset_views.asset_edit, name="asset_edit"),
+    path("immobilisations/<int:pk>/mettre-en-service/", fixed_asset_views.asset_transition,
+        {"action": "activate"}, name="asset_activate"),
+    path("immobilisations/<int:pk>/sortir/", fixed_asset_views.asset_transition,
+        {"action": "dispose"}, name="asset_dispose"),
     path("factures-fournisseurs/", supplier_views.invoice_list, name="supplier_invoices"),
     path("factures-fournisseurs/nouvelle/", supplier_views.manual_edit, name="supplier_invoice_new"),
     path("factures-fournisseurs/importer/", supplier_views.upload, name="supplier_invoice_upload"),
@@ -13,8 +22,9 @@ urlpatterns = [
     path("factures-fournisseurs/<int:pk>/revalider/", supplier_views.revalidate, name="supplier_invoice_revalidate"),
     path("factures-fournisseurs/<int:pk>/revoir/", supplier_views.review, name="supplier_invoice_review"),
     path("", views.home, name="home"),
-    path("imputations-achats/", views.purchase_imputations, name="purchase_imputations"),
-    path("imputations-ventes/", views.sales_imputations, name="sales_imputations"),
+    path("groupes-comptes/", views.account_groups, name="account_groups"),
+    path("imputations-achats/", views.account_groups, {"legacy_section": "achats"}, name="purchase_imputations"),
+    path("imputations-ventes/", views.account_groups, {"legacy_section": "ventes"}, name="sales_imputations"),
     path("cadre/", views.profile, name="profile"),
     path("comptes/", views.accounts, name="accounts"),
     path("comptes/nouveau/", views.account_edit, name="account_new"),

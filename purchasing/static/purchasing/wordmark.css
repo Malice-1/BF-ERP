@@ -1,0 +1,14 @@
+.bf-wordmark {
+    font: 800 23px/1.2 "Segoe UI", system-ui, sans-serif;
+    letter-spacing: -1px;
+    white-space: nowrap;
+}
+
+.bf-wordmark span {
+    font-weight: 400;
+}
+
+.brand-wordmark,
+.brand-rays {
+    flex-shrink: 0;
+}

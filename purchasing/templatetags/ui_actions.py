@@ -45,7 +45,8 @@ def back_action(context):
         target, args, label = "purchasing:suppliers", (), "Retour aux fournisseurs"
     elif name in {"create", "all_requests", "detailed_products", "suppliers"}:
         target, args, label = "purchasing:list", (), "Retour aux demandes d’achat"
-    elif name in {"budget_versions", "allocation_versions", "budget_products", "budgets", "budget_history", "transfer_list", "transfer_monitor"}:
+    elif name in {"budget_versions", "allocation_versions", "budget_products", "budgets", "budget_history",
+                  "budget_transactions", "budget_pilot", "transfer_list", "transfer_monitor"}:
         target, args, label = "purchasing:budget_home", (), "Retour à l’espace Budget"
     elif name in {"transfer_correct", "transfer_detail", "transfer_timeline", "version_transfers"}:
         target, args, label = "transfer_monitor", (), "Retour aux transferts"

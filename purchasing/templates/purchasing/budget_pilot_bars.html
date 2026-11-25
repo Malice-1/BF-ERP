@@ -1,0 +1,11 @@
+{% load l10n ui_actions %}
+<section class="configuration-section content-zone">
+    <h2>{{ title }}</h2>
+    <ul class="pilot-bars">
+        {% for label, value, width in bars %}
+        <li><span>{{ label }}</span><strong>{{ value|amount }} {{ unit }}</strong>
+            <progress value="{{ width|unlocalize }}" max="100" aria-hidden="true"></progress>
+        </li>
+        {% empty %}<li>Aucune donnée dans ce périmètre.</li>{% endfor %}
+    </ul>
+</section>

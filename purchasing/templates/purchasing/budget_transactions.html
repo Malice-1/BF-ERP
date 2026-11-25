@@ -1,0 +1,50 @@
+{% extends 'purchasing/base.html' %}{% load ui_actions %}
+{% block content %}{% back_action %}
+<h1>Transactions budgétaires</h1>
+<form method="get" class="budget-history-filter">
+    {{ form.as_p }}
+    <div class="budget-history-filter-actions"><button type="submit">Filtrer</button></div>
+</form>
+{% if version %}
+<section class="configuration-section content-zone" aria-labelledby="budget-transactions-title">
+    <h2 id="budget-transactions-title">{{ version.envelope.year }} · {{ version.label }}</h2>
+    {% if first %}
+    <p>Les mouvements sont calculés à partir des changements enregistrés depuis l’état de référence du {{ first.created_at|date:'d/m/Y H:i:s' }}.</p>
+    {% endif %}
+    <p><strong>Total débité</strong> {{ debit|amount }} € · <strong>Total crédité</strong> {{ credit|amount }} €</p>
+    <div class="table-wrap">
+        <table>
+            <caption>Variations et impact sur le disponible (€)</caption>
+            <thead><tr>
+                <th scope="col">Date</th><th scope="col">Événement</th><th scope="col">Produit (BI)</th>
+                <th scope="col">CDF</th><th scope="col">Financement</th><th scope="col">Allocation</th>
+                <th scope="col">Réservé</th><th scope="col">Engagé</th><th scope="col">Transferts</th>
+                <th scope="col">Débit</th><th scope="col">Crédit</th>
+            </tr></thead>
+            <tbody>
+            {% for row in page %}
+            <tr>
+                <td>{{ row.event.created_at|date:'d/m/Y H:i:s' }}</td>
+                <td>{{ row.event.display_reason }}<br><small>{{ row.event.actor }}</small></td>
+                <td>{{ row.product }}</td><td>{{ row.cdf }}</td><td>{{ row.funding }}</td>
+                <td>{% if row.allocated %}{{ row.allocated|amount }}{% else %}—{% endif %}</td>
+                <td>{% if row.reserved %}{{ row.reserved|amount }}{% else %}—{% endif %}</td>
+                <td>{% if row.committed %}{{ row.committed|amount }}{% else %}—{% endif %}</td>
+                <td>{% if row.transfers %}{{ row.transfers|amount }}{% else %}—{% endif %}</td>
+                <td>{% if row.debit %}{{ row.debit|amount }}{% else %}—{% endif %}</td>
+                <td>{% if row.credit %}{{ row.credit|amount }}{% else %}—{% endif %}</td>
+            </tr>
+            {% empty %}<tr><td colspan="11">Aucune transaction enregistrée pour ces filtres.</td></tr>{% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if page.has_other_pages %}
+    <nav aria-label="Pagination des transactions">
+        {% if page.has_previous %}<a href="{% querystring version=version.pk page=page.previous_page_number %}">Précédente</a>{% endif %}
+        <span>Page {{ page.number }} sur {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}<a href="{% querystring version=version.pk page=page.next_page_number %}">Suivante</a>{% endif %}
+    </nav>
+    {% endif %}
+</section>
+{% elif not form.errors %}<p>Aucune version budgétaire disponible.</p>{% endif %}
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends 'accounting/base.html' %}{% load ui_actions %}
+{% block ledger_content %}
+<h1>Immobilisations</h1>
+{% if perms.accounting.add_fixedasset %}<p><a class="button" href="{% url 'accounting:asset_new' %}">Nouvelle immobilisation</a></p>{% endif %}
+<form method="get" class="ledger-form">
+    <label for="asset-search">Rechercher par inventaire, désignation, catégorie, lieu ou CDF</label>
+    <input id="asset-search" type="search" name="q" value="{{ q }}" maxlength="200">
+    <label for="asset-status">État</label>
+    <select id="asset-status" name="status"><option value="">Tous les états</option>
+        {% for value, label in statuses %}<option value="{{ value }}"{% if value == status %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <button type="submit">Filtrer</button>
+    <a href="{% querystring export='xlsx' page=None %}">Exporter le registre filtré (Excel)</a>
+</form>
+<div class="table-wrap"><table>
+    <thead><tr><th scope="col">Inventaire</th><th scope="col">Désignation</th><th scope="col">Catégorie</th>
+        <th scope="col">Lieu / CDF</th><th scope="col">État</th><th scope="col">Acquisition (€)</th>
+        <th scope="col">Amortissement calculé (€)</th><th scope="col">Valeur nette (€)</th></tr></thead>
+    <tbody>{% for row in rows %}{% with asset=row.asset %}
+    <tr><th scope="row"><a href="{% url 'accounting:asset_detail' asset.pk %}">{{ asset.code }}</a></th>
+        <td>{{ asset.label }}</td><td>{{ asset.category }}</td>
+        <td>{{ asset.location|default:"—" }}{% if asset.cost_center %}<br>{{ asset.cost_center }}{% endif %}</td>
+        <td>{{ asset.get_status_display }}</td><td>{{ asset.cost|amount }}</td>
+        <td>{% if row.accumulated != None %}{{ row.accumulated|amount }}{% else %}—{% endif %}</td>
+        <td>{% if row.net != None %}{{ row.net|amount }}{% else %}—{% endif %}</td></tr>
+    {% endwith %}{% empty %}<tr><td colspan="8">Aucune immobilisation pour ces filtres.</td></tr>{% endfor %}</tbody>
+</table></div>
+{% include 'accounting/pagination.html' %}
+{% endblock %}

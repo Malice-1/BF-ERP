@@ -35,14 +35,18 @@ def batch_status(line_statuses):
 
 
 def transfer_balance(version_id, cdf, funding, product):
-    result = Decimal(0)
-    combination = (cdf, funding, product)
+    return transfer_balances(version_id).get((cdf, funding, product), Decimal(0))
+
+
+def transfer_balances(version_id):
+    balances = {}
     for transfer in BudgetTransfer.objects.filter(budget_version_id=version_id, status__in=["pending", "approved"]):
-        if transfer.combination("source") == combination:
-            result -= transfer.amount
-        if transfer.status == "approved" and transfer.combination("destination") == combination:
-            result += transfer.amount
-    return result
+        source = transfer.combination("source")
+        balances[source] = balances.get(source, Decimal(0)) - transfer.amount
+        if transfer.status == "approved":
+            destination = transfer.combination("destination")
+            balances[destination] = balances.get(destination, Decimal(0)) + transfer.amount
+    return balances
 
 
 def candidates(step):

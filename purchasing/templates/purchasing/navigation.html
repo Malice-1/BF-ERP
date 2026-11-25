@@ -10,6 +10,8 @@
 </nav>
 <nav class="subnav" aria-label="Pages de la rubrique">
 {% if nav_section == 'accounting' %}
+{% if perms.accounting.change_purchasepostingconfiguration or perms.accounting.change_salespostingconfiguration %}<a href="{% url 'accounting:account_groups' %}"{% if request.resolver_match.url_name == 'account_groups' or request.resolver_match.url_name == 'purchase_imputations' or request.resolver_match.url_name == 'sales_imputations' %} aria-current="page"{% endif %}>Groupes comptes</a>{% endif %}
+{% if perms.accounting.view_fixedasset %}<a href="{% url 'accounting:assets' %}"{% if request.resolver_match.url_name == 'assets' or request.resolver_match.url_name|slice:':6' == 'asset_' %} aria-current="page"{% endif %}>Immobilisations</a>{% endif %}
 {% if perms.accounting.view_supplierinvoice %}<a href="{% url 'accounting:supplier_invoices' %}">Factures fournisseurs</a>{% endif %}
 {% if perms.accounting.add_supplierinvoice and not perms.accounting.view_supplierinvoice %}<a href="{% url 'accounting:supplier_invoice_new' %}">Encoder une facture fournisseur</a>{% endif %}
 {% if perms.accounting.import_supplierinvoice and not perms.accounting.view_supplierinvoice %}<a href="{% url 'accounting:supplier_invoice_upload' %}">Importer un XML fournisseur</a>{% endif %}

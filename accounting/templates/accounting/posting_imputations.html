@@ -1,19 +1,27 @@
 {% extends 'accounting/base.html' %}
 {% block ledger_content %}
-<h1>{{ title }}</h1>
+<h1>Groupes comptes</h1>
+{% if tabs|length > 1 %}
+<nav class="ledger-actions" aria-label="Groupes de comptes par opération">
+    {% for key, label, url in tabs %}
+    <a href="{{ url }}" class="button{% if section != key %} button-secondary{% endif %}"{% if section == key %} aria-current="page"{% endif %}>{{ label }}</a>
+    {% endfor %}
+</nav>
+{% endif %}
+<h2>{{ title }}</h2>
 <p>{{ intro }}</p>
 
-<h2>Paramètres de génération</h2>
+<h3>Paramètres de génération</h3>
 <p>{{ note }}</p>
-<form method="post" class="ledger-form">
+<form method="post" action="{{ form_url }}" class="ledger-form">
     {% csrf_token %}
     <input type="hidden" name="action" value="settings">
     {{ settings_form.as_p }}
     <button type="submit">Enregistrer les paramètres</button>
 </form>
 
-<h2>Comptes par produit budgétaire</h2>
-<form method="post" class="ledger-form">
+<h3>Comptes par produit budgétaire</h3>
+<form method="post" action="{{ form_url }}" class="ledger-form">
     {% csrf_token %}
     <input type="hidden" name="action" value="mapping">
     {{ mapping_form.as_p }}

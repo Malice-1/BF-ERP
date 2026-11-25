@@ -392,6 +392,26 @@ class BudgetTransfer(models.Model):
         return f"TB-{self.pk}"
 
 
+class TrainingActivity(models.Model):
+    training = models.ForeignKey("sales.TrainingService", on_delete=models.PROTECT, verbose_name="Formation")
+    cost_center = models.ForeignKey(CostCenter, on_delete=models.PROTECT, verbose_name="CDF")
+    month = models.DateField("Mois (premier jour)")
+    trainees = models.PositiveIntegerField("Stagiaires")
+    hours = models.DecimalField("Heures de formation", max_digits=12, decimal_places=2)
+    sessions = models.PositiveIntegerField("Sessions")
+
+    class Meta:
+        verbose_name = "activité mensuelle de formation"
+        verbose_name_plural = "activités mensuelles de formation"
+        constraints = [
+            models.UniqueConstraint(fields=("training", "cost_center", "month"), name="unique_monthly_training_activity"),
+            models.CheckConstraint(condition=models.Q(month__day=1, hours__gte=0), name="valid_monthly_training_activity"),
+        ]
+
+    def __str__(self):
+        return f"{self.training} · {self.cost_center} · {self.month:%m/%Y}"
+
+
 class BudgetHistoryEvent(models.Model):
     version_id = models.PositiveBigIntegerField(null=True, blank=True, editable=False)
     envelope = models.ForeignKey(PurchaseAnnualEnvelope, on_delete=models.PROTECT, related_name="history_events")

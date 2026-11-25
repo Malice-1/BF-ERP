@@ -1,0 +1,90 @@
+.pilot-filters,
+.pilot-toolbar,
+.pilot-toolbar nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: .75rem 1rem;
+}
+
+.pilot-filters {
+    margin-block: 1rem;
+}
+
+.pilot-toolbar {
+    justify-content: space-between;
+    align-items: center;
+    margin-block: 1rem;
+}
+
+.pilot-toolbar nav a {
+    padding: .45rem .65rem;
+    border: 1px solid var(--border);
+    border-radius: .45rem;
+}
+
+.pilot-toolbar [aria-current="page"] {
+    background: var(--soft);
+    border-color: var(--accent);
+    font-weight: 700;
+}
+
+.pilot-charts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 23rem), 1fr));
+    gap: 1rem;
+}
+
+.pilot-bars {
+    padding: 0;
+    list-style: none;
+}
+
+.pilot-bars li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: .15rem .75rem;
+    margin-block: .65rem;
+    overflow-wrap: anywhere;
+}
+
+.pilot-bars progress,
+.pilot-pace progress {
+    width: 100%;
+    accent-color: var(--accent);
+}
+
+.pilot-bars progress {
+    grid-column: 1 / -1;
+    height: .6rem;
+}
+
+.pilot-pace {
+    position: relative;
+    display: grid;
+    align-items: center;
+    min-height: 1.6rem;
+}
+
+.pilot-pace progress {
+    height: 1rem;
+}
+
+.pilot-marker {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: clamp(1px, var(--elapsed), calc(100% - 1px));
+    border-inline-start: 2px dashed var(--text, currentColor);
+}
+
+.pilot-alerts details {
+    margin-block: .65rem;
+    padding: .65rem .8rem;
+    background: var(--soft);
+    border-inline-start: 3px solid var(--accent);
+}
+
+.pilot-alerts summary {
+    cursor: pointer;
+    font-weight: 700;
+}

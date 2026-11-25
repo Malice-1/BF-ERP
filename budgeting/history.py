@@ -44,7 +44,7 @@ def capture(envelope_id, reason, actor=None, using="default", version_id=None, c
         for key in sorted(set(allocations) | set(entries) | set(transfers)):
             allocated = allocations.get(key, Decimal(0))
             reserved, committed = entries[key]["reserved"], entries[key]["committed"]
-            rows.append(dict(zip(("cdf", "funding", "product"), labels[key]),
+            rows.append(dict(zip(("cdf", "funding", "product"), labels[key]), combination=list(key),
                              allocated=str(allocated), reserved=str(reserved), committed=str(committed),
                              transfers=str(transfers[key]), available=str(allocated-reserved-committed+transfers[key])))
         versions[str(version.pk)] = {"label": version.label,
@@ -88,6 +88,41 @@ def describe_timeline(events, version_id):
                     "product": row["product"], "cdf": row["cdf"], "funding": row["funding"],
                     "amount": row["allocated"],
                 })
+        previous = current
+
+
+def budget_movements(events, version_id):
+    """Compare successive recorded states of the same version."""
+    fields = ("allocated", "reserved", "committed", "transfers")
+    previous = None
+    for event in events:
+        state = event.state.get("versions", {}).get(str(version_id))
+        if state is None:
+            continue
+        current = state["rows"]
+        if previous is None:
+            previous = current
+            continue
+        # Older snapshots stored labels only. Use IDs when both snapshots have them.
+        dimensions = ("product", "cdf", "funding")
+        use_ids = all("combination" in row for rows in (previous, current) for row in rows)
+        before, after = (
+            {tuple(row["combination"]) if use_ids else tuple(row[field] for field in dimensions): row
+             for row in rows} for rows in (previous, current)
+        )
+        for key in sorted(before.keys() | after.keys()):
+            old, new = before.get(key, {}), after.get(key, {})
+            allocated, reserved, committed, transfers = (
+                Decimal(new.get(field, "0")) - Decimal(old.get(field, "0")) for field in fields
+            )
+            if any((allocated, reserved, committed, transfers)):
+                net = allocated - reserved - committed + transfers
+                yield {
+                    "event": event, **{field: (new or old)[field] for field in dimensions},
+                    "allocated": allocated, "reserved": reserved, "committed": committed,
+                    "transfers": transfers, "debit": max(-net, Decimal(0)),
+                    "credit": max(net, Decimal(0)),
+                }
         previous = current
 
 

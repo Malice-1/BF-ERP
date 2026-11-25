@@ -1,0 +1,153 @@
+{% extends 'purchasing/base.html' %}{% load static l10n ui_actions %}
+{% block extra_styles %}
+<link rel="stylesheet" href="{% static 'purchasing/budget_analysis.css' %}">
+<link rel="stylesheet" href="{% static 'purchasing/budget_pilot.css' %}">
+{% endblock %}
+{% block content %}
+{% back_action %}
+<h1>Pilotage budgétaire</h1>
+<form method="get" class="pilot-filters">
+    <input type="hidden" name="tab" value="{{ tab }}">
+    {% for field in form %}<div>{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}
+    <button type="submit">Afficher</button>
+</form>
+{% if version %}
+<div class="pilot-toolbar">
+    <nav aria-label="Vues de pilotage">
+        {% for key, label, url in tabs %}<a href="{{ url }}"{% if tab == key %} aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+    </nav>
+    <a href="{% url 'purchasing:budget_version_history' version.pk %}">Journal de la version</a>
+</div>
+<p class="budget-analysis-note">{{ version.envelope.year }} · {{ version.label }} · {{ cdf|default:"Tous les CDF" }} · Situation au {{ today|date:"d/m/Y" }}</p>
+
+{% if tab == 'budget' %}
+<section class="configuration-section content-zone">
+    <h2>Situation budgétaire</h2>
+    <dl class="budget-analysis-indicators">
+        <div><dt>Budget net</dt><dd>{{ metrics.granted|amount }} €</dd></div>
+        <div><dt>Engagé</dt><dd>{{ metrics.committed|amount }} €</dd></div>
+        <div><dt>Réservé</dt><dd>{{ metrics.reserved|amount }} €</dd></div>
+        <div><dt>Disponible</dt><dd{% if metrics.available < 0 %} class="budget-deficit"{% endif %}>{{ metrics.available|amount }} €</dd></div>
+    </dl>
+    <p class="budget-analysis-note">Montants TVAC. Le budget net tient compte des transferts, y compris les sorties en attente. Le disponible déduit les réservations et les engagements.</p>
+    <h3>Rythme des engagements</h3>
+    {% if metrics.rate != None %}
+    <div class="pilot-pace">
+        <progress max="100" value="{{ metrics.bar|unlocalize }}" aria-label="Part du budget net engagée"></progress>
+        <span class="pilot-marker" style="--elapsed: {{ elapsed|unlocalize }}%" aria-hidden="true"></span>
+    </div>
+    <p><strong>{{ metrics.rate|floatformat:1 }} %</strong> du budget engagé · <strong>{{ elapsed|floatformat:1 }} %</strong> de l’exercice écoulé</p>
+    {% else %}<p>Le taux d’engagement est disponible lorsque le budget net est positif.</p>{% endif %}
+</section>
+<section class="configuration-section content-zone">
+    <h2>Alertes</h2>
+    <div class="pilot-alerts">
+        {% if deficit_groups %}<details open><summary class="budget-deficit">{{ deficit_groups|length }} poste{{ deficit_groups|length|pluralize }} avec un déficit · {{ metrics.deficit|amount }} € à couvrir</summary>
+        <ul>{% for group in deficit_groups %}<li><a href="{{ group.url }}">{{ group.label }}</a> · {{ group.deficit|amount }} € à couvrir</li>{% endfor %}</ul></details>{% endif %}
+        {% if underused_groups %}<details><summary>{{ underused_groups|length }} poste{{ underused_groups|length|pluralize }} à risque de sous-utilisation</summary>
+        <p>À partir de la moitié de l’exercice, l’alerte apparaît si le taux d’engagement est au moins 15 points sous le rythme calendaire et si le disponible reste positif.</p>
+        <ul>{% for group in underused_groups %}<li><a href="{{ group.url }}">{{ group.label }}</a> · {{ group.rate|floatformat:1 }} % engagé · {{ group.available|amount }} € disponibles</li>{% endfor %}</ul></details>{% endif %}
+        {% if waiting_count %}<p><a href="{{ waiting_url }}">{{ waiting_count }} demande{{ waiting_count|pluralize }} en validation</a> · {{ waiting_amount|amount }} € réservés</p>{% endif %}
+        {% if overdue_count %}<p><a href="{{ overdue_url }}">{{ overdue_count }} commande{{ overdue_count|pluralize }} ouverte{{ overdue_count|pluralize }} depuis plus de 90 jours</a> · {{ overdue_amount|amount }} € à facturer</p>{% endif %}
+        {% if not deficit_groups and not underused_groups and not waiting_count and not overdue_count %}<p>Aucune alerte détectée dans les données accessibles pour ce périmètre.</p>{% endif %}
+    </div>
+</section>
+<section id="postes" class="configuration-section content-zone">
+    <h2>{% if cdf %}Produits budgétaires du CDF{% else %}Détail par centre de frais{% endif %}</h2>
+    <div class="table-wrap"><table>
+        <thead><tr><th scope="col">Poste</th><th scope="col">Budget net</th><th scope="col">Réservé</th><th scope="col">Engagé</th><th scope="col">Disponible</th><th scope="col">% engagé</th><th scope="col">État</th></tr></thead>
+        <tbody>{% for group in groups %}
+            <tr><th scope="row"><a href="{{ group.url }}">{{ group.label }}</a></th><td>{{ group.granted|amount }} €</td><td>{{ group.reserved|amount }} €</td><td>{{ group.committed|amount }} €</td>
+                <td{% if group.available < 0 %} class="budget-deficit"{% endif %}>{{ group.available|amount }} €</td><td>{% if group.rate != None %}{{ group.rate|floatformat:1 }} %{% else %}—{% endif %}</td>
+                <td>{% if group.deficit %}Déficit{% elif group.underused %}Sous-utilisation{% else %}—{% endif %}</td></tr>
+        {% empty %}<tr><td colspan="7">Aucun poste budgétaire dans ce périmètre.</td></tr>{% endfor %}</tbody>
+    </table></div>
+</section>
+{% elif tab == 'purchases' %}
+<div class="pilot-charts">
+    {% include 'purchasing/budget_pilot_bars.html' with title="De la demande à la facture" bars=stage_bars unit="€" %}
+    {% include 'purchasing/budget_pilot_bars.html' with title="Dix premiers fournisseurs par engagement" bars=supplier_bars unit="€" %}
+</div>
+<section id="achats" class="configuration-section content-zone">
+    <h2>Demandes soumises et bons de commande ({{ page.paginator.count }})</h2>
+    {% if activity.can_match %}
+    <p>Les montants facturés proviennent des factures fournisseur approuvées en EUR, rapprochées par référence de commande et fournisseur. En filtrant par CDF, les commandes réparties sur plusieurs CDF gardent un rapprochement indéterminé.</p>
+    {% else %}<p>Les montants facturés nécessitent le droit de consultation des factures fournisseur.</p>{% endif %}
+    <form method="get" class="pilot-filters" action="#achats">
+        <input type="hidden" name="version" value="{{ version.pk }}"><input type="hidden" name="cdf" value="{{ cdf.pk|default:'' }}"><input type="hidden" name="tab" value="purchases">
+        {% for field in purchase_filters %}<div>{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}
+        <button type="submit">Filtrer</button>
+    </form>
+    <div class="table-wrap"><table>
+        <thead><tr><th scope="col">Date</th><th scope="col">Demande / commande</th><th scope="col">Statut</th><th scope="col">Fournisseur</th><th scope="col">Produits</th><th scope="col">Montant TVAC</th><th scope="col">Facturé</th><th scope="col">Reste ouvert</th><th scope="col">Âge</th></tr></thead>
+        <tbody>{% for row in page %}
+        <tr><td>{{ row.created|date:"d/m/Y" }}</td><th scope="row"><a href="{% url 'purchasing:detail' row.pk %}">{{ row.request_number }}</a>{% if row.order_number %}<br><a href="{% url 'purchasing:order' row.pk %}">{{ row.order_number }}</a>{% endif %}</th>
+            <td>{{ row.stage_label }}{% if row.waiting %}<br><small>{{ row.waiting|join:", " }}</small>{% endif %}</td>
+            <td>{{ row.supplier }}</td><td>{{ row.products|join:", " }}</td><td>{{ row.amount|amount }} €</td>
+            <td>{% if row.billed != None %}{{ row.billed|amount }} €{% else %}—{% endif %}</td><td>{% if row.remaining != None %}{{ row.remaining|amount }} €{% else %}—{% endif %}</td>
+            <td{% if row.overdue %} class="budget-deficit"{% endif %}>{{ row.age }} j{% if row.overdue %}<br><small>Plus de 90 jours</small>{% endif %}</td></tr>
+        {% empty %}<tr><td colspan="9">Aucun achat pour ces filtres.</td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% if page.has_other_pages %}<nav class="pilot-toolbar" aria-label="Pagination des achats">
+        {% if page.has_previous %}<a href="{% querystring version=version.pk page=page.previous_page_number %}#achats">Précédente</a>{% endif %}
+        <span>Page {{ page.number }} sur {{ page.paginator.num_pages }}</span>
+        {% if page.has_next %}<a href="{% querystring version=version.pk page=page.next_page_number %}#achats">Suivante</a>{% endif %}
+    </nav>{% endif %}
+</section>
+<section class="configuration-section content-zone">
+    <h2>Derniers transferts approuvés ou en validation</h2>
+    <div class="table-wrap"><table>
+        <thead><tr><th scope="col">Date de création</th><th scope="col">Source</th><th scope="col">Destination</th><th scope="col">Montant TVAC</th><th scope="col">État</th></tr></thead>
+        <tbody>{% for transfer in recent_transfers %}
+        <tr><td><a href="{% url 'transfer_timeline' transfer.pk %}">{{ transfer.created_at|date:"d/m/Y" }}</a></td>
+            <td>{{ transfer.source_cdf }} · {{ transfer.source_product }}</td>
+            <td>{{ transfer.destination_cdf }} · {{ transfer.destination_product }}</td>
+            <td>{{ transfer.amount|amount }} €</td><td>{{ transfer.get_status_display }}</td></tr>
+        {% empty %}<tr><td colspan="5">Aucun transfert dans ce périmètre.</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <p><a href="{% url 'version_transfers' version.pk %}">Tous les transferts de la version</a></p>
+</section>
+{% elif tab == 'training' %}
+<section class="configuration-section content-zone">
+    <h2>Activité de formation</h2>
+    {% if training.courses %}
+    <dl class="budget-analysis-indicators">
+        <div><dt>Stagiaires (cumul mensuel)</dt><dd>{{ training.totals.trainees }}</dd></div>
+        <div><dt>Heures de formation</dt><dd>{{ training.totals.hours|amount }}</dd></div>
+        <div><dt>Sessions</dt><dd>{{ training.totals.sessions }}</dd></div>
+        <div><dt>Engagé par heure</dt><dd>{% if cost_per_hour != None %}{{ cost_per_hour|amount }} €{% else %}—{% endif %}</dd></div>
+    </dl>
+    <p>Le ratio divise l’ensemble des engagements du périmètre par les heures déclarées.</p>
+    {% else %}<p>Aucune activité mensuelle renseignée dans ce périmètre.</p>{% endif %}
+    {% if request.user.is_staff and perms.budgeting.add_trainingactivity %}<p><a href="{% url 'admin:budgeting_trainingactivity_add' %}">Saisir une activité mensuelle</a></p>{% endif %}
+</section>
+{% if training.courses %}
+<div class="pilot-charts">
+    {% include 'purchasing/budget_pilot_bars.html' with title="Heures par mois" bars=training_hours unit="h" %}
+    {% include 'purchasing/budget_pilot_bars.html' with title="Stagiaires par mois" bars=training_trainees unit="" %}
+</div>
+<section class="configuration-section content-zone">
+    <h2>Détail par formation</h2><div class="table-wrap"><table>
+    <thead><tr><th scope="col">Formation</th><th scope="col">Stagiaires</th><th scope="col">Heures</th><th scope="col">Sessions</th></tr></thead>
+    <tbody>{% for course, counts in training.courses %}<tr><th scope="row">{{ course }}</th><td>{{ counts.trainees }}</td><td>{{ counts.hours|amount }}</td><td>{{ counts.sessions }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+</section>
+{% endif %}
+{% elif tab == 'history' %}
+<div class="pilot-charts">
+    {% include 'purchasing/budget_pilot_bars.html' with title="Budget net par exercice" bars=history_grants unit="€" %}
+    {% include 'purchasing/budget_pilot_bars.html' with title="Engagements par exercice" bars=history_engaged unit="€" %}
+    {% if history_hours %}{% include 'purchasing/budget_pilot_bars.html' with title="Heures de formation par exercice" bars=history_hours unit="h" %}{% endif %}
+</div>
+<section class="configuration-section content-zone">
+    <h2>Budgets au fil des exercices</h2>
+    <p>Le budget initial provient de la première version publiée. Le budget net provient de la version active ou de la dernière version publiée disponible.</p>
+    <div class="table-wrap"><table>
+    <thead><tr><th scope="col">Exercice</th><th scope="col">Budget initial</th><th scope="col">Budget net</th><th scope="col">Engagé</th><th scope="col">Disponible</th><th scope="col">Déficits à couvrir</th>{% if show_training %}<th scope="col">Heures de formation</th>{% endif %}</tr></thead>
+    <tbody>{% for row in history %}<tr><th scope="row"><a href="{{ row.url }}">{{ row.year }}</a></th><td>{% if row.opening != None %}{{ row.opening|amount }} €{% else %}—{% endif %}</td><td>{{ row.granted|amount }} €</td><td>{{ row.committed|amount }} €</td>
+        <td>{{ row.available|amount }} €</td><td>{{ row.deficit|amount }} €</td>{% if show_training %}<td>{% if row.hours != None %}{{ row.hours|amount }}{% else %}—{% endif %}</td>{% endif %}</tr>{% endfor %}</tbody>
+    </table></div>
+</section>
+{% endif %}
+{% elif not form.errors %}<p>Aucune version budgétaire disponible.</p>{% endif %}
+{% endblock %}

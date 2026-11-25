@@ -1,7 +1,7 @@
 from accounts.admin_deletion import SystemModelAdmin
 from django.contrib import admin
 
-from .models import CostCenter, Funding, Support, Subproject, Section, BudgetProduct, Budget, BudgetLine
+from .models import CostCenter, Funding, Support, Subproject, Section, BudgetProduct, Budget, BudgetLine, TrainingActivity
 from purchasing.models import DetailedProduct
 from accounts.admin import ReadOnlyAdmin
 from .forms import CostCenterAdminForm, SupportAdminForm, CostCenterManagersField
@@ -11,6 +11,16 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import JsonResponse
 from django.urls import path
+
+
+@admin.register(TrainingActivity)
+class TrainingActivityAdmin(SystemModelAdmin):
+    list_display = ("month", "training", "cost_center", "trainees", "hours", "sessions")
+    list_filter = ("month", "cost_center")
+    search_fields = ("training__code", "training__description")
+    ordering = ("-month", "training__code")
+
+
 @admin.register(CostCenter)
 class CostCenterAdmin(SystemModelAdmin):
     form = CostCenterAdminForm

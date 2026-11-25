@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 from . import flow_views
 from . import budget_views
+from . import budget_pilot_views
 from . import framework_views
 from . import rule_views
 
@@ -26,9 +27,11 @@ urlpatterns = [
     path("toutes-les-demandes/", views.all_requests, name="all_requests"),
     path("produits-detailles/", budget_views.detailed_products, name="detailed_products"),
     path("espace-budget/", budget_views.budget_home, name="budget_home"),
+    path("pilotage-budgetaire/", budget_pilot_views.budget_pilot, name="budget_pilot"),
     path("alimentation-budgets/", budget_views.allocation_versions, name="allocation_versions"),
     path("historique-budgets/", budget_views.budget_history, name="budget_history"),
     path("historique-budgets/<int:version_id>/", budget_views.budget_history, name="budget_version_history"),
+    path("transactions-budgetaires/", budget_views.budget_transactions, name="budget_transactions"),
     path("configuration/", budget_views.configuration, name="configuration"),
     path("produits-budgetaires/", budget_views.budget_products, name="budget_products"),
     path("gestion-budgets/", budget_views.versions, name="budget_versions"),

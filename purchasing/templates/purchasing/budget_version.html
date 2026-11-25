@@ -10,6 +10,7 @@
 {% if version.editing_unlocked_at %}<p role="status">Modifications débloquées le {{ version.editing_unlocked_at }}. Seul l’administrateur système peut modifier les allocations. La version reste publiée et les modifications prennent effet dès l’enregistrement.</p>{% endif %}
 <section class="configuration-section content-zone" aria-labelledby="version-allocations-title">
 <div class="section-toolbar"><h2 id="version-allocations-title">Allocations de la version</h2>
+<a href="{% url 'purchasing:budget_transactions' %}?version={{ version.pk }}">Transactions budgétaires</a>
 </div>
 <div class="table-search-heading">
 <form method="get" action="{% url 'purchasing:budget_version' version.pk %}" id="allocation-search" class="table-search" role="search" aria-label="Recherche des allocations par produit">

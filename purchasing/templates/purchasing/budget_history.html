@@ -18,6 +18,7 @@
 <section class="configuration-section content-zone" aria-labelledby="budget-timeline-title">
 <div class="section-toolbar"><h2 id="budget-timeline-title">Chronologie des changements</h2>
 <div class="section-actions">
+{% if version %}<a href="{% url 'purchasing:budget_transactions' %}?version={{ version.pk }}">Transactions budgétaires</a>{% else %}<a href="{% url 'purchasing:budget_transactions' %}">Transactions budgétaires</a>{% endif %}
 {% if version %}<a href="{% url 'version_transfers' version.pk %}" class="ui-icon" aria-label="Historique spécifique des transferts de cette version" title="Historique spécifique des transferts de cette version">{% include 'purchasing/action_icon.html' with icon='history' %}</a>{% endif %}
 {% if timeline and not form.errors %}{% include 'purchasing/excel_export.html' with compact=True export_scope='timeline' export_version=version.pk export_label='Exporter la chronologie en Excel' %}{% endif %}
 </div></div>

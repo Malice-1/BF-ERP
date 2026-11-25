@@ -340,6 +340,42 @@ class PurchaseFlowTests(TestCase):
         response = self.client.get(reverse("purchasing:budget_check"), data)
         self.assertEqual(response.context["result"]["available"], Decimal("879"))
 
+    def test_purchase_list_search_uses_visible_columns_and_preserves_scope(self):
+        from django.utils import formats
+
+        other_supplier = Supplier.objects.create(code="AUTRE", name="Matériel électrique")
+        other_request = create_purchase_request(actor=self.owner, supplier=other_supplier, support=self.support)
+        type(other_request).objects.filter(pk=other_request.pk).update(created_by=self.other)
+        self.client.force_login(self.admin)
+        url = reverse("purchasing:all_requests")
+        searches = {
+            "number": (other_request.number, other_request),
+            "requester": (str(self.other), other_request),
+            "supplier": ("materiel electrique", other_request),
+            "status": ("brouillon", self.purchase),
+            "receipt": ("non receptionnee", self.purchase),
+            "created": (formats.date_format(timezone.template_localtime(self.purchase.created_at), "DATETIME_FORMAT"), self.purchase),
+        }
+        for field, (query, expected) in searches.items():
+            with self.subTest(field=field):
+                response = self.client.get(url, {"field": field, "q": query},
+                    HTTP_X_REQUESTED_WITH="XMLHttpRequest")
+                self.assertEqual(response.headers["X-Purchase-Request-Results"], "1")
+                self.assertContains(response, expected.number)
+                self.assertNotContains(response, 'id="purchase-request-filter"')
+                if field in {"number", "requester", "supplier"}:
+                    self.assertNotContains(response, self.purchase.number)
+
+        self.client.force_login(self.owner)
+        personal = reverse("purchasing:list")
+        response = self.client.get(personal, {"q": "electrique"})
+        self.assertNotContains(response, other_request.number)
+        self.assertNotContains(response, 'value="requester"')
+        self.assertContains(response, "Aucune demande ne correspond")
+        response = self.client.get(personal, {"field": "supplier", "q": "snapshot", "export": "xlsx"})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("spreadsheet", response["Content-Type"])
+
     def test_all_requests_grant_revoke_and_read_only(self):
         url = reverse("purchasing:all_requests")
         detail = reverse("purchasing:detail", args=[self.purchase.pk])
@@ -451,6 +487,54 @@ class PurchaseFlowTests(TestCase):
         self.assertEqual(drilldown.context["analysis_form"].cleaned_data["status"], ["positive", "deficit"])
         self.assertEqual(drilldown.context["analysis_form"].cleaned_data["funding"], [self.funding.pk])
 
+    def test_budget_pilot_uses_live_balances_and_checks_tab_permissions(self):
+        url = reverse("purchasing:budget_pilot")
+        self.client.force_login(self.owner)
+        self.assertEqual(self.client.get(url).status_code, 403)
+        self.owner.user_permissions.add(Permission.objects.get(
+            content_type__app_label="budgeting", codename="view_budget_balances"))
+        self.submit()
+        limited = self.client.get(url, {"tab": "purchases"})
+        self.assertContains(limited, "Situation budgétaire")
+        self.assertNotContains(limited, self.purchase.number)
+        self.assertNotContains(limited, "Achats et factures")
+        self.assertEqual(limited.context["metrics"]["available"], self.balance())
+
+        self.client.force_login(self.admin)
+        response = self.client.get(url, {"tab": "purchases", "stage": "validation"})
+        self.assertContains(response, self.purchase.number)
+        self.assertEqual(response.context["waiting_amount"], Decimal("121"))
+        self.assertEqual(response.context["page"].paginator.count, 1)
+        self.assertContains(self.client.get(url, {"tab": "history"}), "Budget initial")
+        self.assertContains(self.client.get(url, {"tab": "training"}), "Aucune activité mensuelle")
+
+    def test_budget_pilot_matches_only_approved_supplier_invoices_and_reports_training(self):
+        from accounting.models import SupplierInvoice
+        from budgeting.models import TrainingActivity
+        from sales.models import TrainingService
+
+        self.submit()
+        self.act(self.first)
+        order = PurchaseOrder.objects.get(purchase_request=self.purchase)
+        PurchaseOrder.objects.filter(pk=order.pk).update(created_at=timezone.now() - timedelta(days=91))
+        other = Supplier.objects.create(code="OTHER", name="Autre fournisseur")
+        for supplier, status, total in ((self.supplier, "REVIEWED", 50), (other, "REVIEWED", 90),
+                                        (self.supplier, "RECEIVED", 70)):
+            SupplierInvoice.objects.create(supplier=supplier, status=status, currency="EUR", total=total,
+                extracted_data={"order_reference": order.number})
+        course = TrainingService.objects.create(code="T", description="Formation de test")
+        TrainingActivity.objects.create(training=course, cost_center=self.cdf,
+            month=timezone.localdate().replace(day=1), trainees=5, hours=10, sessions=1)
+        self.client.force_login(self.admin)
+        url = reverse("purchasing:budget_pilot")
+        response = self.client.get(url, {"tab": "purchases", "overdue": "1", "cdf": self.cdf.pk})
+        self.assertContains(response, order.number)
+        row, = response.context["page"].object_list
+        self.assertEqual((row["billed"], row["remaining"], row["overdue"]), (Decimal("50"), Decimal("71"), True))
+        response = self.client.get(url, {"tab": "training", "cdf": self.cdf.pk})
+        self.assertContains(response, course.description)
+        self.assertEqual(response.context["cost_per_hour"], Decimal("12.1"))
+
     def test_budget_table_refuses_deleted_or_invalid_selection(self):
         deleted = EnvelopeVersion.objects.create(envelope=self.envelope, label="Deleted selection")
         flow.delete_envelope_version(actor=self.admin, version_id=deleted.pk)
@@ -514,6 +598,21 @@ class PurchaseFlowTests(TestCase):
         with self.assertRaises(PurchaseRequestError):
             self.submit()
         self.assertEqual(PurchaseOrder.objects.count(), 1)
+
+    def test_budget_transactions_distinguish_reservations_commitments_and_releases(self):
+        self.submit()
+        self.act(self.first)
+        rejected = self.draft()
+        self.submit(rejected)
+        self.act(self.first, decision="reject", reason="Non nécessaire", purchase=rejected)
+
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse("purchasing:budget_transactions"))
+        rows = [row for row in response.context["page"] if row["reserved"] or row["committed"]]
+        self.assertEqual(
+            [(row["reserved"], row["committed"], row["debit"], row["credit"]) for row in rows],
+            [(-121, 0, 0, 121), (121, 0, 121, 0), (-121, 121, 0, 0), (121, 0, 121, 0)],
+        )
 
     def test_t002_combination_aggregate_shortage_rolls_back_all(self):
         purchase = self.draft("500", lines=2)

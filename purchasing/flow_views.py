@@ -7,7 +7,7 @@ from django.views.decorators.http import require_http_methods
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.cache import never_cache
 from . import flow
-from .budget_analysis import BudgetAnalysisForm, summarize
+from .budget_analysis import BudgetAnalysisForm, balance_rows, summarize
 from .models import (PurchaseRequest, ApprovalStep, Submission, PurchaseOrder,
     AnnualEnvelope, PurchaseNotice, Delegation)
 from .forms import RevisionForm, BudgetCheckForm, BudgetVersionSelectionForm
@@ -168,34 +168,7 @@ def budgets(request):
     form = BudgetVersionSelectionForm(data if data else None)
     form.fields["version"].empty_label = None
     selected_version = form.cleaned_data["version"] if form.is_bound and form.is_valid() else None
-    rows = []
-    if selected_version:
-        version = selected_version
-        envelope = version.envelope
-        # Include combinations removed by a later budget version too.
-        from .models import BudgetEntry
-        combinations = set(version.allocations.values_list("cost_center_id", "funding_id", "budget_product_id"))
-        from budgeting.models import BudgetTransfer
-        from budgeting.transfers import transfer_balance
-        transfers = BudgetTransfer.objects.filter(budget_version=version, status__in=["pending", "approved"])
-        for transfer in transfers:
-            combinations.add(transfer.combination("source"))
-            if transfer.status == "approved":
-                combinations.add(transfer.combination("destination"))
-        combinations.update(BudgetEntry.objects.filter(snapshot__submission__budget_version__envelope=envelope,
-            state__in=["reserved", "committed"]).values_list("snapshot__cost_center_id", "snapshot__funding_id", "snapshot__budget_product_id"))
-        from budgeting.models import CostCenter, Funding, BudgetProduct
-        for cdf, funding, product in sorted(combinations):
-            allocation = version.allocations.filter(cost_center_id=cdf, funding_id=funding, budget_product_id=product).first()
-            entries = BudgetEntry.objects.filter(snapshot__submission__budget_version__envelope=envelope,
-                snapshot__cost_center_id=cdf, snapshot__funding_id=funding, snapshot__budget_product_id=product)
-            rows.append(dict(year=envelope.year, version=version.label, cdf=CostCenter.objects.get(pk=cdf),
-                funding=Funding.objects.get(pk=funding), product=BudgetProduct.objects.get(pk=product),
-                allocated=allocation.amount if allocation else 0,
-                reserved=sum((e.amount for e in entries if e.state == "reserved"), Decimal(0)),
-                committed=sum((e.amount for e in entries if e.state == "committed"), Decimal(0)),
-                transfers=transfer_balance(version.pk, cdf, funding, product),
-                available=flow.available(version, cdf, funding, product)))
+    rows = balance_rows(selected_version) if selected_version else []
     if selected_version:
         data.setdefault("group_by", "cdf")
     analysis_form = BudgetAnalysisForm(data, rows) if selected_version else None

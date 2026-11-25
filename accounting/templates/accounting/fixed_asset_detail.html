@@ -1,0 +1,50 @@
+{% extends 'accounting/base.html' %}{% load ui_actions %}
+{% block ledger_content %}
+<p><a href="{% url 'accounting:assets' %}">Retour au registre</a></p>
+<h1>{{ asset }}</h1>
+<p>{{ asset.get_status_display }} · {{ asset.category }}{% if asset.location %} · {{ asset.location }}{% endif %}{% if asset.cost_center %} · {{ asset.cost_center }}{% endif %}</p>
+{% if perms.accounting.change_fixedasset %}
+<p>
+    {% if asset.status == 'DRAFT' %}
+        <a class="button button-secondary" href="{% url 'accounting:asset_edit' asset.pk %}">Modifier</a>
+        <a class="button" href="{% url 'accounting:asset_activate' asset.pk %}">Mettre en service</a>
+    {% elif asset.status == 'ACTIVE' %}
+        <a class="button button-secondary" href="{% url 'accounting:asset_edit' asset.pk %}">Modifier l’affectation</a>
+        <a class="button button-secondary" href="{% url 'accounting:asset_dispose' asset.pk %}">Enregistrer la sortie</a>
+    {% endif %}
+</p>
+{% endif %}
+<section class="configuration-section content-zone">
+    <h2>Acquisition et valeur</h2>
+    <dl>
+        <dt>Date d’acquisition</dt><dd>{{ asset.acquired_on|date:"d/m/Y" }}</dd>
+        <dt>Date de mise en service</dt><dd>{{ asset.in_service_on|date:"d/m/Y" }}</dd>
+        {% if invoice %}<dt>Facture fournisseur</dt><dd><a href="{% url 'accounting:supplier_invoice_detail' invoice.pk %}">{{ invoice }}</a></dd>{% endif %}
+        <dt>Valeur d’acquisition</dt><dd>{{ asset.cost|amount }} €</dd>
+        <dt>Valeur résiduelle</dt><dd>{{ asset.residual_value|amount }} €</dd>
+        <dt>Durée d’utilisation</dt><dd>{{ asset.useful_life_months }} mois</dd>
+        {% if net != None %}
+        <dt>Amortissement cumulé calculé</dt><dd>{{ accumulated|amount }} €</dd>
+        <dt>Valeur nette calculée{% if asset.disposed_on %} à la sortie{% endif %}</dt><dd>{{ net|amount }} €</dd>
+        {% endif %}
+        {% if asset.disposed_on %}
+        <dt>Date de sortie</dt><dd>{{ asset.disposed_on|date:"d/m/Y" }}</dd>
+        <dt>Motif de sortie</dt><dd>{{ asset.disposal_reason }}</dd>
+        <dt>Prix de sortie</dt><dd>{{ asset.proceeds|amount }} €</dd>
+        <dt>Écart entre le prix de sortie et la valeur nette</dt><dd>{{ disposal_result|amount }} €</dd>
+        {% endif %}
+    </dl>
+</section>
+<section class="configuration-section content-zone">
+    <h2>Plan d’amortissement{% if asset.status == 'DRAFT' %} prévisionnel{% endif %}</h2>
+    <p>Calcul linéaire au jour près, à partir de la mise en service et jusqu’à la veille de la sortie, le cas échéant. Les montants calculés servent au suivi du registre. La comptabilisation s’effectue dans les écritures.</p>
+    <div class="table-wrap"><table>
+        <thead><tr><th scope="col">Année civile</th><th scope="col">Jours</th><th scope="col">Dotation (€)</th>
+            <th scope="col">Cumul (€)</th><th scope="col">Valeur nette (€)</th></tr></thead>
+        <tbody>{% for year, days, amount_due, cumulative, book_value in schedule %}
+        <tr><th scope="row">{{ year }}</th><td>{{ days }}</td><td>{{ amount_due|amount }}</td>
+            <td>{{ cumulative|amount }}</td><td>{{ book_value|amount }}</td></tr>
+        {% empty %}<tr><td colspan="5">Aucune dotation sur la période d’utilisation.</td></tr>{% endfor %}</tbody>
+    </table></div>
+</section>
+{% endblock %}

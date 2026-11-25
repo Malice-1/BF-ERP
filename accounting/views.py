@@ -6,6 +6,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db.models import Q, Sum
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse as reverse_url
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from . import purchase_posting, sales_posting, services
@@ -28,50 +29,56 @@ def home(request):
     return render(request, "accounting/home.html")
 
 
-@login_required
-@permission_required("accounting.change_purchasepostingconfiguration", raise_exception=True)
-@require_http_methods(["GET", "POST"])
-def purchase_imputations(request):
-    return _posting_imputations(request, route="purchase_imputations", config_model=PurchasePostingConfiguration,
+POSTING_GROUPS = {
+    "achats": dict(label="Achats", permission="accounting.change_purchasepostingconfiguration",
+        legacy_route="purchase_imputations", config_model=PurchasePostingConfiguration,
         mapping_model=BudgetProductAccount, config_form=PurchasePostingForm, account_form=BudgetProductAccountForm,
         configure=purchase_posting.configure, title="Imputations des demandes d’achat",
         intro="À la validation finale d’une DA, son bon de commande déclenche un brouillon d’engagement en EUR. "
               "Les montants TVAC sont imputés par produit budgétaire.",
         note="Lorsque la génération est active, chaque produit imputé doit avoir un compte et une période comptable doit "
-             "être ouverte à la date du bon de commande. La validation de la DA peut être reprise après correction du paramétrage.")
-
-
-@login_required
-@permission_required("accounting.change_salespostingconfiguration", raise_exception=True)
-@require_http_methods(["GET", "POST"])
-def sales_imputations(request):
-    return _posting_imputations(request, route="sales_imputations", config_model=SalesPostingConfiguration,
+             "être ouverte à la date du bon de commande. La validation de la DA peut être reprise après correction du paramétrage."),
+    "ventes": dict(label="Ventes", permission="accounting.change_salespostingconfiguration",
+        legacy_route="sales_imputations", config_model=SalesPostingConfiguration,
         mapping_model=SalesBudgetProductAccount, config_form=SalesPostingForm, account_form=SalesBudgetProductAccountForm,
         configure=sales_posting.configure, title="Imputations des ventes",
         intro="À l’émission d’une facture, le brouillon débite le compte clients du total TTC et crédite "
               "les comptes de produit des montants HT, ainsi que le compte de TVA collectée si nécessaire.",
         note="Lorsque la génération est active, chaque ligne facturée doit être rattachée à un produit budgétaire imputé "
-             "et une période doit être ouverte à la date de la facture. L’émission peut être reprise après correction.")
+             "et une période doit être ouverte à la date de la facture. L’émission peut être reprise après correction."),
+}
 
 
-def _posting_imputations(request, *, route, config_model, mapping_model, config_form, account_form, configure,
-                        title, intro, note):
+@login_required
+@require_http_methods(["GET", "POST"])
+def account_groups(request, legacy_section=None):
+    groups = {key: group for key, group in POSTING_GROUPS.items() if request.user.has_perm(group["permission"])}
+    section = legacy_section or request.GET.get("section")
+    if not groups or (section is not None and section not in groups):
+        raise PermissionDenied
+    section = section or next(iter(groups))
+    group = groups[section]
+    route = (reverse_url("accounting:" + group["legacy_route"]) if legacy_section
+             else reverse_url("accounting:account_groups", query={"section": section}))
+    tabs = [(key, item["label"], reverse_url("accounting:account_groups", query={"section": key}))
+            for key, item in groups.items()]
     action = request.POST.get("action")
-    config = config_model.objects.filter(pk=1).first()
-    settings_form = config_form(request.POST if action == "settings" else None, instance=config)
-    mapping_form = account_form(request.POST if action == "mapping" else None)
+    config = group["config_model"].objects.filter(pk=1).first()
+    settings_form = group["config_form"](request.POST if action == "settings" else None, instance=config)
+    mapping_form = group["account_form"](request.POST if action == "mapping" else None)
     if action == "settings" and settings_form.is_valid():
-        configure(actor=request.user, settings=settings_form.cleaned_data)
+        group["configure"](actor=request.user, settings=settings_form.cleaned_data)
         messages.success(request, "Paramétrage des imputations enregistré.")
-        return redirect("accounting:" + route)
+        return redirect(route)
     if action == "mapping" and mapping_form.is_valid():
-        configure(actor=request.user, mapping=mapping_form.cleaned_data)
+        group["configure"](actor=request.user, mapping=mapping_form.cleaned_data)
         messages.success(request, "Imputation du produit budgétaire enregistrée.")
-        return redirect("accounting:" + route)
+        return redirect(route)
     return render(request, "accounting/posting_imputations.html", {
-        "title": title, "intro": intro, "note": note,
+        "title": group["title"], "intro": group["intro"], "note": group["note"],
+        "section": section, "tabs": tabs, "form_url": route,
         "settings_form": settings_form, "mapping_form": mapping_form,
-        "mappings": mapping_model.objects.select_related("product", "account").order_by("product__code"),
+        "mappings": group["mapping_model"].objects.select_related("product", "account").order_by("product__code"),
     })
 
 

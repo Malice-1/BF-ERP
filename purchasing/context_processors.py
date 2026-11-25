@@ -13,7 +13,7 @@ def navigation(request):
         section = "hr"
     elif name in {"inbox", "delegations", "my_validations", "my_delegations", "decision"}:
         section = "personal"
-    elif name in {"allocation_import", "transfer_correct", "version_transfers", "transfer_timeline", "transfer_monitor", "budget_history", "budget_version_history", "transfer_list", "transfer_detail", "budget_home", "budget_versions", "allocation_versions", "budget_version", "budget_products", "budgets"}:
+    elif name in {"allocation_import", "transfer_correct", "version_transfers", "transfer_timeline", "transfer_monitor", "budget_history", "budget_version_history", "budget_transactions", "budget_pilot", "transfer_list", "transfer_detail", "budget_home", "budget_versions", "allocation_versions", "budget_version", "budget_products", "budgets"}:
         section = "budget"
     elif name in {"stock", "stock_movements", "stock_balances", "warehouses", "warehouse_edit", "purchase_receipts", "purchase_receive"}:
         section = "stock"

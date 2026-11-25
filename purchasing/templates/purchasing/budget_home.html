@@ -2,7 +2,15 @@
 <h1>Budget</h1>
 <p>Préparez vos budgets et consultez les montants disponibles.</p>
 <div class="configuration-sections module-menu">
-{% if perms.budgeting.view_budget_balances or perms.budgeting.view_envelopeversion %}<section class="configuration-section"><h2>Historique budgétaire</h2><ul class="configuration-links"><li><a href="{% url 'purchasing:budget_history' %}">Historique des versions budgétaires</a><small>Retrouver les allocations et disponibilités à une date donnée.</small></li></ul></section>{% endif %}
+{% if can_view_budget_history %}
+<section class="configuration-section">
+<h2>Historique budgétaire</h2>
+<ul class="configuration-links">
+<li><a href="{% url 'purchasing:budget_history' %}">Historique des versions budgétaires</a><small>Retrouver les allocations et disponibilités à une date donnée.</small></li>
+<li><a href="{% url 'purchasing:budget_transactions' %}">Transactions budgétaires</a><small>Consulter les débits et crédits par produit, CDF et financement.</small></li>
+</ul>
+</section>
+{% endif %}
 {% if can_access_transfers %}
 <section class="configuration-section" aria-labelledby="budget-transfers-title">
 <h2 id="budget-transfers-title">Transferts</h2>
@@ -27,6 +35,7 @@
 <section class="configuration-section" aria-labelledby="budget-balances-title">
 <h2 id="budget-balances-title">Consulter les disponibilités</h2>
 <ul class="configuration-links">
+{% if perms.budgeting.view_budget_balances %}<li><a href="{% url 'purchasing:budget_pilot' %}">Pilotage budgétaire</a><small>Suivre le rythme des engagements, les alertes et les exercices.</small></li>{% endif %}
 {% if perms.budgeting.view_budget_balances %}<li><a href="{% url 'purchasing:budgets' %}">Budgets et disponibilités</a><small>Analyser le budget restant, les engagements et les déficits par CDF, financement ou produit.</small></li>{% endif %}
 <li><button type="button" class="module-action-button" data-budget-check-open>Vérifier un budget</button><small>Vérifier le solde d’une combinaison dans une version budgétaire.</small></li>
 </ul>

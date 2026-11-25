@@ -1,6 +1,10 @@
+from unicodedata import combining, normalize
+
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import ValidationError, PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import formats, timezone
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 from decimal import Decimal
 from .exceptions import PurchaseRequestError
@@ -14,7 +18,56 @@ from receiving.purchases import purchase_progress, line_progress
 
 def export_requests(rows):
     return excel.response("demandes-achat", [("Demandes d’achat", ["Demande", "Demandeur", "Fournisseur", "Statut", "Création", "Réception"],
-        ((p.number, p.created_by, p.supplier, p.get_status_display(), p.created_at, p.receipt_label) for p in purchase_progress(rows)))])
+        ((p.number, p.created_by, p.supplier, p.get_status_display(), p.created_at, p.receipt_label) for p in rows))])
+
+
+def _search_text(value):
+    text = normalize("NFKD", str(value).casefold()).replace("’", "'")
+    return "".join(character for character in text if not combining(character))
+
+
+def _creation_text(purchase):
+    created = timezone.template_localtime(purchase.created_at)
+    return f"{formats.date_format(created, 'DATETIME_FORMAT')} {created:%d/%m/%Y %Y-%m-%d %H:%M}"
+
+
+def _request_listing(request, rows, *, all_requests=False):
+    columns = {"number": ("Demande", lambda row: row.number)}
+    if all_requests:
+        columns["requester"] = ("Demandeur", lambda row: row.created_by or "—")
+    columns.update(
+        supplier=("Fournisseur", lambda row: row.supplier),
+        status=("Statut", lambda row: row.get_status_display()),
+        receipt=("Réception", lambda row: row.receipt_label),
+        created=("Création", _creation_text),
+    )
+    field = request.GET.get("field", "")
+    if field not in columns:
+        field = ""
+    query = request.GET.get("q", "").strip()[:200]
+    needle = _search_text(query)
+    readers = [columns[field][1]] if field else [reader for _, reader in columns.values()]
+
+    def matches(row):
+        return any(needle in _search_text(reader(row)) for reader in readers)
+
+    if needle and field and field != "receipt":
+        rows = (row for row in rows.iterator() if matches(row))
+        rows = purchase_progress(rows)
+    else:
+        rows = purchase_progress(rows)
+        if needle:
+            rows = [row for row in rows if matches(row)]
+    if excel.requested(request):
+        return export_requests(rows)
+    context = {"requests": rows, "all_requests": all_requests, "field": field, "q": query,
+        "field_label": columns[field][0] if field else "Tous les champs",
+        "fields": [(key, label) for key, (label, _) in columns.items()]}
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        response = render(request, "purchasing/request_list_results.html", context)
+        response["X-Purchase-Request-Results"] = "1"
+        return response
+    return render(request, "purchasing/list.html", context)
 
 
 def _owned(request, pk):
@@ -31,6 +84,7 @@ def _form_error(form, error):
 
 @login_required
 @require_http_methods(["GET"])
+@never_cache
 def request_list(request):
     if not can_access_purchases(request.user):
         from .navigation_permissions import has_category_permission
@@ -48,22 +102,16 @@ def request_list(request):
     if not request.user.has_perm("purchasing.add_purchaserequest"):
         return render(request, "purchasing/purchase_home.html")
     rows = PurchaseRequest.objects.filter(created_by=request.user).select_related("supplier", "created_by")
-    if excel.requested(request):
-        return export_requests(rows)
-    return render(request, "purchasing/list.html", {
-        "requests": purchase_progress(rows)})
+    return _request_listing(request, rows)
 
 
 @login_required
 @permission_required("purchasing.view_all_purchase_requests", raise_exception=True)
 @require_http_methods(["GET"])
+@never_cache
 def all_requests(request):
     rows = PurchaseRequest.objects.select_related("supplier", "created_by")
-    if excel.requested(request):
-        return export_requests(rows)
-    return render(request, "purchasing/list.html", {
-        "all_requests": True,
-        "requests": purchase_progress(rows)})
+    return _request_listing(request, rows, all_requests=True)
 
 
 @login_required
