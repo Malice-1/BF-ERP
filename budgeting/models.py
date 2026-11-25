@@ -413,14 +413,16 @@ class TrainingActivity(models.Model):
 
 
 class BudgetHistoryEvent(models.Model):
-    version_id = models.PositiveBigIntegerField(null=True, blank=True, editable=False)
+    version_id = models.PositiveBigIntegerField("Identifiant de la version", null=True, blank=True, editable=False)
     envelope = models.ForeignKey(PurchaseAnnualEnvelope, on_delete=models.PROTECT, related_name="history_events")
-    created_at = models.DateTimeField(default=timezone.now, db_index=True)
+    created_at = models.DateTimeField("Date de l’événement", default=timezone.now, db_index=True)
     actor = models.CharField(max_length=150, blank=True)
     reason = models.CharField(max_length=200)
     state = models.JSONField()
 
     class Meta:
+        verbose_name = "archive de l’historique budgétaire"
+        verbose_name_plural = "Archivage de l’historique budgétaire"
         default_permissions = ()
         ordering = ["created_at", "pk"]
 

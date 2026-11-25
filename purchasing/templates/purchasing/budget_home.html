@@ -4,10 +4,9 @@
 <div class="configuration-sections module-menu">
 {% if can_view_budget_history %}
 <section class="configuration-section">
-<h2>Historique budgétaire</h2>
+<h2>Suivre les mouvements budgétaires</h2>
 <ul class="configuration-links">
-<li><a href="{% url 'purchasing:budget_history' %}">Historique des versions budgétaires</a><small>Retrouver les allocations et disponibilités à une date donnée.</small></li>
-<li><a href="{% url 'purchasing:budget_transactions' %}">Transactions budgétaires</a><small>Consulter les débits et crédits par produit, CDF et financement.</small></li>
+<li><a href="{% url 'purchasing:budget_history' %}">Historique et transactions</a><small>Consulter l’état d’une version à une date donnée et suivre les mouvements par produit, CDF et financement.</small></li>
 </ul>
 </section>
 {% endif %}

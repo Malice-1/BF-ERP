@@ -1,0 +1,23 @@
+{% extends 'admin/base_site.html' %}
+{% block breadcrumbs %}
+<div class="breadcrumbs"><a href="{% url 'admin:index' %}">Accueil</a> › Archivage de l’historique budgétaire</div>
+{% endblock %}
+{% block content %}
+<p>L’archive contient les états complets et les événements antérieurs à la date limite, pour les exercices sélectionnés.</p>
+<h2>1. Télécharger l’archive</h2>
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="export">
+    {{ export_form.as_p }}
+    <button type="submit">Télécharger l’archive JSON compressée</button>
+</form>
+
+<h2>2. Retirer les événements archivés</h2>
+<p>Conservez l’archive dans votre espace de stockage. Chargez ensuite ce même fichier pour retirer les événements qu’il couvre. Le dernier état exporté de chaque exercice reste disponible comme point de référence pour les transactions suivantes.</p>
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="purge">
+    {{ purge_form.as_p }}
+    <button type="submit">Supprimer les événements archivés</button>
+</form>
+{% endblock %}

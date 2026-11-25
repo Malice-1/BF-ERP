@@ -203,8 +203,11 @@ def budget_history(request, version_id=None):
     version = form.cleaned_data.get("version")
     if valid:
         events = BudgetHistoryEvent.objects.filter(envelope_id=version.envelope_id).order_by("created_at", "pk")
-        # Earlier snapshots may precede this version's creation.
-        timeline = [event for event in events if event.version_id in (None, version.pk) and str(version.pk) in event.state.get("versions", {})]
+        # The oldest retained event can serve as a baseline for every version
+        # it contains, including when it originally concerned another version.
+        timeline = [event for index, event in enumerate(events)
+                    if (index == 0 or event.version_id in (None, version.pk))
+                    and str(version.pk) in event.state.get("versions", {})]
         describe_timeline(timeline, version.pk)
         first = timeline[0] if timeline else None
         at = form.cleaned_data["at"] or timezone.now()
@@ -262,6 +265,13 @@ def budget_transactions(request):
         ]
         describe_timeline(events, version.pk)
         filters = {field: form.cleaned_data[field].casefold() for field in ("product", "cdf", "funding")}
+        choices = {field: set() for field in filters}
+        for event in events:
+            for row in event.state["versions"][str(version.pk)]["rows"]:
+                for field in choices:
+                    choices[field].add(row[field])
+        for field in choices:
+            form.fields[field].widget.attrs["list"] = f"budget-movement-{field}"
         rows = [
             row for row in budget_movements(events, version.pk)
             if all(value in row[field].casefold() for field, value in filters.items())
@@ -269,7 +279,7 @@ def budget_transactions(request):
         context.update(
             version=version, first=events[0] if events else None,
             page=Paginator(list(reversed(rows)), 50).get_page(request.GET.get("page")),
-            debit=sum(row["debit"] for row in rows), credit=sum(row["credit"] for row in rows),
+            choices={field: sorted(labels, key=str.casefold) for field, labels in choices.items()},
         )
     return render(request, "purchasing/budget_transactions.html", context)
 

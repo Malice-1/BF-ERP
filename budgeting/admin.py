@@ -11,6 +11,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import JsonResponse
 from django.urls import path
+from . import history_archive_admin  # noqa: F401
 
 
 @admin.register(TrainingActivity)

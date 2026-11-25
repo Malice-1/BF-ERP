@@ -1,0 +1,16 @@
+{% extends 'purchasing/base.html' %}{% load ui_actions %}
+{% block content %}
+{% back_action %}
+<h1>Historique et transactions</h1>
+{% with current=request.resolver_match.url_name %}
+<nav class="ui-action-bar" aria-label="Historique et transactions budgétaires">
+    <a class="button{% if current == 'budget_transactions' %} button-secondary{% endif %}"
+        href="{% url 'purchasing:budget_history' %}{% if version %}?version={{ version.pk }}{% endif %}"
+        {% if current != 'budget_transactions' %}aria-current="page"{% endif %}>Historique des versions</a>
+    <a class="button{% if current != 'budget_transactions' %} button-secondary{% endif %}"
+        href="{% url 'purchasing:budget_transactions' %}{% if version %}?version={{ version.pk }}{% endif %}"
+        {% if current == 'budget_transactions' %}aria-current="page"{% endif %}>Transactions budgétaires</a>
+</nav>
+{% endwith %}
+{% block budget_history_content %}{% endblock %}
+{% endblock %}

@@ -91,9 +91,22 @@ def describe_timeline(events, version_id):
         previous = current
 
 
+def _transfer_movement_label(event, amount):
+    reference, _, detail = event.reason.partition(" · ")
+    action = detail.partition(" · ")[0] if reference.startswith("TB-") else ""
+    if action in ("Annulation", "Retour au demandeur", "Rejet"):
+        return "Transfert sortant annulé ou libéré" if amount > 0 else "Transfert entrant annulé"
+    return "Transfert entrant" if amount > 0 else "Transfert sortant"
+
+
 def budget_movements(events, version_id):
-    """Compare successive recorded states of the same version."""
-    fields = ("allocated", "reserved", "committed", "transfers")
+    """Present budget actions from successive recorded states of a version."""
+    movement_types = {
+        "allocated": ("Alimentation", "Retrait d’allocation"),
+        "reserved": ("Réservation", "Libération de réservation"),
+        "committed": ("Engagement", "Réduction d’engagement"),
+        "transfers": ("Transfert entrant", "Transfert sortant"),
+    }
     previous = None
     for event in events:
         state = event.state.get("versions", {}).get(str(version_id))
@@ -112,16 +125,21 @@ def budget_movements(events, version_id):
         )
         for key in sorted(before.keys() | after.keys()):
             old, new = before.get(key, {}), after.get(key, {})
-            allocated, reserved, committed, transfers = (
-                Decimal(new.get(field, "0")) - Decimal(old.get(field, "0")) for field in fields
-            )
-            if any((allocated, reserved, committed, transfers)):
-                net = allocated - reserved - committed + transfers
+            changes = {
+                field: Decimal(new.get(field, "0")) - Decimal(old.get(field, "0"))
+                for field in movement_types
+            }
+            # The conversion to an engagement consumes the reservation. Present
+            # it as one action, without also showing the corresponding release.
+            if changes["reserved"] < 0 < changes["committed"]:
+                changes["reserved"] += min(-changes["reserved"], changes["committed"])
+            for field, amount in changes.items():
+                if not amount:
+                    continue
                 yield {
                     "event": event, **{field: (new or old)[field] for field in dimensions},
-                    "allocated": allocated, "reserved": reserved, "committed": committed,
-                    "transfers": transfers, "debit": max(-net, Decimal(0)),
-                    "credit": max(net, Decimal(0)),
+                    "kind": field, "amount": abs(amount),
+                    "label": _transfer_movement_label(event, amount) if field == "transfers" else movement_types[field][amount < 0],
                 }
         previous = current
 

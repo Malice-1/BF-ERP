@@ -1,40 +1,41 @@
-{% extends 'purchasing/base.html' %}{% load ui_actions %}
-{% block content %}{% back_action %}
-<h1>Transactions budgétaires</h1>
-<form method="get" class="budget-history-filter">
-    {{ form.as_p }}
-    <div class="budget-history-filter-actions"><button type="submit">Filtrer</button></div>
+{% extends 'purchasing/budget_history_base.html' %}{% load ui_actions %}
+{% block budget_history_content %}
+<form method="get" class="configuration-section budget-transaction-filter" aria-label="Filtrer les transactions budgétaires">
+    {{ form.non_field_errors }}
+    <div class="budget-transaction-filter-fields">
+        {% for field in form %}
+        <div>{{ field.label_tag }}{{ field }}{{ field.errors }}</div>
+        {% endfor %}
+    </div>
+    {% for field, labels in choices.items %}
+    <datalist id="budget-movement-{{ field }}">{% for label in labels %}<option value="{{ label }}"></option>{% endfor %}</datalist>
+    {% endfor %}
+    <div class="budget-transaction-filter-actions"><button type="submit">Filtrer</button></div>
 </form>
 {% if version %}
 <section class="configuration-section content-zone" aria-labelledby="budget-transactions-title">
     <h2 id="budget-transactions-title">{{ version.envelope.year }} · {{ version.label }}</h2>
     {% if first %}
-    <p>Les mouvements sont calculés à partir des changements enregistrés depuis l’état de référence du {{ first.created_at|date:'d/m/Y H:i:s' }}.</p>
+    <p>Mouvements enregistrés depuis l’<a href="{% url 'purchasing:budget_history' %}?version={{ version.pk }}&amp;at={{ first.created_at|date:'c'|urlencode }}">état de référence du {{ first.created_at|date:'d/m/Y H:i:s' }}</a>.</p>
     {% endif %}
-    <p><strong>Total débité</strong> {{ debit|amount }} € · <strong>Total crédité</strong> {{ credit|amount }} €</p>
+    <p>Une réservation bloque le montant d’une demande. À la création du bon de commande, elle devient un engagement. Un retrait réduit directement l’allocation. Un transfert sortant réduit le disponible dès sa soumission.</p>
     <div class="table-wrap">
         <table>
-            <caption>Variations et impact sur le disponible (€)</caption>
+            <caption>Mouvements par produit, CDF et financement</caption>
             <thead><tr>
-                <th scope="col">Date</th><th scope="col">Événement</th><th scope="col">Produit (BI)</th>
-                <th scope="col">CDF</th><th scope="col">Financement</th><th scope="col">Allocation</th>
-                <th scope="col">Réservé</th><th scope="col">Engagé</th><th scope="col">Transferts</th>
-                <th scope="col">Débit</th><th scope="col">Crédit</th>
+                <th scope="col">Date</th><th scope="col">Mouvement</th><th scope="col">Montant TVAC</th>
+                <th scope="col">Produit (BI)</th><th scope="col">CDF</th><th scope="col">Financement</th>
+                <th scope="col">Détail</th>
             </tr></thead>
             <tbody>
             {% for row in page %}
             <tr>
                 <td>{{ row.event.created_at|date:'d/m/Y H:i:s' }}</td>
-                <td>{{ row.event.display_reason }}<br><small>{{ row.event.actor }}</small></td>
+                <td>{{ row.label }}</td><td>{{ row.amount|amount }} €</td>
                 <td>{{ row.product }}</td><td>{{ row.cdf }}</td><td>{{ row.funding }}</td>
-                <td>{% if row.allocated %}{{ row.allocated|amount }}{% else %}—{% endif %}</td>
-                <td>{% if row.reserved %}{{ row.reserved|amount }}{% else %}—{% endif %}</td>
-                <td>{% if row.committed %}{{ row.committed|amount }}{% else %}—{% endif %}</td>
-                <td>{% if row.transfers %}{{ row.transfers|amount }}{% else %}—{% endif %}</td>
-                <td>{% if row.debit %}{{ row.debit|amount }}{% else %}—{% endif %}</td>
-                <td>{% if row.credit %}{{ row.credit|amount }}{% else %}—{% endif %}</td>
+                <td>{{ row.event.display_reason }}<br><small>{{ row.event.actor }}</small></td>
             </tr>
-            {% empty %}<tr><td colspan="11">Aucune transaction enregistrée pour ces filtres.</td></tr>{% endfor %}
+            {% empty %}<tr><td colspan="7">Aucune transaction enregistrée pour ces filtres.</td></tr>{% endfor %}
             </tbody>
         </table>
     </div>

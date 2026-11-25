@@ -1,5 +1,6 @@
 from decimal import Decimal
 from datetime import timedelta
+from types import SimpleNamespace
 from django.contrib.auth.models import Permission
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
@@ -9,6 +10,7 @@ from purchasing.models import EnvelopeVersion, Allocation
 from purchasing.flow import activate_envelope
 from . import test_transfers as fixtures
 from .models import BudgetHistoryEvent
+from .history import budget_movements
 from .transfers import act
 
 
@@ -110,25 +112,39 @@ class BudgetHistoryTests(TestCase):
         url = reverse("purchasing:budget_transactions")
         self.client.force_login(self.admin)
         response = self.client.get(url, {"version": self.budget.pk})
-        movements = [row for row in response.context["page"] if row["transfers"]]
+        movements = [row for row in response.context["page"] if row["kind"] == "transfers"]
         self.assertEqual(
-            [(row["cdf"], row["debit"], row["credit"]) for row in movements if row["cdf"] == str(self.source)],
-            [(str(self.source), 0, 60), (str(self.source), 60, 0)],
+            [(row["label"], row["amount"]) for row in movements if row["cdf"] == str(self.source)],
+            [("Transfert sortant annulé ou libéré", 60), ("Transfert sortant", 60)],
         )
         self.assertEqual(
-            [(row["debit"], row["credit"]) for row in movements if row["cdf"] == str(self.target)],
-            [(60, 0), (0, 60)],
+            [(row["label"], row["amount"]) for row in movements if row["cdf"] == str(self.target)],
+            [("Transfert entrant annulé", 60), ("Transfert entrant", 60)],
         )
         filters = {"version": self.budget.pk, "cdf": self.target.code.lower(),
                    "product": self.product.code.lower(), "funding": self.funding.code.lower()}
         response = self.client.get(url, filters)
-        self.assertEqual(response.context["debit"], 60)
-        self.assertEqual(response.context["credit"], 60)
+        self.assertEqual(response.context["page"].paginator.count, 2)
+        self.assertContains(response, "Transfert entrant annulé")
         self.assertTrue(all(row["cdf"] == str(self.target) for row in response.context["page"]))
         response = self.client.get(url, {**filters, "funding": "unknown-funding"})
         self.assertEqual(response.context["page"].paginator.count, 0)
         self.client.force_login(self.owner)
         self.assertEqual(self.client.get(url).status_code, 403)
+
+    def test_movements_distinguish_allocation_withdrawal_from_reservation_and_engagement(self):
+        def state(allocated, reserved, committed):
+            row = dict(product="BI", cdf="Centre", funding="Fonds", allocated=allocated,
+                reserved=reserved, committed=committed, transfers=0)
+            return SimpleNamespace(state={"versions": {"1": {"rows": [row]}}})
+
+        events = [state(0, 0, 0), state(100, 0, 0), state(100, 30, 0), state(100, 0, 30),
+            state(100, 10, 30), state(100, 0, 30), state(80, 0, 30)]
+        self.assertEqual(
+            [(row["label"], row["amount"]) for row in budget_movements(events, 1)],
+            [("Alimentation", 100), ("Réservation", 30), ("Engagement", 30),
+             ("Réservation", 10), ("Libération de réservation", 10), ("Retrait d’allocation", 20)],
+        )
 
     def test_cancel_approved_refused_if_destination_is_reserved(self):
         transfer = self.approve()

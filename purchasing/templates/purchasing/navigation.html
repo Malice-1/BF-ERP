@@ -1,42 +1,47 @@
 {% if user.is_authenticated %}
 <nav class="tabs" aria-label="Rubriques principales">
-{% if can_access_accounting %}<a href="{% url 'accounting:home' %}" {% if nav_section == 'accounting' %}aria-current="page"{% endif %}>Comptabilité</a>{% endif %}
-{% if perms.hr.view_employee %}<a href="{% url 'hr:employees' %}" {% if nav_section == 'hr' %}aria-current="page"{% endif %}>RH</a>{% endif %}
-{% if can_access_sales %}<a href="{% url 'sales:home' %}" {% if nav_section == 'sales' %}aria-current="page"{% endif %}>Ventes</a>{% endif %}
-{% if can_access_stock %}<a href="{% url 'stock' %}" {% if nav_section == 'stock' %}aria-current="page"{% endif %}>Stocks</a>{% endif %}
 {% if can_access_purchases %}<a href="{% url 'purchasing:list' %}" {% if nav_section == 'purchases' %}aria-current="page"{% endif %}>Achats</a>{% endif %}
 {% if can_access_budget or can_access_transfers %}<a href="{% url 'purchasing:budget_home' %}" {% if nav_section == 'budget' %}aria-current="page"{% endif %}>Budget</a>{% endif %}
+{% if can_access_accounting %}<a href="{% url 'accounting:home' %}" {% if nav_section == 'accounting' %}aria-current="page"{% endif %}>Comptabilité</a>{% endif %}
 {% if can_configure %}<a href="{% url 'purchasing:configuration' %}" {% if nav_section == 'configuration' %}aria-current="page"{% endif %}>Configuration</a>{% endif %}
+{% if perms.hr.view_employee %}<a href="{% url 'hr:employees' %}" {% if nav_section == 'hr' %}aria-current="page"{% endif %}>RH</a>{% endif %}
+{% if can_access_stock %}<a href="{% url 'stock' %}" {% if nav_section == 'stock' %}aria-current="page"{% endif %}>Stocks</a>{% endif %}
+{% if can_access_sales %}<a href="{% url 'sales:home' %}" {% if nav_section == 'sales' %}aria-current="page"{% endif %}>Ventes</a>{% endif %}
 </nav>
 <nav class="subnav" aria-label="Pages de la rubrique">
 {% if nav_section == 'accounting' %}
+{% if perms.accounting.view_journalentry %}<a href="{% url 'accounting:entries' %}">Écritures</a>{% endif %}
+{% if perms.accounting.add_supplierinvoice and not perms.accounting.view_supplierinvoice %}<a href="{% url 'accounting:supplier_invoice_new' %}">Encoder une facture fournisseur</a>{% endif %}
+{% if perms.accounting.view_fiscalyear %}<a href="{% url 'accounting:years' %}">Exercices et périodes</a>{% endif %}
+{% if perms.accounting.view_supplierinvoice %}<a href="{% url 'accounting:supplier_invoices' %}">Factures fournisseurs</a>{% endif %}
 {% if perms.accounting.change_purchasepostingconfiguration or perms.accounting.change_salespostingconfiguration %}<a href="{% url 'accounting:account_groups' %}"{% if request.resolver_match.url_name == 'account_groups' or request.resolver_match.url_name == 'purchase_imputations' or request.resolver_match.url_name == 'sales_imputations' %} aria-current="page"{% endif %}>Groupes comptes</a>{% endif %}
 {% if perms.accounting.view_fixedasset %}<a href="{% url 'accounting:assets' %}"{% if request.resolver_match.url_name == 'assets' or request.resolver_match.url_name|slice:':6' == 'asset_' %} aria-current="page"{% endif %}>Immobilisations</a>{% endif %}
-{% if perms.accounting.view_supplierinvoice %}<a href="{% url 'accounting:supplier_invoices' %}">Factures fournisseurs</a>{% endif %}
-{% if perms.accounting.add_supplierinvoice and not perms.accounting.view_supplierinvoice %}<a href="{% url 'accounting:supplier_invoice_new' %}">Encoder une facture fournisseur</a>{% endif %}
 {% if perms.accounting.import_supplierinvoice and not perms.accounting.view_supplierinvoice %}<a href="{% url 'accounting:supplier_invoice_upload' %}">Importer un XML fournisseur</a>{% endif %}
-{% if perms.accounting.view_account %}<a href="{% url 'accounting:accounts' %}">Plan de comptes</a>{% endif %}
 {% if perms.accounting.view_journal %}<a href="{% url 'accounting:journals' %}">Journaux</a>{% endif %}
-{% if perms.accounting.view_fiscalyear %}<a href="{% url 'accounting:years' %}">Exercices et périodes</a>{% endif %}
-{% if perms.accounting.view_journalentry %}<a href="{% url 'accounting:entries' %}">Écritures</a>{% endif %}
+{% if perms.accounting.view_account %}<a href="{% url 'accounting:accounts' %}">Plan de comptes</a>{% endif %}
 {% endif %}
 {% if nav_section == 'sales' %}
 {% if perms.sales.view_customer %}<a href="{% url 'sales:customers' %}">Clients</a>{% endif %}
-{% if perms.sales.add_customer and not perms.sales.view_customer %}<a href="{% url 'sales:customer_new' %}">Nouveau client</a>{% endif %}
 {% if perms.sales.view_salesorder %}<a href="{% url 'sales:orders' %}">Commandes</a>{% endif %}
-{% if perms.sales.add_salesorder %}<a href="{% url 'sales:order_new' %}">Nouvelle commande</a>{% endif %}
+{% if perms.sales.change_issuerconfiguration %}<a href="{% url 'sales:issuer' %}">Émetteur</a>{% endif %}
 {% if perms.sales.view_salesinvoice %}<a href="{% url 'sales:invoices' %}">Factures</a>{% endif %}
 {% if perms.sales.view_trainingservice %}<a href="{% url 'sales:trainings' %}">Formations</a>{% endif %}
+{% if perms.sales.add_customer and not perms.sales.view_customer %}<a href="{% url 'sales:customer_new' %}">Nouveau client</a>{% endif %}
+{% if perms.sales.add_salesorder %}<a href="{% url 'sales:order_new' %}">Nouvelle commande</a>{% endif %}
 {% if perms.sales.add_trainingservice and not perms.sales.view_trainingservice %}<a href="{% url 'sales:training_new' %}">Nouvelle formation</a>{% endif %}
 {% if perms.sales.view_salesreport %}<a href="{% url 'sales:report' %}">Suivi des ventes</a>{% endif %}
-{% if perms.sales.change_issuerconfiguration %}<a href="{% url 'sales:issuer' %}">Émetteur</a>{% endif %}
 {% endif %}
 {% if nav_section == 'stock' %}
-{% if perms.receiving.manage_stock %}<a href="{% url 'purchase_receipts' %}" {% if request.resolver_match.url_name == 'purchase_receipts' or request.resolver_match.url_name == 'purchase_receive' %}aria-current="page"{% endif %}>Réceptions des achats</a>{% endif %}
+{% if can_access_warehouses %}<a href="{% url 'warehouses' %}" {% if request.resolver_match.url_name == 'warehouses' or request.resolver_match.url_name == 'warehouse_edit' %}aria-current="page"{% endif %}>Dépôts</a>{% endif %}
 {% if can_view_stock_movements %}<a href="{% url 'stock_movements' %}" {% if request.resolver_match.url_name == 'stock_movements' %}aria-current="page"{% endif %}>Mouvements de stock</a>{% endif %}
 {% if can_view_stock %}<a href="{% url 'stock_balances' %}" {% if request.resolver_match.url_name == 'stock_balances' %}aria-current="page"{% endif %}>Quantités disponibles</a>{% endif %}
-{% if can_access_warehouses %}<a href="{% url 'warehouses' %}" {% if request.resolver_match.url_name == 'warehouses' or request.resolver_match.url_name == 'warehouse_edit' %}aria-current="page"{% endif %}>Dépôts</a>{% endif %}
+{% if perms.receiving.manage_stock %}<a href="{% url 'purchase_receipts' %}" {% if request.resolver_match.url_name == 'purchase_receipts' or request.resolver_match.url_name == 'purchase_receive' %}aria-current="page"{% endif %}>Réceptions des achats</a>{% endif %}
 {% elif nav_section == 'budget' %}
+{% if can_manage_budgets %}<a href="{% url 'purchasing:allocation_versions' %}">Alimenter une version</a>{% endif %}
+{% if perms.budgeting.view_budget_balances %}<a href="{% url 'purchasing:budgets' %}">Budgets et disponibilités</a>{% endif %}
+{% if can_manage_budgets %}<a href="{% url 'purchasing:budget_versions' %}">Créer une version</a>{% endif %}
+{% if perms.budgeting.view_budget_balances or perms.budgeting.view_envelopeversion or can_manage_budgets %}<a href="{% url 'purchasing:budget_history' %}"{% if request.resolver_match.url_name == 'budget_history' or request.resolver_match.url_name == 'budget_version_history' or request.resolver_match.url_name == 'budget_transactions' %} aria-current="page"{% endif %}>Historique et transactions</a>{% endif %}
+{% if perms.budgeting.add_budgetproduct %}<a href="{% url 'purchasing:budget_products' %}">Produits budgétaires</a>{% endif %}
 {% if can_access_transfers %}
 <details class="transfer-submenu" open>
 <summary>Transferts</summary>
@@ -46,17 +51,13 @@
 </div>
 </details>
 {% endif %}
-{% if perms.budgeting.view_budget_balances or perms.budgeting.view_envelopeversion %}<a href="{% url 'purchasing:budget_history' %}">Historique budgétaire</a>{% endif %}
-{% if can_manage_budgets %}<a href="{% url 'purchasing:budget_versions' %}">Créer une version</a><a href="{% url 'purchasing:allocation_versions' %}">Alimenter une version</a>{% endif %}
-{% if perms.budgeting.add_budgetproduct %}<a href="{% url 'purchasing:budget_products' %}">Produits budgétaires</a>{% endif %}
-{% if perms.budgeting.view_budget_balances %}<a href="{% url 'purchasing:budgets' %}">Budgets et disponibilités</a>{% endif %}
 {% elif nav_section == 'purchases' and can_access_purchases %}
-{% if perms.purchasing.view_frameworkcontract %}<a href="{% url 'purchasing:framework_contracts' %}">Contrats-cadres</a>
-{% elif perms.purchasing.add_frameworkcontract %}<a href="{% url 'purchasing:framework_contract_new' %}">Nouveau contrat-cadre</a>{% endif %}
-{% if perms.purchasing.view_all_purchase_requests %}<a href="{% url 'purchasing:all_requests' %}">Toutes les demandes</a>{% endif %}
+{% if perms.purchasing.view_frameworkcontract %}<a href="{% url 'purchasing:framework_contracts' %}">Contrats-cadres</a>{% endif %}
 {% if perms.suppliers.view_supplier or perms.suppliers.add_supplier or perms.suppliers.change_supplier %}<a href="{% url 'purchasing:suppliers' %}">Fournisseurs</a>{% endif %}
-{% if perms.purchasing.add_detailedproduct %}<a href="{% url 'purchasing:detailed_products' %}">Produits détaillés</a>{% endif %}
 {% if perms.purchasing.add_purchaserequest %}<a href="{% url 'purchasing:list' %}">Mes demandes</a>{% endif %}
+{% if perms.purchasing.add_frameworkcontract and not perms.purchasing.view_frameworkcontract %}<a href="{% url 'purchasing:framework_contract_new' %}">Nouveau contrat-cadre</a>{% endif %}
+{% if perms.purchasing.add_detailedproduct %}<a href="{% url 'purchasing:detailed_products' %}">Produits détaillés</a>{% endif %}
+{% if perms.purchasing.view_all_purchase_requests %}<a href="{% url 'purchasing:all_requests' %}">Toutes les demandes</a>{% endif %}
 {% endif %}
 </nav>
 {% endif %}

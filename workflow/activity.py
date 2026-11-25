@@ -6,6 +6,7 @@ from .models import ActivityLog
 
 
 current_actor = ContextVar("activity_actor", default=None)
+budget_history_archive_deletion = ContextVar("budget_history_archive_deletion", default=False)
 BUSINESS_APPS = {"accounts", "budgeting", "purchasing", "suppliers"}
 EXCLUDED_FIELDS = {"password", "last_login"}
 
@@ -17,9 +18,12 @@ def identity(user):
 
 
 def snapshot(instance):
+    excluded = EXCLUDED_FIELDS
+    if instance._meta.label_lower == "budgeting.budgethistoryevent":
+        excluded = excluded | {"state"}
     return {field.attname: field.value_to_string(instance)
             for field in instance._meta.concrete_fields
-            if field.name not in EXCLUDED_FIELDS}
+            if field.name not in excluded}
 
 
 def write_log(instance, action, details, using, actor=None, source=None):
@@ -69,6 +73,8 @@ def after_save(sender, instance, created, using, raw=False, **kwargs):
 
 
 def before_delete(sender, instance, using, **kwargs):
+    if sender._meta.label_lower == "budgeting.budgethistoryevent" and budget_history_archive_deletion.get():
+        return
     if sender._meta.app_label in BUSINESS_APPS:
         details = {"before": snapshot(instance)}
         if sender._meta.label_lower == "accounts.user":

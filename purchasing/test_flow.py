@@ -79,6 +79,26 @@ class PurchaseFlowTests(TestCase):
         self.assertContains(order, "Catalogue original")
         self.assertNotContains(order, "Catalogue modifié")
 
+    def test_admin_task_defaults_to_approving_only_the_selected_line(self):
+        purchase = self.submit(self.draft(lines=2))
+        self.cdf.managers.add(self.admin)
+        self.client.force_login(self.admin)
+        inbox = self.client.get(reverse("my_validations"))
+        first, second = ApprovalStep.objects.filter(snapshot__submission__purchase_request=purchase)
+        url = reverse("purchasing:decision", args=[purchase.pk, first.pk])
+        self.assertContains(inbox, url)
+        form = self.client.get(url).context["form"]
+        default, _ = form.fields["decision"].choices[0]
+        self.assertEqual(default, "approve")
+        purchase.refresh_from_db()
+        self.assertEqual(self.client.post(url, {
+            "decision": default, "expected_revision": purchase.revision,
+        }).status_code, 302)
+        first.refresh_from_db()
+        second.refresh_from_db()
+        self.assertEqual((first.state, second.state), ("approved", "pending"))
+        self.assertFalse(PurchaseOrder.objects.filter(purchase_request=purchase).exists())
+
     def test_purchase_approval_creates_one_balanced_draft_with_budget_product_accounts(self):
         from accounting.models import Account, AccountingPeriod, FiscalYear, Journal, JournalEntry
         from accounting.purchase_posting import SOURCE_KIND, create_engagement_draft

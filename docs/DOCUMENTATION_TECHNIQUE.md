@@ -407,6 +407,23 @@ Pour un budget : reconstituer version, année, combinaison, allocations,
 réservations, engagements, transferts source/destination et état daté.
 Pour le stock : dépôt/produit, token, mouvements, réception et total livré.
 
+### Archivage de l’historique budgétaire
+
+Dans **Administration → Budgets → Archivage de l’historique budgétaire**,
+un superutilisateur peut exporter les événements antérieurs à une date
+limite, éventuellement pour un exercice budgétaire précis. Le téléchargement
+produit un fichier JSON compressé `.json.gz` qui contient les états et les
+informations d’audit de la période.
+
+Conserver le fichier d’origine dans le stockage d’archives prévu pour les
+données budgétaires. Recharger ce même fichier, puis confirmer le retrait
+dans le formulaire de purge. L’application vérifie l’empreinte par rapport
+à l’export journalisé et vérifie que les événements correspondent encore
+au fichier. Le dernier état exporté de chaque exercice reste consultable
+et sert de référence pour les mouvements suivants. Les événements retirés
+se consultent dans le fichier d’archive. Les journaux d’audit existants
+sont conservés. Les opérations d’export et de purge y sont tracées.
+
 Avant une modification : exécuter les tests du module, la suite complète,
 les tests PostgreSQL applicables, la compilation des templates/scripts et
 la recette navigateur touchée. Pour une migration, tester installation vide
