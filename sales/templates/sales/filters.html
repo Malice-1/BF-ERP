@@ -1,3 +1,3 @@
-<label>Recherche <input name="q" value="{{ request.GET.q }}" placeholder="Numéro ou client"></label>
+{% include 'purchasing/list_search_input.html' %}
 <label>Client <select name="customer"><option value="">Tous les clients</option>{% for customer in customers %}<option value="{{ customer.pk }}" {% if request.GET.customer == customer.pk|stringformat:'s' %}selected{% endif %}>{{ customer }}</option>{% endfor %}</select></label>
 <label>Du <input type="date" name="start" value="{{ request.GET.start }}"></label><label>Au <input type="date" name="end" value="{{ request.GET.end }}"></label>

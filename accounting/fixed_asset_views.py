@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
-from django.db.models import Q
+from config.list_search import filter_rows
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -74,12 +74,12 @@ def _rows(assets):
 @permission_required(VIEW, raise_exception=True)
 @require_GET
 def asset_list(request):
-    q = request.GET.get("q", "").strip()[:200]
     status = request.GET.get("status", "")
-    assets = FixedAsset.objects.select_related("cost_center")
-    if q:
-        assets = assets.filter(Q(code__icontains=q) | Q(label__icontains=q) | Q(category__icontains=q)
-            | Q(location__icontains=q) | Q(cost_center__code__icontains=q))
+    assets, q = filter_rows(request, FixedAsset.objects.select_related("cost_center"), {
+        "code": ("Inventaire", "code__icontains"), "label": ("Désignation", "label__icontains"),
+        "category": ("Catégorie", "category__icontains"), "location": ("Lieu", "location__icontains"),
+        "cdf": ("CDF", "cost_center__code__icontains"),
+    })
     if status in FixedAsset.Status.values:
         assets = assets.filter(status=status)
     if excel.requested(request):

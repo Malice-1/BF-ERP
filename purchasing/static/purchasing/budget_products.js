@@ -1,6 +1,7 @@
 (() => {
   const form = document.getElementById('budget-product-search');
   const input = form.querySelector('input[name="q"]');
+  const field = form.elements.field;
   const results = document.getElementById('budget-product-results');
   const status = document.getElementById('budget-product-search-status');
   let timer;
@@ -12,6 +13,7 @@
     const request = new AbortController();
     currentRequest = request;
     const url = new URL(form.action, window.location.href);
+    if (field.value) url.searchParams.set('field', field.value);
     if (input.value.trim()) url.searchParams.set('q', input.value.trim());
     results.setAttribute('aria-busy', 'true');
     try {
@@ -41,10 +43,18 @@
     }
   }
 
-  input.addEventListener('input', () => {
+  function queueSearch() {
     clearTimeout(timer);
     if (currentRequest) currentRequest.abort();
     timer = setTimeout(search, 200);
+  }
+  input.addEventListener('input', event => {
+    if (!event.isComposing) queueSearch();
+  });
+  input.addEventListener('compositionend', queueSearch);
+  field.addEventListener('change', () => {
+    input.placeholder = field.selectedOptions[0].textContent;
+    search();
   });
   form.addEventListener('submit', event => {
     event.preventDefault();

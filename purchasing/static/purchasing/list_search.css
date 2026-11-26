@@ -1,0 +1,95 @@
+.purchase-request-filter {
+    display: grid;
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+    width: min(100%, 16rem);
+    min-height: 3rem;
+    margin: 0 0 1rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--paper);
+}
+
+.purchase-request-filter:focus-within {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.purchase-filter-menu {
+    position: relative;
+    display: grid;
+    place-items: center;
+    border-inline-end: 1px solid var(--border);
+    border-start-start-radius: inherit;
+    border-end-start-radius: inherit;
+    color: var(--accent);
+}
+
+.purchase-filter-menu:hover,
+.purchase-filter-menu:focus-within {
+    background: var(--soft);
+}
+
+.purchase-filter-menu svg {
+    width: 1.125rem;
+    height: 1.125rem;
+    pointer-events: none;
+}
+
+.purchase-filter-menu select {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.purchase-request-filter input[type="search"] {
+    min-width: 0;
+    margin: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.purchase-request-filter input[type="search"]:focus-visible {
+    outline: none;
+}
+#purchase-request-filter-status:empty{display:none}
+
+#toolbar .purchase-request-filter,
+#nav-sidebar .purchase-request-filter {
+    --border: var(--border-color);
+    --accent: var(--primary);
+    --soft: var(--darkened-bg);
+    margin: 0;
+}
+
+#toolbar .purchase-request-filter #searchbar,
+#nav-sidebar .purchase-request-filter #nav-filter {
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    padding: 0 0.75rem;
+    margin: 0;
+    color: var(--body-fg);
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+#nav-sidebar .purchase-request-filter #nav-filter.no-results {
+    background: var(--message-error-bg);
+}
+
+.ledger-filters .purchase-request-filter,
+.sales-filters .purchase-request-filter,
+.table-search .purchase-request-filter {
+    margin: 0;
+}
+
+#nav-sidebar .purchase-request-filter {
+    margin: 0.5rem;
+    width: auto;
+}

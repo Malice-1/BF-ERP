@@ -4,7 +4,8 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
-from django.db.models import Q, Sum
+from django.db.models import Sum
+from config.list_search import filter_rows
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse as reverse_url
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
@@ -106,9 +107,9 @@ def profile(request):
 @require_GET
 def accounts(request):
     rows = Account.objects.all()
-    q = request.GET.get("q", "").strip()
-    if q:
-        rows = rows.filter(Q(code__startswith=q) | Q(label__icontains=q))
+    rows, q = filter_rows(request, rows, {
+        "code": ("Compte", "code__startswith"), "label": ("Libellé", "label__icontains"),
+    })
     return render(request, "accounting/accounts.html", {"page": Paginator(rows, 100).get_page(request.GET.get("page")), "q": q})
 
 
@@ -213,9 +214,10 @@ def period_state(request, pk, action):
 @require_GET
 def entries(request):
     rows = JournalEntry.objects.select_related("journal", "period__fiscal_year")
-    q = request.GET.get("q", "").strip()
-    if q:
-        rows = rows.filter(Q(number__icontains=q) | Q(description__icontains=q) | Q(document_reference__icontains=q))
+    rows, _ = filter_rows(request, rows, {
+        "number": ("Écriture", "number__icontains"), "description": ("Libellé", "description__icontains"),
+        "reference": ("Pièce", "document_reference__icontains"),
+    })
     if request.GET.get("status") in ("DRAFT", "POSTED"):
         rows = rows.filter(status=request.GET["status"])
     if request.GET.get("journal", "").isdigit():

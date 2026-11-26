@@ -1,4 +1,5 @@
 from django.contrib import admin
+from config.admin_search import SearchColumnsAdminMixin
 
 from .models import ActivityLog
 from .models import AuditEvent, ConfigurationAuditEvent
@@ -24,7 +25,7 @@ class ActorFilter(admin.SimpleListFilter):
 
 
 @admin.register(ActivityLog)
-class ActivityLogAdmin(admin.ModelAdmin):
+class ActivityLogAdmin(SearchColumnsAdminMixin, admin.ModelAdmin):
     list_display = ("created_at", "actor_username", "actor_identifier", "action", "object_type", "object_identifier")
     list_filter = (ActorFilter, "action", "object_type")
     search_fields = ("actor_username", "actor_identifier", "action", "object_identifier")

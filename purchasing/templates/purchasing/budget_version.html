@@ -15,7 +15,8 @@
 <div class="table-search-heading">
 <form method="get" action="{% url 'purchasing:budget_version' version.pk %}" id="allocation-search" class="table-search" role="search" aria-label="Recherche des allocations par produit">
 {% if full_choices %}<input type="hidden" name="full_choices" value="1">{% endif %}
-<input type="search" name="q" value="{{ search }}" placeholder="Code ou libellé du produit…" aria-label="Rechercher un produit budgétaire">
+{% include 'purchasing/list_search_input.html' %}
+<noscript><button>Rechercher</button></noscript>
 </form>
 </div>
 <p id="allocation-search-status" class="table-search-status" role="status" aria-live="polite"></p>

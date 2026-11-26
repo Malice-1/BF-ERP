@@ -1,0 +1,33 @@
+{% load i18n %}
+{% if cl.search_fields %}
+{% with columns=cl.model_admin.search_columns selected=cl.params.search_column %}
+<div id="toolbar">
+    <form id="changelist-search" method="get" role="search" data-list-search="#changelist-form" data-admin-search>
+        <div class="purchase-request-filter">
+            <span class="purchase-filter-menu">
+                {% include 'purchasing/action_icon.html' with icon='filter' %}
+                {% if columns %}<select name="search_column" aria-label="Colonne à filtrer" title="Choisir la colonne à filtrer">
+                    <option value="">Tous les champs</option>
+                    {% for key, label in columns %}<option value="{{ key }}"{% if selected == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+                </select>{% endif %}
+            </span>
+            <input type="search" name="{{ search_var }}" value="{{ cl.query }}" id="searchbar" maxlength="200" autocomplete="off"
+                aria-label="Rechercher" placeholder="Tous les champs"{% if cl.search_help_text %} aria-describedby="searchbar_helptext"{% endif %}>
+        </div>
+        <noscript><input type="submit" value="{% translate 'Search' %}"></noscript>
+        <div id="admin-search-count" class="small quiet">
+            {% if show_result_count %}
+                {% blocktranslate count counter=cl.result_count %}{{ counter }} result{% plural %}{{ counter }} results{% endblocktranslate %}
+                (<a href="?{% if cl.is_popup %}{{ is_popup_var }}=1{% if cl.add_facets %}&amp;{% endif %}{% endif %}{% if cl.add_facets %}{{ is_facets_var }}{% endif %}">{% if cl.show_full_result_count %}{% blocktranslate with full_result_count=cl.full_result_count %}{{ full_result_count }} total{% endblocktranslate %}{% else %}{% translate 'Show all' %}{% endif %}</a>)
+            {% endif %}
+        </div>
+        {% if cl.search_help_text %}<div class="help" id="searchbar_helptext">{{ cl.search_help_text }}</div>{% endif %}
+        {% for key, values in cl.filter_params.items %}
+            {% if key != search_var and key != 'search_column' and key != 'p' %}
+                {% for value in values %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}
+            {% endif %}
+        {% endfor %}
+    </form>
+</div>
+{% endwith %}
+{% endif %}

@@ -6,6 +6,7 @@ from .models import Supplier, SupplierContact, SupplierAddress
 
 @admin.register(Supplier)
 class SupplierAdmin(SystemModelAdmin):
+    exclude = ("billing_mode",)
     list_display = (
         "code",
         "name",

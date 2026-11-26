@@ -2,6 +2,7 @@
   const form = document.getElementById('allocation-search');
   if (!form || !window.fetch || !window.AbortController) return;
   const input = form.querySelector('input[name="q"]');
+  const field = form.elements.field;
   const results = document.getElementById('allocation-results');
   const status = document.getElementById('allocation-search-status');
   const progress = document.getElementById('allocation-search-progress');
@@ -56,6 +57,8 @@
       results.innerHTML = markup;
       dirty = false;
       input.value = url.searchParams.get('q') || '';
+      field.value = url.searchParams.get('field') || '';
+      input.placeholder = field.selectedOptions[0].textContent;
       document.dispatchEvent(new Event('budget-allocations:updated'));
       window.history.replaceState(null, '', url.pathname + url.search);
       const exportLink = document.getElementById('allocation-export');
@@ -81,12 +84,22 @@
 
   function search() {
     const url = new URL(form.action, window.location.href);
-    if (input.value.trim()) url.searchParams.set('q', input.value.trim());
+    for (const [key, value] of new FormData(form)) {
+      if (value.trim()) url.searchParams.set(key, value.trim());
+    }
     load(url);
   }
-  input.addEventListener('input', () => {
+  function queueSearch() {
     stop();
     timer = setTimeout(search, 200);
+  }
+  input.addEventListener('input', event => {
+    if (!event.isComposing) queueSearch();
+  });
+  input.addEventListener('compositionend', queueSearch);
+  field.addEventListener('change', () => {
+    input.placeholder = field.selectedOptions[0].textContent;
+    search();
   });
   form.addEventListener('submit', event => {
     event.preventDefault();

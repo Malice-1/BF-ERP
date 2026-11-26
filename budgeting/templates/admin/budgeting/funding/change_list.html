@@ -1,0 +1,9 @@
+{% extends "admin/change_list.html" %}
+{% block object-tools-items %}
+    <li><a id="admin-export-fundings" data-list-search-link href="{% url 'admin:budgeting_funding_export_excel' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}">Exporter les financements</a></li>
+    {% if has_add_permission %}
+    <li><a href="{% url 'admin:budgeting_funding_import_excel' %}">Importer des financements</a></li>
+    <li><a href="{% url 'admin:budgeting_funding_import_excel' %}?patron=1">Télécharger le patron Excel</a></li>
+    {% endif %}
+    {{ block.super }}
+{% endblock %}

@@ -32,7 +32,7 @@ class CostCenterAdminForm(forms.ModelForm):
 
     class Meta:
         model = CostCenter
-        fields = ("code", "label", "managers")
+        fields = ("code", "label", "is_active", "managers")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -50,6 +50,7 @@ class CostCenterAdminForm(forms.ModelForm):
 class SupportAdminForm(CostCenterAdminForm):
     class Meta(CostCenterAdminForm.Meta):
         model = Support
+        fields = ("code", "label", "managers")
 
 
 class EntityManagersForm(forms.Form):

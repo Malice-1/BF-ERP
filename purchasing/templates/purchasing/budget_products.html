@@ -7,7 +7,8 @@
 <section class="configuration-section content-zone"><div class="table-search-heading">
 <h2>Produits existants</h2>
 <form method="get" action="{% url 'purchasing:budget_products' %}" id="budget-product-search" class="table-search" role="search" aria-label="Recherche de produits budgétaires">
-<input type="search" name="q" value="{{ search }}" placeholder="Code ou libellé…" aria-label="Rechercher par code ou libellé">
+{% include 'purchasing/list_search_input.html' %}
+<noscript><button>Rechercher</button></noscript>
 </form>
 </div>
 <p id="budget-product-search-status" class="table-search-status" role="status" aria-live="polite"></p>

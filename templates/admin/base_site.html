@@ -4,5 +4,6 @@
 <link rel="stylesheet" href="{% static 'admin/css/dark_mode.css' %}">
 <script src="{% static 'purchasing/theme.js' %}"></script>
 {% endblock %}
-{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'purchasing/admin-theme.css' %}"><link rel="stylesheet" href="{% static 'purchasing/wordmark.css' %}">{% endblock %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'purchasing/admin-theme.css' %}"><link rel="stylesheet" href="{% static 'purchasing/wordmark.css' %}"><link rel="stylesheet" href="{% static 'purchasing/list_search.css' %}">{% endblock %}
 {% block branding %}<div id="site-name"><a href="{% url 'admin:index' %}">{% include 'purchasing/wordmark.html' %}</a></div>{% endblock %}
+{% block extrahead %}{{ block.super }}<script defer src="{% static 'purchasing/list_search.js' %}"></script>{% endblock %}

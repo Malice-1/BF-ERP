@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django import forms
 from django.forms import model_to_dict
-from django.db.models import Q
+from config.list_search import filter_rows
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -86,9 +86,10 @@ def manual_edit(request, pk=None):
 @require_GET
 def invoice_list(request):
     rows = SupplierInvoice.objects.select_related("supplier").prefetch_related("validations")
-    query = request.GET.get("q", "").strip()
-    if query:
-        rows = rows.filter(Q(invoice_number__icontains=query) | Q(extracted_data__seller__name__icontains=query) | Q(supplier__name__icontains=query))
+    rows, _ = filter_rows(request, rows, {
+        "number": ("Numéro", "invoice_number__icontains"),
+        "supplier": ("Fournisseur", "extracted_data__seller__name__icontains", "supplier__name__icontains"),
+    })
     if request.GET.get("status") in ("RECEIVED", "REVIEWED", "REJECTED"):
         rows = rows.filter(status=request.GET["status"])
     if request.GET.get("origin") in ("MANUAL", "PEPPOL"):

@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import transaction
-from django.db.models import Q
+from config.list_search import filter_rows
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods
@@ -34,10 +34,10 @@ def save_form(form, actor):
 @require_GET
 def employees(request):
     rows = Employee.objects.all()
-    query = request.GET.get("q", "").strip()
-    for term in query.split():
-        rows = rows.filter(Q(number__icontains=term) | Q(first_name__icontains=term)
-                           | Q(last_name__icontains=term) | Q(department__icontains=term))
+    rows, query = filter_rows(request, rows, {
+        "number": ("Matricule", "number__icontains"), "first_name": ("Prénom", "first_name__icontains"),
+        "last_name": ("Nom", "last_name__icontains"), "department": ("Service", "department__icontains"),
+    }, split_terms=True)
     status = request.GET.get("status")
     if status in ("active", "inactive"):
         rows = rows.filter(is_active=status == "active")

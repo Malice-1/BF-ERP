@@ -1,0 +1,16 @@
+{% extends "admin/base_site.html" %}
+{% block breadcrumbs %}
+<div class="breadcrumbs"><a href="{% url 'admin:index' %}">Accueil</a> &rsaquo;
+    <a href="{% url 'admin:accounts_user_changelist' %}">Utilisateurs</a> &rsaquo; Import Excel</div>
+{% endblock %}
+{% block content %}
+<p><a href="?patron=1">Télécharger le patron Excel</a></p>
+<p>Chaque nom d’utilisateur doit être nouveau et unique dans le fichier. Dans « Responsable », indiquez l’identifiant d’un utilisateur existant ou présent dans le même fichier. Vous pouvez laisser la cellule vide ou omettre la colonne.</p>
+<p>Dans « Statut », indiquez « Actif » ou « Inactif ». Un statut vide vaut « Actif ».</p>
+<p>L’adresse e-mail est facultative. Vous pouvez laisser la cellule vide ou omettre la colonne « Mail ».</p>
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <div class="submit-row"><input type="submit" value="Importer" class="default"></div>
+</form>
+{% endblock %}

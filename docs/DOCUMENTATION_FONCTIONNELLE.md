@@ -48,11 +48,45 @@ Les supports d'appartenance, les responsables de supports et les responsables
 CDF sont trois notions différentes. L'appartenance à un support ne donne
 aucun droit de validation par elle-même.
 
+La liste des CDF dans l’administration permet de filtrer sur le statut actif
+ou inactif. Le statut se modifie dans la fiche du CDF. Les CDF existants sont
+initialement actifs. Ce statut sert au classement dans le référentiel.
+L’export Excel reprend les CDF correspondant à la recherche et aux filtres de
+la liste, avec leurs codes, libellés, statuts et identifiants des responsables.
+
+Depuis cette liste, les utilisateurs autorisés à créer des CDF peuvent
+télécharger le patron Excel et importer les colonnes **Code**, **Libellé**,
+**Statut** et **Responsable**. Un statut vide correspond à **Actif**. La colonne
+**Responsable** est facultative et accepte l’identifiant de connexion exact d’un
+utilisateur actif si l’importateur peut gérer les responsables CDF. Une ligne
+invalide ou un code en doublon rejette l’ensemble du fichier.
+
+Dans l’administration des financements, le patron et l’export Excel utilisent
+les colonnes **Code**, **Libellé** et **Statut**. Le statut est modifiable dans
+la fiche et filtrable dans la liste. Les financements existants et les lignes
+importées sans statut sont actifs par défaut. L’export respecte les filtres et
+l’import rejette le fichier entier si un code est en doublon ou une ligne est invalide.
+
 ## 3. Profils et habilitations
 
 Les profils ci-dessous sont des compositions recommandées de droits, pas des
 rôles obligatoires codés en dur. Les droits individuels, groupes Django et
 rôles ERP se cumulent. Un compte inactif ne peut pas agir.
+
+Dans l’administration des utilisateurs, la fiche permet de renseigner un
+responsable. Le patron Excel contient **Nom d’utilisateur**, **Nom**, **Prénom**,
+**Mail**, **Responsable** et **Statut**. Les colonnes **Mail** et **Responsable**
+peuvent être omises ou laissées vides. Le responsable accepte un
+identifiant existant ou présent dans le même fichier, quel que soit l’ordre des
+lignes. Le statut accepte **Actif** ou **Inactif**. Un statut vide vaut **Actif**.
+Une ligne invalide rejette tout l’import. Les comptes importés sont
+créés avec le mot de passe initial convenu et sans droits supplémentaires.
+L’export reprend les mêmes colonnes et respecte les filtres de la liste.
+
+Dans les listes qui proposent une recherche, l’icône de filtre permet de
+sélectionner une colonne ou de chercher dans tous les champs disponibles.
+Les résultats se mettent à jour pendant la saisie, en tenant compte des
+autres filtres de la liste.
 
 | Profil | Accès et actions | Limites |
 | --- | --- | --- |
@@ -112,14 +146,47 @@ moment de la décision, pas seulement lors de l'affichage initial.
 
 ### 5.2 Fournisseurs
 
-Depuis Achats → Fournisseurs, consulter la liste et rechercher par code, nom
-ou numéro de TVA. Créer un fournisseur avec code unique et nom ; la TVA est
-facultative. Modifier avec le bouton de la ligne selon le droit de changement.
-Une création avec un code existant doit être refusée sans doublon.
+Depuis Achats → Fournisseurs, consulter la liste et rechercher par code, nom,
+numéro d’entreprise ou numéro de TVA. Créer un fournisseur avec un code unique
+et un nom. La TVA est facultative en saisie manuelle. Modifier avec le bouton
+de la ligne selon le droit de changement. L’export Excel reprend les résultats
+de la recherche et inclut le numéro de TVA enregistré.
 
-Les contacts et adresses existent dans le modèle et l'administration. La
-page applicative simplifiée gère le fournisseur principal. Modifier le
+Le droit de création donne accès au patron et à l’import Excel. Le patron
+comprend **Code**, **Nom**, **Numéro d’entreprise**, **Compte bancaire**,
+**Adresse**, **Code postal**, **Ville**, **Pays**,
+**Téléphone**, **Mobile**, **Personne de contact** et **Email**. Seuls le code
+et le nom sont obligatoires.
+À l’import, un numéro d’entreprise au format belge donne une TVA composée de
+**BE** suivi du numéro normalisé. Pour les autres formats ou un numéro absent,
+la TVA reste vide. La colonne TVA d’un export est ignorée à l’import. Un code
+existant, un doublon dans le fichier ou une ligne invalide fait refuser tout
+le fichier.
+
+L’adresse et le contact de la fiche fournisseur sont les coordonnées
+principales utilisées dans le classeur. Les adresses et contacts supplémentaires
+sont gérés dans l’administration. Modifier le
 référentiel après validation d'une DA ne réécrit pas le fournisseur figé du bon.
+
+### Qualité des fiches fournisseurs et clients
+
+Depuis Achats → Fournisseurs ou Ventes → Clients, ouvrir **Fiches à vérifier**.
+La recherche continue de filtrer la liste. Chaque fiche signalée indique les
+champs à compléter et les incohérences à examiner. Les liens de modification
+et de facturation restent soumis à leurs droits respectifs.
+
+Pour les fournisseurs, la vue contrôle l’adresse, un moyen de contact, le
+contact nommé, un identifiant d’entreprise ou de TVA et le compte bancaire.
+Elle prend en compte les adresses et contacts liés
+des anciennes fiches. Pour les clients, elle vérifie l’adresse, le courriel
+et le format de facturation. L’identifiant électronique et le schéma ne
+sont demandés que si le format XML Peppol est sélectionné.
+
+Les contrôles locaux portent notamment sur le format du courriel et du code
+postal belge, la clé des numéros BCE, TVA et IBAN belges, et la cohérence
+entre la BCE et la TVA du fournisseur. Une TVA vide est admise si le
+fournisseur a un identifiant d’entreprise, et pour les clients. La vue ne
+modifie aucune fiche et ne consulte aucun registre externe.
 
 ### 5.3 Produits et dépôts
 

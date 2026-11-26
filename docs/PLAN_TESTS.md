@@ -768,7 +768,7 @@ Résultats attendus :
 Preuves : statut, identifiant de l'objet et capture/réponse ou extrait de journal expurgé. Après le cas : relever les soldes/états modifiés, puis rétablir le jeu QA indépendant décrit en préambule.
 
 
-### Domaine FOU — 6 cas
+### Domaine FOU — 8 cas
 
 
 #### FOU-001 — Créer un fournisseur
@@ -884,6 +884,27 @@ Résultats attendus :
 - Écritures refusées et fournisseur inchangé.
 
 Preuves : statut, identifiant de l'objet et capture/réponse ou extrait de journal expurgé. Après le cas : relever les soldes/états modifiés, puis rétablir le jeu QA indépendant décrit en préambule.
+
+
+#### FOU-007 — Importer et exporter les fournisseurs
+
+Acteurs : gestionnaire avec droit de création et lecteur avec droit de consultation.
+
+1. Télécharger le patron depuis Achats → Fournisseurs.
+2. Importer deux fournisseurs fictifs avec tous les champs du patron, dont un numéro d’entreprise belge `0123.456.749`.
+3. Vérifier les coordonnées dans la fiche et la TVA `BE0123456749` pour le numéro belge.
+4. Filtrer la liste sur l’un des codes et vérifier que l’export Excel contient uniquement ce fournisseur et sa TVA.
+5. Soumettre un fichier avec une ligne valide et un code en double. Vérifier le numéro de ligne dans le message et l’absence de création.
+6. Avec le lecteur, vérifier que l’export fonctionne et que les URL du patron et de l’import répondent 403.
+
+
+#### FOU-008 — Repérer les fiches fournisseurs et clients à vérifier
+
+1. Créer un fournisseur avec courriel invalide, IBAN belge dont la clé est invalide et adresse incomplète. Créer un fournisseur complet avec une adresse et un contact liés.
+2. Créer un client PDF complet et un client XML Peppol sans identifiant électronique avec une TVA belge invalide.
+3. Sur chaque liste, ouvrir **Fiches à vérifier**. Vérifier que seules les fiches concernées apparaissent, avec les champs manquants et les contrôles échoués dans leurs colonnes respectives.
+4. Filtrer la liste, puis revenir à **Toutes les fiches**. Vérifier que la recherche reste appliquée.
+5. Essayer avec un profil lecteur puis sans droit de consultation. Vérifier les liens d’action et le refus d’accès selon les droits habituels des listes.
 
 
 ### Domaine REF — 2 cas

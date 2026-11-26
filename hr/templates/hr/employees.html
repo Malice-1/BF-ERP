@@ -4,7 +4,7 @@
 {% if perms.hr.add_employee %}<a class="button" href="{% url 'hr:employee_new' %}">Nouvel employé</a>{% endif %}
 </div>
 <form id="employee-search" method="get" action="{% url 'hr:employees' %}" class="ledger-filters" role="search">
-<label>Rechercher <input name="q" type="search" value="{{ query }}" placeholder="Nom, matricule ou service"></label>
+{% include 'purchasing/list_search_input.html' %}
 <label>Statut <select name="status">
 <option value="">Tous</option>
 <option value="active"{% if status == 'active' %} selected{% endif %}>Actifs</option>

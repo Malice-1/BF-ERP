@@ -1,0 +1,18 @@
+{% extends 'purchasing/base.html' %}
+{% load ui_actions %}
+{% block content %}
+{% back_action %}
+<h1>Importer des fournisseurs</h1>
+<p>Le code et le nom sont obligatoires. Le numéro de TVA est calculé à partir du numéro d’entreprise belge.</p>
+<div class="ui-action-bar">
+    <a class="ui-icon" href="{% url 'purchasing:supplier_template' %}" aria-label="Télécharger le patron Excel" title="Télécharger le patron Excel">{% include 'purchasing/action_icon.html' with icon='spreadsheet_template' %}</a>
+</div>
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <div class="ui-action-bar">
+        <button type="submit" class="ui-icon ui-icon-primary" aria-label="Lancer l’import Excel" title="Lancer l’import Excel">{% include 'purchasing/action_icon.html' with icon='import' %}</button>
+        <a class="ui-icon" href="{% url 'purchasing:suppliers' %}" aria-label="Annuler" title="Annuler">{% include 'purchasing/action_icon.html' with icon='cancel' %}</a>
+    </div>
+</form>
+{% endblock %}

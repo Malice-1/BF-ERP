@@ -6,6 +6,7 @@ from django.core.exceptions import PermissionDenied
 from django.db import connections, models, router, transaction
 from django.urls import reverse
 from django.utils.html import format_html
+from config.admin_search import SearchColumnsAdminMixin
 
 
 def deletion_plan(queryset):
@@ -122,7 +123,7 @@ def delete_as_superuser(queryset, actor):
             current_actor.reset(token)
 
 
-class SystemDeletionMixin:
+class SystemDeletionMixin(SearchColumnsAdminMixin):
     def get_list_display(self, request):
         columns = super().get_list_display(request)
         if request.user.is_superuser and self.has_delete_permission(request):

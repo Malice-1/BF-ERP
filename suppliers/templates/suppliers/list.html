@@ -1,7 +1,22 @@
 {% extends 'purchasing/base.html' %}{% load ui_actions %}{% block content %}
 {% back_action %}<h1>Fournisseurs</h1>
-{% if perms.suppliers.add_supplier %}<p><a class="button" href="{% url 'purchasing:supplier_create' %}">Créer un fournisseur</a></p>{% endif %}
-<form method="get"><label for="supplier-search">Rechercher par code, nom, numéro d’entreprise ou TVA</label><input id="supplier-search" name="q" value="{{ query }}" type="search"><button type="submit" style="margin-inline-start:12px">Rechercher</button></form>
+{% for message in messages %}<p role="status">{{ message }}</p>{% endfor %}
+<div class="ui-action-bar">
+{% if perms.suppliers.add_supplier %}
+<a class="ui-icon ui-icon-primary" href="{% url 'purchasing:supplier_create' %}" aria-label="Créer un fournisseur" title="Créer un fournisseur">{% include 'purchasing/action_icon.html' with icon='create' %}</a>
+<a class="ui-icon" href="{% url 'purchasing:supplier_import' %}" aria-label="Importer les fournisseurs en Excel" title="Importer les fournisseurs en Excel">{% include 'purchasing/action_icon.html' with icon='import' %}</a>
+<a class="ui-icon" href="{% url 'purchasing:supplier_template' %}" aria-label="Télécharger le patron Excel" title="Télécharger le patron Excel">{% include 'purchasing/action_icon.html' with icon='spreadsheet_template' %}</a>
+{% endif %}
+{% if not quality %}<a id="supplier-export" data-list-search-link class="ui-icon" href="?export=xlsx&amp;q={{ query|urlencode }}&amp;field={{ request.list_search.selected|urlencode }}" aria-label="Exporter les fournisseurs en Excel" title="Exporter les fournisseurs en Excel">{% include 'purchasing/action_icon.html' with icon='export' %}</a>{% endif %}
+{% include 'purchasing/party_quality_toggle.html' %}
+</div>
+<form method="get" role="search" data-list-search="#list-search-results">{% if quality %}<input type="hidden" name="quality" value="1">{% endif %}{% include 'purchasing/list_search_input.html' %}<noscript><button type="submit">Rechercher</button></noscript></form>
+<div id="list-search-results">
+{% if quality %}
+{% include 'purchasing/party_quality_table.html' with can_edit=perms.suppliers.change_supplier edit_route='purchasing:supplier_edit' %}
+{% else %}
 <section class="configuration-section content-zone"><h2>Fournisseurs existants</h2><div class="table-wrap"><table><thead><tr><th>Code</th><th>Nom</th><th>Numéro d’entreprise</th><th>Numéro de TVA</th>{% if perms.suppliers.change_supplier %}<th>Actions</th>{% endif %}</tr></thead><tbody>
 {% for supplier in suppliers %}<tr><td>{{ supplier.code }}</td><td>{{ supplier.name }}</td><td>{{ supplier.enterprise_number|default:'—' }}</td><td>{{ supplier.vat_number|default:'—' }}</td>{% if perms.suppliers.change_supplier %}<td><a class="ui-icon" href="{% url 'purchasing:supplier_edit' supplier.pk %}" aria-label="Modifier {{ supplier.name }}" title="Modifier {{ supplier.name }}">{% include 'purchasing/action_icon.html' with icon='edit' %}</a></td>{% endif %}</tr>{% empty %}<tr><td colspan="5">Aucun fournisseur trouvé.</td></tr>{% endfor %}
-</tbody></table></div></section>{% endblock %}
+</tbody></table></div></section>
+{% endif %}
+</div>{% endblock %}

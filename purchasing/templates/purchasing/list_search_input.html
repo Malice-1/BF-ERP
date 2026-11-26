@@ -1,0 +1,11 @@
+<div class="purchase-request-filter">
+    <span class="purchase-filter-menu">
+        {% include 'purchasing/action_icon.html' with icon='filter' %}
+        <select name="field" aria-label="Colonne à filtrer" title="Choisir la colonne à filtrer">
+            <option value="">Tous les champs</option>
+            {% for key, label in request.list_search.fields %}<option value="{{ key }}"{% if key == request.list_search.selected %} selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+    </span>
+    <input name="q" type="search" value="{{ request.list_search.query }}" maxlength="200" autocomplete="off"
+        aria-label="Rechercher" placeholder="{{ request.list_search.placeholder }}">
+</div>

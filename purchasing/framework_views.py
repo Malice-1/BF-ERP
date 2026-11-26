@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
-from django.db.models import Q
+from config.list_search import filter_rows
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_http_methods
 
@@ -16,10 +16,10 @@ from .models import FrameworkContract
 @require_GET
 def contract_list(request):
     contracts = FrameworkContract.objects.select_related("supplier")
-    search = request.GET.get("q", "").strip()
-    if search:
-        contracts = contracts.filter(Q(reference__icontains=search) | Q(title__icontains=search)
-                                     | Q(supplier__name__icontains=search))
+    contracts, search = filter_rows(request, contracts, {
+        "reference": ("Référence", "reference__icontains"), "title": ("Intitulé", "title__icontains"),
+        "supplier": ("Fournisseur", "supplier__name__icontains"),
+    })
     return render(request, "purchasing/framework_contracts.html", {
         "page": Paginator(contracts, 50).get_page(request.GET.get("page")), "search": search,
     })

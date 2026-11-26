@@ -1,0 +1,16 @@
+{% extends "admin/base_site.html" %}
+{% block breadcrumbs %}
+<div class="breadcrumbs"><a href="{% url 'admin:index' %}">Accueil</a> &rsaquo;
+    <a href="{% url 'admin:budgeting_costcenter_changelist' %}">CDF</a> &rsaquo; Import Excel</div>
+{% endblock %}
+{% block content %}
+<p><a href="?patron=1">Télécharger le patron Excel</a></p>
+<p>Renseignez le code et le libellé de chaque CDF. Formatez les codes en texte pour conserver les zéros initiaux.</p>
+<p>Indiquez « Actif » ou « Inactif ». Un statut vide vaut « Actif ». Chaque code doit être nouveau et unique dans le fichier.</p>
+<p>Dans « Responsable », indiquez l’identifiant de connexion exact d’un utilisateur actif. Laissez cette colonne vide si le CDF n’a pas encore de responsable.</p>
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <div class="submit-row"><input type="submit" value="Importer" class="default"></div>
+</form>
+{% endblock %}

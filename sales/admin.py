@@ -1,8 +1,9 @@
 from django.contrib import admin
+from config.admin_search import SearchColumnsAdminMixin
 from .models import Customer, TrainingService, IssuerConfiguration, SalesOrder, SalesInvoice
 
 
-class SalesReadOnlyAdmin(admin.ModelAdmin):
+class SalesReadOnlyAdmin(SearchColumnsAdminMixin, admin.ModelAdmin):
     """Mutations use the audited application services, including for superusers."""
     def has_add_permission(self, request):
         return False

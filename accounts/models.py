@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator
 
 
@@ -51,6 +52,11 @@ class Role(models.Model):
 
 
 class User(AbstractUser):
+    manager = models.ForeignKey(
+        "self", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="direct_reports", verbose_name="Responsable",
+    )
+
     supports = models.ManyToManyField("budgeting.Support", blank=True,
         related_name="members", verbose_name="Supports d’appartenance",
         help_text="Supports auxquels appartient l’utilisateur. Cette appartenance ne donne pas le rôle de responsable.")
@@ -62,6 +68,11 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.username
+
+    def clean(self):
+        super().clean()
+        if self.pk is not None and self.manager_id == self.pk:
+            raise ValidationError({"manager": "Un utilisateur ne peut pas être son propre responsable."})
 
     class Meta:
         verbose_name = 'utilisateur'

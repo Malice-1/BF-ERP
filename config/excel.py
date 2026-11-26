@@ -15,7 +15,7 @@ def requested(request):
     return request.method == "GET" and request.GET.get("export") == "xlsx"
 
 
-def response(filename, sheets):
+def response(filename, sheets, *, text_columns=()):
     """sheets: iterable of (title, headers, rows), with rows safely typed as data."""
     workbook = Workbook(write_only=True)
     for title, headers, rows in sheets:
@@ -24,7 +24,10 @@ def response(filename, sheets):
         for index, header in enumerate(headers, 1):
             # Excel displays hashes when a date/time cannot fit in its column.
             minimum_width = 26 if "date" in str(header).casefold() else 18
-            sheet.column_dimensions[get_column_letter(index)].width = min(45, max(minimum_width, len(header) + 3))
+            column = sheet.column_dimensions[get_column_letter(index)]
+            column.width = min(45, max(minimum_width, len(header) + 3))
+            if index in text_columns:
+                column.number_format = "@"
 
         def cell(value, header=False):
             if isinstance(value, datetime) and timezone.is_aware(value):

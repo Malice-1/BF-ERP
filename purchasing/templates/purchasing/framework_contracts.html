@@ -2,11 +2,11 @@
 {% block content %}{% back_action %}
 <h1>Contrats-cadres</h1>
 {% if perms.purchasing.add_frameworkcontract %}<p><a class="button" href="{% url 'purchasing:framework_contract_new' %}">Nouveau contrat-cadre</a></p>{% endif %}
-<form method="get">
-    <label for="framework-search">Rechercher par référence, intitulé ou fournisseur</label>
-    <input id="framework-search" name="q" value="{{ search }}">
-    <button>Rechercher</button>
+<form method="get" role="search" data-list-search="#list-search-results">
+    {% include 'purchasing/list_search_input.html' %}
+    <noscript><button>Rechercher</button></noscript>
 </form>
+<div id="list-search-results">
 <div class="table-wrap"><table>
 <thead><tr><th scope="col">Contrat</th><th scope="col">Fournisseur</th><th scope="col">Validité</th><th scope="col">Statut</th><th scope="col">Plafond TVAC</th></tr></thead>
 <tbody>
@@ -18,4 +18,4 @@
 {% empty %}<tr><td colspan="5">Aucun contrat-cadre à afficher.</td></tr>{% endfor %}
 </tbody></table></div>
 {% include 'accounting/pagination.html' %}
-{% endblock %}
+</div>{% endblock %}

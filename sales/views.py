@@ -4,13 +4,16 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
-from django.db.models import Q, Sum
+from django.db.models import Sum
+from config.list_search import filter_rows
+from config.party_quality import review_rows
 from django.http import HttpResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST, require_GET
 
 from workflow.activity import write_log
 from . import services, documents
+from .customer_quality import customer_issues
 from .forms import (CustomerForm, CustomerBillingForm, IssuerForm, TrainingForm, OrderForm, LineFormSet,
     PaymentForm, RevisionForm, ReversalForm, LINE_FIELDS)
 from .models import (Customer, IssuerConfiguration, TrainingService, SalesOrder, SalesInvoice,
@@ -40,10 +43,15 @@ def home(request):
 @require_GET
 def customers(request):
     rows = Customer.objects.all()
-    query = request.GET.get("q", "").strip()
-    if query:
-        rows = rows.filter(Q(name__icontains=query) | Q(code__icontains=query) | Q(vat_number__icontains=query))
-    return render(request, "sales/customers.html", {"rows": rows, "q": query})
+    rows, query = filter_rows(request, rows, {
+        "name": ("Client", "name__icontains"), "code": ("Code", "code__icontains"),
+        "vat": ("TVA", "vat_number__icontains"),
+    })
+    quality = request.GET.get("quality") == "1"
+    context = {"rows": rows, "q": query, "quality": quality}
+    if quality:
+        context["review_rows"] = review_rows(rows, customer_issues)
+    return render(request, "sales/customers.html", context)
 
 
 @login_required
@@ -110,9 +118,9 @@ def issuer(request):
 @require_GET
 def trainings(request):
     rows = TrainingService.objects.all()
-    query = request.GET.get("q", "").strip()
-    if query:
-        rows = rows.filter(Q(code__icontains=query) | Q(description__icontains=query))
+    rows, query = filter_rows(request, rows, {
+        "code": ("Code", "code__icontains"), "description": ("Description", "description__icontains"),
+    })
     return render(request, "sales/trainings.html", {"rows": rows, "q": query})
 
 
@@ -131,12 +139,10 @@ def training_edit(request, pk=None):
 
 
 def filtered(request, queryset, date_field):
-    query = request.GET.get("q", "").strip()
-    if query:
-        if date_field == "issue_date":
-            queryset = queryset.filter(Q(number__icontains=query) | Q(customer_snapshot__name__icontains=query))
-        else:
-            queryset = queryset.filter(Q(number__icontains=query) | Q(customer__name__icontains=query))
+    customer_lookup = "customer_snapshot__name__icontains" if date_field == "issue_date" else "customer__name__icontains"
+    queryset, _ = filter_rows(request, queryset, {
+        "number": ("Numéro", "number__icontains"), "customer": ("Client", customer_lookup),
+    })
     customer = request.GET.get("customer", "")
     if customer.isdigit():
         queryset = queryset.filter(**{"order__customer_id" if date_field == "issue_date" else "customer_id": customer})

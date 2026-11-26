@@ -3,7 +3,8 @@ from django import forms
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import ValidationError, PermissionDenied
 from django.db import transaction, IntegrityError
-from django.db.models import Q, Sum
+from django.db.models import Sum
+from config.list_search import filter_rows
 from django.core.paginator import Paginator
 from django.urls import reverse
 from urllib.parse import urlencode
@@ -139,10 +140,9 @@ def budget_products(request):
     if request.method == "POST" and form.is_valid():
         form.save()
         return redirect("purchasing:budget_products")
-    search = request.GET.get("q", "").strip()
-    products = BudgetProduct.objects.order_by("code")
-    if search:
-        products = products.filter(Q(code__icontains=search) | Q(label__icontains=search))
+    products, search = filter_rows(request, BudgetProduct.objects.order_by("code"), {
+        "code": ("Code", "code__icontains"), "label": ("Libellé", "label__icontains"),
+    })
     if excel.requested(request):
         return excel.response("produits-budgetaires", [("Produits budgétaires", ["Code", "Libellé"],
             ((p.code, p.label) for p in products.iterator()))])
@@ -321,9 +321,11 @@ def versions(request):
 def version_detail(request, pk):
     version = get_object_or_404(EnvelopeVersion.objects.filter(deleted_at__isnull=True).select_related("envelope"), pk=pk)
     error = None
-    search = request.GET.get("q", "").strip()
     all_lines = version.allocations.select_related("budget_product", "cost_center", "funding").order_by("pk")
-    filtered = all_lines.filter(Q(budget_product__code__icontains=search) | Q(budget_product__label__icontains=search)) if search else all_lines
+    filtered, search = filter_rows(request, all_lines, {
+        "code": ("Code du produit", "budget_product__code__icontains"),
+        "label": ("Libellé du produit", "budget_product__label__icontains"),
+    })
     if excel.requested(request):
         lines = filtered
         return excel.response("allocations-budgetaires", [
@@ -335,6 +337,8 @@ def version_detail(request, pk):
     selected = all_lines.filter(pk__in=[line.pk for line in page_lines])
     formset = AllocationFormSet(instance=version, queryset=selected)
     query = {"q": search} if search else {}
+    if request.list_search["selected"]:
+        query["field"] = request.list_search["selected"]
     full_choices = request.GET.get("full_choices") == "1"
     if full_choices:
         query["full_choices"] = "1"

@@ -31,6 +31,8 @@
 <p>Page {{ page.number }} / {{ page.paginator.num_pages }}{% if page.has_previous %} · <a href="{% querystring page=page.previous_page_number %}" data-allocation-page>Précédente</a>{% endif %}{% if page.has_next %} · <a href="{% querystring page=page.next_page_number %}" data-allocation-page>Suivante</a>{% endif %}</p>
 <form method="get" action="{% url 'purchasing:budget_version' version.pk %}" data-allocation-page-jump style="display:flex;align-items:center;gap:.5rem;margin:.5rem 0">
 {% if search %}<input type="hidden" name="q" value="{{ search }}">{% endif %}
+{% if request.list_search.selected %}<input type="hidden" name="field" value="{{ request.list_search.selected }}">{% endif %}
+{% if full_choices %}<input type="hidden" name="full_choices" value="1">{% endif %}
 <label for="allocation-page-number" style="margin:0">Aller à la page</label>
 <input type="number" id="allocation-page-number" name="page" min="1" max="{{ page.paginator.num_pages }}" value="{{ page.number }}" required style="width:5rem;flex:0 0 5rem">
 <button type="submit">Aller</button>

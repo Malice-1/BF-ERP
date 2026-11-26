@@ -1,7 +1,16 @@
 {% extends 'sales/base.html' %}
 {% block sales_content %}<h1>Clients</h1>
-{% if perms.sales.add_customer %}<p><a class="button" href="{% url 'sales:customer_new' %}">Nouveau client</a></p>{% endif %}
-<form method="get" class="sales-filters"><label>Recherche <input name="q" value="{{ q }}" placeholder="Nom, code ou TVA"></label><button>Rechercher</button></form>
+<div class="ui-action-bar">
+{% if perms.sales.add_customer %}<a class="button" href="{% url 'sales:customer_new' %}">Nouveau client</a>{% endif %}
+{% include 'purchasing/party_quality_toggle.html' %}
+</div>
+<form method="get" role="search" data-list-search="#list-search-results" class="sales-filters">{% if quality %}<input type="hidden" name="quality" value="1">{% endif %}{% include 'purchasing/list_search_input.html' %}<noscript><button>Rechercher</button></noscript></form>
+<div id="list-search-results">
+{% if quality %}
+{% include 'purchasing/party_quality_table.html' with can_edit=perms.sales.change_customer edit_route='sales:customer_edit' can_bill=perms.sales.configure_customer_billing %}
+{% else %}
 <div class="sales-table"><table><thead><tr><th>Code</th><th>Client</th><th>TVA</th><th>Facturation</th><th>État</th><th>Actions</th></tr></thead><tbody>
 {% for item in rows %}<tr><td>{{ item.code }}</td><td>{{ item.name }}<br><small>{{ item.street }} — {{ item.zip_code }} {{ item.city }}, {{ item.country }}</small></td><td>{{ item.vat_number|default:'—' }}</td><td>{{ item.get_invoice_format_display|default:'À configurer' }}<br>{{ item.payment_days }} jours</td><td>{{ item.is_active|yesno:'Actif,Inactif' }}</td><td>{% if perms.sales.change_customer %}<a href="{% url 'sales:customer_edit' item.pk %}">Modifier</a>{% endif %} {% if perms.sales.configure_customer_billing %}<a href="{% url 'sales:customer_billing' item.pk %}">Facturation</a>{% endif %}</td></tr>{% empty %}<tr><td colspan="6">Aucun client.</td></tr>{% endfor %}
-</tbody></table></div>{% endblock %}
+</tbody></table></div>
+{% endif %}
+</div>{% endblock %}

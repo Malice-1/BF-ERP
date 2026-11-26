@@ -1,0 +1,27 @@
+<section class="configuration-section content-zone">
+    <h2>Fiches à vérifier</h2>
+    <p>Vérifiez les champs manquants et les incohérences signalées. Certains champs peuvent être sans objet selon la fiche.</p>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th scope="col">Code</th><th scope="col">Nom</th><th scope="col">À compléter</th><th scope="col">À vérifier</th>{% if can_edit or can_bill %}<th scope="col">Actions</th>{% endif %}</tr></thead>
+            <tbody>
+            {% for party, missing, suspect in review_rows %}
+                <tr>
+                    <td>{{ party.code }}</td>
+                    <td>{{ party.name }}</td>
+                    <td>{% if missing %}<ul>{% for field in missing %}<li>{{ field }}</li>{% endfor %}</ul>{% else %}—{% endif %}</td>
+                    <td>{% if suspect %}<ul>{% for issue in suspect %}<li>{{ issue }}</li>{% endfor %}</ul>{% else %}—{% endif %}</td>
+                    {% if can_edit or can_bill %}
+                    <td>
+                        {% if can_edit %}<a class="ui-icon" href="{% url edit_route party.pk %}" aria-label="Modifier {{ party.name }}" title="Modifier {{ party.name }}">{% include 'purchasing/action_icon.html' with icon='edit' %}</a>{% endif %}
+                        {% if can_bill %}<a href="{% url 'sales:customer_billing' party.pk %}">Facturation</a>{% endif %}
+                    </td>
+                    {% endif %}
+                </tr>
+            {% empty %}
+                <tr><td colspan="{% if can_edit or can_bill %}5{% else %}4{% endif %}">Aucune fiche à vérifier dans cette liste.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>

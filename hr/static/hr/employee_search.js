@@ -1,6 +1,7 @@
 (() => {
     const form = document.getElementById('employee-search');
     const input = form.elements.q;
+    const field = form.elements.field;
     const filter = form.elements.status;
     const results = document.getElementById('employee-results');
     const status = document.getElementById('employee-search-status');
@@ -11,6 +12,7 @@
         const controller = new AbortController();
         request = controller;
         const url = new URL(form.action);
+        if (field.value) url.searchParams.set('field', field.value);
         if (input.value.trim()) url.searchParams.set('q', input.value.trim());
         if (filter.value) url.searchParams.set('status', filter.value);
         results.setAttribute('aria-busy', 'true');
@@ -47,9 +49,23 @@
         if (request) request.abort();
     }
 
-    input.addEventListener('input', () => {
+    function queueSearch() {
         cancelRefresh();
         timer = setTimeout(refresh, 200);
+    }
+    input.addEventListener('input', event => {
+        if (!event.isComposing) queueSearch();
+    });
+    input.addEventListener('compositionend', queueSearch);
+    field.addEventListener('change', () => {
+        input.placeholder = field.selectedOptions[0].textContent;
+        cancelRefresh();
+        refresh();
+    });
+    form.addEventListener('submit', event => {
+        event.preventDefault();
+        cancelRefresh();
+        refresh();
     });
     filter.addEventListener('change', () => {
         cancelRefresh();

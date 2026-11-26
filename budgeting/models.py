@@ -3,6 +3,7 @@ import uuid
 from django.utils import timezone
 
 class CostCenter(models.Model):
+    is_active = models.BooleanField("Actif", default=True)
     managers = models.ManyToManyField("accounts.User", blank=True, related_name="managed_cost_centers", verbose_name="Responsables")
     code = models.CharField(
         max_length=50,
@@ -40,6 +41,7 @@ class Support(models.Model):
 
 
 class Funding(models.Model):
+    is_active = models.BooleanField("Actif", default=True)
     managers = models.ManyToManyField("accounts.User", blank=True, related_name="managed_fundings", verbose_name="Responsables")
     code = models.CharField(
         max_length=50,

@@ -3,6 +3,10 @@ from .identifiers import normalize_enterprise_number
 
 
 class Supplier(models.Model):
+    class BillingMode(models.TextChoices):
+        PEPPOL = "peppol", "Peppol"
+        NON_PEPPOL = "non_peppol", "Hors Peppol"
+
     enterprise_number = models.CharField(
         'Numéro d’entreprise', max_length=50, blank=True, default="", db_index=True,
         help_text='Numéro du registre des entreprises. Pour une BCE belge, les points, espaces et le préfixe BE sont normalisés.',
@@ -24,6 +28,17 @@ class Supplier(models.Model):
         null=True,
         verbose_name='Numéro de TVA',
     )
+    bank_account = models.CharField("Compte bancaire", max_length=50, blank=True)
+    # Preserve historical values while this field is retired from supplier workflows.
+    billing_mode = models.CharField("Mode de facturation", max_length=10, choices=BillingMode.choices, blank=True)
+    street = models.CharField("Adresse", max_length=255, blank=True)
+    zip_code = models.CharField("Code postal", max_length=20, blank=True)
+    city = models.CharField("Ville", max_length=100, blank=True)
+    country = models.CharField("Pays", max_length=100, blank=True)
+    phone = models.CharField("Téléphone", max_length=50, blank=True)
+    mobile = models.CharField("Mobile", max_length=50, blank=True)
+    contact_person = models.CharField("Personne de contact", max_length=150, blank=True)
+    email = models.EmailField("Email", blank=True)
 
     class Meta:
         verbose_name = 'fournisseur'

@@ -5,8 +5,8 @@
     {% if perms.accounting.add_supplierinvoice %}<a class="button" href="{% url 'accounting:supplier_invoice_new' %}">Encoder une facture</a>{% endif %}
     {% if perms.accounting.import_supplierinvoice %}<a class="button button-secondary" href="{% url 'accounting:supplier_invoice_upload' %}">Importer une facture Peppol</a>{% endif %}
 </div>
-<form method="get" class="ledger-filters">
-    <label>Recherche <input name="q" value="{{ request.GET.q }}" placeholder="Numéro ou fournisseur"></label>
+<form method="get" role="search" data-list-search="#list-search-results" class="ledger-filters">
+    {% include 'purchasing/list_search_input.html' %}
     <label>Origine
         <select name="origin">
             <option value="">Toutes</option>
@@ -24,6 +24,7 @@
     </label>
     <button>Filtrer</button>
 </form>
+<div id="list-search-results">
 <div class="ledger-table">
     <table>
         <thead><tr><th>Facture</th><th>Fournisseur</th><th>Origine</th><th>Date</th><th>TTC</th><th>À payer</th><th>Revue</th></tr></thead>
@@ -45,4 +46,4 @@
     </table>
 </div>
 {% include 'accounting/pagination.html' %}
-{% endblock %}
+</div>{% endblock %}
